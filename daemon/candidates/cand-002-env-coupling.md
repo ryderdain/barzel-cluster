@@ -1,11 +1,11 @@
 ---
 id: cand-002
-title: "Duplicating an environment surfaces every implicit single-env assumption, one runtime failure at a time"
+title: "Duplicating an environment surfaces every implicit single-env assumption — at review when audited, serially at runtime when not"
 children: [68c4dba5c308, b0aee68843af, 113a4be679f1, c0cabbd02ff3]   # hiccups 2, 6, 7, 10
-lift:         # not yet gated — queued behind cand-001
-confidence:
-status: candidate
-admitted_ts:
+lift: 0.25
+confidence: 0.6
+status: admitted   # → aroni/notes/cand-002-env-coupling.md (pass-004, 2026-06-12)
+admitted_ts: 2026-06-12
 ---
 
 # The claim (narrowed once by the gate's critic — see gate_runs/cand-002.md)

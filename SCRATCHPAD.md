@@ -18,8 +18,15 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-06-12)* **Consolidation daemon: §7.5 + §7.6 built; cand-002 gated,
-verdict PENDING.**
+*(2026-06-12, later)* **cand-002 ADMITTED** (pass-004, narrowed form, arbiter
+rationale logged — first real one). Vault: 2 active notes, 7 of 13 hiccups
+consumed. **Next drafting cycle: doc_drift** (4 pending, priority 8 — h1
+digest rows, h3 ssh flags, h4 token shapes, h8 prereqs; likely claim shape:
+"docs drift toward the env that exercised them last; instructions unexercised
+since their last change are stale until proven otherwise"). argo_sync_ops
+fell ineligible (2 pending) — may merge into a future ops-pattern bundle.
+
+*(superseded below — kept this session for context)*
 - `vault_check.py` (§7.5): frontmatter/links/supersession/decision checks —
   clean over the live vault; run it in every pass worktree pre-land.
 - `scheduler.py` (§7.6): consumption derived from active notes' children (no

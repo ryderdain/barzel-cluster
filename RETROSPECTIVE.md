@@ -65,3 +65,19 @@ first verdict. Verified state:
   **accepted** by the arbiter (bare accept; rationale recorded as none
   given). Admitted to `aroni/notes/` with provenance; decision in
   `aroni/decisions/pass-003.md`. cand-002 (env-coupling) drafted, queued.
+
+## 2026-06-12 — Daemon operational: §7.5/§7.6 built, second admission (critic-narrowed)
+
+- **§7.5 `vault_check.py`** (postcondition asserts: frontmatter, child links,
+  supersession, decision pairing) and **§7.6 `scheduler.py`** (consumption
+  derived from active notes — no state file) built and run clean; bundler's
+  retrospective-record noise fixed (failure rules → `source=hiccup` only).
+- **cand-002 admitted** (pass-004, the first vault_check-gated land): lift
+  +0.25 over a 0.44 baseline. The gate's falsification seat **landed a hit on
+  a child** — h2 was pre-empted at review, contradicting the draft's
+  "runtime, serially" — and the claim was narrowed (audited→review /
+  unaudited→runtime) before admission. Arbiter accepted the narrowed form
+  with rationale: "the reasoning is sound" — the decision log's first real
+  rationale.
+- Queue after consumption: doc_drift (4 pending, priority 8) is the next
+  drafting cycle; argo_sync_ops fell ineligible (2 pending).
