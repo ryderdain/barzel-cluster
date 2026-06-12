@@ -2,10 +2,10 @@
 id: cand-001
 title: "A success signal that does not assert the outcome is not evidence of success"
 children: [4101dac63d4f, 49b882286457, 5ee92a46298e]   # hiccups 5, 9, 12
-lift:         # pending gate (see daemon/gate_runs/cand-001.md)
-confidence:
-status: candidate
-admitted_ts:
+lift: 0.33
+confidence: 0.6
+status: admitted   # → aroni/notes/cand-001-masked-failure.md (pass-003, 2026-06-12)
+admitted_ts: 2026-06-12
 ---
 
 # The claim
