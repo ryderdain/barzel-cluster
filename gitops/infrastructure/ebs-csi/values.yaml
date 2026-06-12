@@ -1,0 +1,62 @@
+# aws-ebs-csi-driver Helm values (chart 2.37.0).
+#
+# The driver image (public.ecr.aws/ebs-csi-driver/...) is on ECR Public — not
+# account-scoped, left as the chart default. The CSI sidecars live on
+# registry.k8s.io; route them through our ECR pull-through (brzl-dev-k8s prefix,
+# always-on, no credential). __ECR_REGISTRY_HOST__ is resolved at bootstrap so no
+# account id lands in git (ADR-0013).
+#
+# The `tag:` is pinned per sidecar. The chart's DEFAULT sidecar tags carry the
+# `-eks-1-31-7` EKS-distro suffix (those images live only on public.ecr.aws/
+# eks-distro, NOT registry.k8s.io) — so overriding only the repository to our
+# registry.k8s.io pull-through left an eks tag that 404s there (NotFound). Pin the
+# plain upstream sig-storage tags, which registry.k8s.io publishes and the
+# pull-through serves. Bump these with the chart version.
+
+sidecars:
+  provisioner:
+    image:
+      repository: __ECR_REGISTRY_HOST__/brzl-dev-k8s/sig-storage/csi-provisioner
+      tag: v5.1.0
+  attacher:
+    image:
+      repository: __ECR_REGISTRY_HOST__/brzl-dev-k8s/sig-storage/csi-attacher
+      tag: v4.7.0
+  snapshotter:
+    image:
+      repository: __ECR_REGISTRY_HOST__/brzl-dev-k8s/sig-storage/csi-snapshotter
+      tag: v8.1.0
+  resizer:
+    image:
+      repository: __ECR_REGISTRY_HOST__/brzl-dev-k8s/sig-storage/csi-resizer
+      tag: v1.12.0
+  livenessProbe:
+    image:
+      repository: __ECR_REGISTRY_HOST__/brzl-dev-k8s/sig-storage/livenessprobe
+      tag: v2.14.0
+  nodeDriverRegistrar:
+    image:
+      repository: __ECR_REGISTRY_HOST__/brzl-dev-k8s/sig-storage/csi-node-driver-registrar
+      tag: v2.12.0
+
+# Credentials come from the EC2 instance profile (brzl-dev-node), which already
+# carries the EBS volume-lifecycle policy — no IRSA, no second IAM principal.
+controller:
+  # 3-node cluster; 2 controller replicas for HA without over-provisioning.
+  replicaCount: 2
+
+# Default StorageClass for all PVCs (CNPG, demo-app). WaitForFirstConsumer so the
+# EBS volume is created in the same AZ as the scheduled pod (EBS is zonal).
+# encrypted=true uses the account default EBS key; a per-purpose CMK is the
+# documented hardening (mirrors ADR-0006), kept off here to avoid an account-
+# bearing ARN in git.
+storageClasses:
+  - name: gp3
+    annotations:
+      storageclass.kubernetes.io/is-default-class: "true"
+    volumeBindingMode: WaitForFirstConsumer
+    reclaimPolicy: Delete
+    allowVolumeExpansion: true
+    parameters:
+      type: gp3
+      encrypted: "true"

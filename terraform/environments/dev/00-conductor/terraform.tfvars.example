@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (gitignored) only to override defaults. Everything has a
+# sensible default in variables.tf; this layer reads NO other layer's state, so there
+# is nothing account-bearing to set here. The shared ../backend.hcl (copied once from
+# backend.hcl.example) is all this layer needs for its own state.
+#
+# instance_type    = "t4g.small"   # bump to "t4g.medium" if local image builds need headroom
+# root_volume_size = 30
+# git_repo_url     = "https://github.com/ryderdain/barzel-cluster.git"
+# tofu_version     = "1.8.5"
+# kubectl_version  = "1.31.4"
+# helm_version     = "3.16.3"

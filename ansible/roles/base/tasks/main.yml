@@ -1,0 +1,117 @@
+---
+# base role — prepare a host to run k3s: packages, swap off, kernel modules,
+# sysctl, time sync. Idempotent; ansible.builtin only (no extra collections).
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+
+# --- Swap off (kubelet wants it off) ---------------------------------------
+- name: Detect active swap devices
+  ansible.builtin.command: swapon --noheadings --show=NAME
+  changed_when: false
+  register: base_swap_devices
+
+- name: Disable all swap now
+  ansible.builtin.command: swapoff -a
+  when: base_swap_devices.stdout | length > 0
+  changed_when: base_swap_devices.stdout | length > 0
+
+- name: Comment swap entries in /etc/fstab so it stays off after reboot
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^(\s*[^#\n]\S*\s+\S+\s+swap\s.*)$'
+    replace: '# \1  # disabled by ansible (k8s)'
+
+# --- Kernel modules ---------------------------------------------------------
+- name: Persist kernel modules across reboot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k3s.conf
+    content: "{{ base_kernel_modules | join('\n') }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Load kernel modules now
+  ansible.builtin.command: "modprobe {{ item }}"
+  loop: "{{ base_kernel_modules }}"
+  changed_when: false  # modprobe is idempotent; persistence is the file above
+
+# --- Sysctl -----------------------------------------------------------------
+- name: Persist sysctl settings for the k8s dataplane
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-k3s.conf
+    content: |
+      {% for key, value in base_sysctl.items() %}
+      {{ key }} = {{ value }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload sysctl
+
+# --- Time sync (cert validity, etcd, logs) — cloud-agnostic NTP --------------
+# Ubuntu 24.04 AWS AMIs ship chrony (not systemd-timesyncd). Out of the box a
+# cloud-init drop-in (/etc/chrony/conf.d/00-cpc.conf) adds the provider time
+# service (169.254.169.123) with `prefer`, making it the selected source. To
+# keep the platform cloud-agnostic (TASK.md) we drop that file, stop cloud-init
+# re-adding it on reboot, and point chrony at the vendor-neutral global pool.
+- name: Ensure chrony is installed
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+
+- name: Remove the cloud-init provider NTP drop-in (e.g. AWS time service)
+  ansible.builtin.file:
+    path: /etc/chrony/conf.d/00-cpc.conf
+    state: absent
+  notify: Restart chrony
+
+- name: Stop cloud-init from re-managing NTP on reboot
+  ansible.builtin.copy:
+    dest: /etc/cloud/cloud.cfg.d/99-disable-ntp.cfg
+    content: |
+      # Managed by Ansible (brzl base role): keep NTP cloud-agnostic.
+      ntp:
+        enabled: false
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure cloud-agnostic NTP pools for chrony
+  ansible.builtin.copy:
+    dest: /etc/chrony/conf.d/10-brzl-ntp.conf
+    content: |
+      # Managed by Ansible (brzl base role) — vendor-neutral NTP, no cloud
+      # provider time service. Complements the distro pools in chrony.conf.
+      {% for pool in base_ntp_pools %}
+      pool {{ pool }} iburst
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+
+- name: Ensure chrony is enabled and running
+  ansible.builtin.systemd:
+    name: chrony
+    enabled: true
+    state: started
+
+# --- SSM agent (Session Manager / SSH-over-SSM node access) ------------------
+# Ubuntu 24.04 (Noble) Canonical AMIs preinstall amazon-ssm-agent as a snap and
+# enable it at boot, so this is a confirm-and-enable safety net, not an install.
+# We deliberately do NOT swallow failure: if the unit is absent the node has no
+# SSM access path (20-security leaves :22 closed), and we want that surfaced
+# rather than hidden. A non-snap base image would need this unit name adjusted.
+- name: Ensure the SSM agent is enabled and running
+  ansible.builtin.systemd:
+    name: snap.amazon-ssm-agent.amazon-ssm-agent.service
+    enabled: true
+    state: started

@@ -1,0 +1,71 @@
+# Local-dev (k3d) overlay — runs the CNPG + demo-app stack on a laptop with NO AWS
+# (ADR-0015 / docs/LOCAL.md). It reuses the same workload manifests as the AWS
+# cluster; the deltas are the honest AWS-specific bits:
+#   - images: upstream registries / a locally-imported demo-app (no ECR host
+#     injection — the platform's ApplicationSet host-injection is AWS-only);
+#   - storage: k3d's `local-path` (no EBS CSI);
+#   - CNPG backups OFF (no S3/Barman) and PodMonitor OFF (nothing scrapes locally);
+#   - a single Postgres instance (laptop footprint).
+# Apply directly (kustomize), NOT via the ECR-coupled ApplicationSet:
+#   kubectl apply -k gitops/clusters/local
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces.yaml
+  - ../../operators/postgres
+  - ../../applications/demo-app
+
+# demo-app: the locally built + `k3d image import`-ed tag. The base carries the
+# __ECR_REGISTRY_HOST__ sentinel; rewrite the whole ref to the local image.
+images:
+  - name: __ECR_REGISTRY_HOST__/brzl-dev/demo-app
+    newName: demo-app
+    newTag: local
+
+patches:
+  # CNPG cluster → upstream image, single instance, local-path storage, and drop
+  # the AWS-only bits (S3 backup + PodMonitor).
+  - target:
+      group: postgresql.cnpg.io
+      version: v1
+      kind: Cluster
+      name: pg
+    patch: |-
+      - op: replace
+        path: /spec/imageName
+        value: ghcr.io/cloudnative-pg/postgresql:17.2
+      - op: replace
+        path: /spec/instances
+        value: 1
+      - op: replace
+        path: /spec/storage/storageClass
+        value: local-path
+      - op: remove
+        path: /spec/backup
+      - op: remove
+        path: /spec/monitoring
+  # No scheduled backups locally — remove the ScheduledBackup entirely.
+  - target:
+      group: postgresql.cnpg.io
+      version: v1
+      kind: ScheduledBackup
+      name: pg-daily
+    patch: |-
+      $patch: delete
+      apiVersion: postgresql.cnpg.io/v1
+      kind: ScheduledBackup
+      metadata:
+        name: pg-daily
+  # No Prometheus locally → drop the demo-app ServiceMonitor (its CRD is absent).
+  - target:
+      group: monitoring.coreos.com
+      version: v1
+      kind: ServiceMonitor
+      name: demo-app
+    patch: |-
+      $patch: delete
+      apiVersion: monitoring.coreos.com/v1
+      kind: ServiceMonitor
+      metadata:
+        name: demo-app

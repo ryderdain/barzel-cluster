@@ -1,0 +1,119 @@
+# Dex — the single OIDC issuer for the whole operator-SSO gateway. It federates a
+# GitHub OAuth App (the human IdP) and re-issues a uniform OIDC identity that both
+# the oauth2-proxies (web-UI gate) and the kube-API server consume. Issuer is the
+# public https://dex.sso.barzel.sh (LE-trusted via Traefik); Dex itself serves
+# plain HTTP behind that TLS-terminating IngressRoute.
+#
+# GitHub here is a *personal* account (no org) — Dex authenticates any GitHub user
+# and emits their primary email as the identity. Tiering is therefore enforced
+# downstream by each oauth2-proxy's email allowlist (operator vs. any-authenticated),
+# and by kube-RBAC on the email. With a GitHub *org*, the connector gains
+# `orgs:`/`teams:` and the tiers become group claims — documented in ACCESS.md.
+#
+# Secret injection (Secrets dex-github + oauth2-proxy-oidc, created by
+# gitops/bootstrap/create_sso_secrets.sh) — never written into this manifest or git:
+#   - the GitHub CONNECTOR config supports `$VAR` env references ($GITHUB_CLIENT_ID/
+#     $GITHUB_CLIENT_SECRET), which Dex expands;
+#   - staticClients do NOT expand `$VAR` in `secret:` — Dex's `secret: $FOO` is taken
+#     literally. Use `secretEnv: <ENV>` so Dex reads the client secret straight from
+#     the named environment variable (oauth2-proxy must send the SAME raw value).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex-config
+  namespace: sso
+data:
+  config.yaml: |
+    issuer: https://dex.sso.barzel.sh
+    storage:
+      type: memory
+    web:
+      http: 0.0.0.0:5556
+    oauth2:
+      skipApprovalScreen: true
+    enablePasswordDB: false
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
+        config:
+          clientID: $GITHUB_CLIENT_ID
+          clientSecret: $GITHUB_CLIENT_SECRET
+          redirectURI: https://dex.sso.barzel.sh/callback
+          # Personal account: no `orgs:` filter → any GitHub user may authenticate;
+          # add an `orgs:`/`teams:` block here to restrict + emit group claims.
+          loadAllGroups: false
+    staticClients:
+      # One client shared by the three reverse-proxy oauth2-proxies; each runs on
+      # its own host, so all three callback URLs are registered here.
+      - id: oauth2-proxy
+        name: oauth2-proxy
+        secretEnv: OAUTH2_PROXY_CLIENT_SECRET
+        redirectURIs:
+          - https://grafana.sso.barzel.sh/oauth2/callback
+          - https://prometheus.sso.barzel.sh/oauth2/callback
+          - https://demo.sso.barzel.sh/oauth2/callback
+      # Public (PKCE) client for kubelogin/oidc-login — kubectl by GitHub identity.
+      - id: kubernetes
+        name: kubernetes (kubelogin)
+        public: true
+        redirectURIs:
+          - http://localhost:8000
+          - http://127.0.0.1:18000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex
+  namespace: sso
+  labels: { app: dex }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: dex }
+  template:
+    metadata:
+      labels: { app: dex }
+    spec:
+      containers:
+        - name: dex
+          image: ghcr.io/dexidp/dex:v2.41.1
+          command: ["dex", "serve", "/etc/dex/cfg/config.yaml"]
+          ports:
+            - { name: http, containerPort: 5556 }
+          env:
+            - name: GITHUB_CLIENT_ID
+              valueFrom: { secretKeyRef: { name: dex-github, key: clientID } }
+            - name: GITHUB_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: dex-github, key: clientSecret } }
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: oauth2-proxy-oidc, key: client-secret } }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - { name: config, mountPath: /etc/dex/cfg }
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            seccompProfile: { type: RuntimeDefault }
+      volumes:
+        - name: config
+          configMap: { name: dex-config }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: sso
+  labels: { app: dex }
+spec:
+  selector: { app: dex }
+  ports:
+    - { name: http, port: 5556, targetPort: http }

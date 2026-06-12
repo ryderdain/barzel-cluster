@@ -1,0 +1,22 @@
+---
+# Validate the full sshd config (incl. the drop-in) BEFORE restarting, so a bad
+# directive fails the run instead of locking us out of the node.
+- name: Validate and restart ssh
+  ansible.builtin.command: sshd -t
+  changed_when: false
+  notify: Restart ssh
+
+- name: Restart ssh
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+
+- name: Reload nftables
+  ansible.builtin.service:
+    name: nftables
+    state: restarted

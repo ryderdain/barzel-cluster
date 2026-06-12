@@ -1,0 +1,79 @@
+---
+# k3s HA control plane (3 servers, embedded etcd). Pinned to track the toolbox
+# kubectl (1.31.x, see containers/toolbox/Dockerfile) so client/server skew
+# stays within one minor. (Role vars use the kubernetes_ prefix per the repo
+# convention; the inventory keeps its own k3s_servers / k3s_primary vocabulary.)
+kubernetes_version: "v1.31.5+k3s1"
+
+# The official k3s installer. We fetch it to disk and run it from there rather
+# than `curl … | sh` (auditable, no blind pipe). Crucially we run it with
+# INSTALL_K3S_SKIP_DOWNLOAD=true: the role downloads + verifies the k3s binary
+# itself (below), so the script never fetches a binary or trusts a checksum it
+# pulled at run time — it only lays down the systemd unit, symlinks, and helper
+# scripts around the binary we vetted. This mirrors the toolbox's supply-chain
+# stance (vendor the artifact, verify before use).
+kubernetes_install_script_url: "https://get.k3s.io"
+
+# k3s release binary: downloaded straight from the GitHub release and verified
+# against a VENDORED sha256 (below) — not a checksum fetched at run time. k3s
+# publishes no GPG signatures for its binaries, so a pinned checksum is the
+# supply-chain control here, the analogue of the GPG keys the toolbox vendors for
+# upstreams that sign (aws-cli, session-manager-plugin).
+kubernetes_k3s_release_base: "https://github.com/k3s-io/k3s/releases/download"
+
+# Map the host arch to k3s's asset naming (arm64 → "k3s-arm64"; amd64 → "k3s").
+kubernetes_k3s_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+kubernetes_k3s_binary: "{{ 'k3s-arm64' if kubernetes_k3s_arch == 'arm64' else 'k3s' }}"
+
+# Vendored sha256 of the k3s binary, per arch, for kubernetes_version above.
+# REFRESH BOTH when bumping kubernetes_version — pull the values from the
+# release's sha256sum-<arch>.txt, e.g.:
+#   curl -fsSL {{ kubernetes_k3s_release_base }}/<version>/sha256sum-arm64.txt | grep ' k3s-arm64$'
+#   curl -fsSL {{ kubernetes_k3s_release_base }}/<version>/sha256sum-amd64.txt | grep ' k3s$'
+# (Values below are for v1.31.5+k3s1.)
+kubernetes_k3s_sha256:
+  arm64: "b719566c43ab1379fe2a7ce477e02bc1c79ea106bdaa7223fa9f6e19a735b477"
+  amd64: "399b87b432ce55013fa81adad572a8e4ecf56e0df97369cf02d4b8a41f039091"
+
+# Bundled components we manage via GitOps instead of letting k3s install them.
+# traefik is disabled so ingress is ArgoCD-owned (nothing non-GitOps appears on
+# boot). servicelb (klipper) is left ON as the simple dev LoadBalancer provider.
+# Override to [] to keep everything, or add "servicelb" to bring your own LB.
+kubernetes_disabled_components:
+  - traefik
+
+# Extra Subject Alternative Names for the API server certificate, on top of the
+# node public/private IPs that the role harvests from the inventory at run time.
+# Add a stable DNS name here if you front the API with one.
+kubernetes_extra_tls_sans: []
+
+# Where to drop the fetched admin kubeconfig on the operator's machine. It holds
+# client certs, so the target dir (ansible/.kube/) is gitignored. The embedded
+# server URL is rewritten from 127.0.0.1 to the reachable endpoint below.
+kubernetes_kubeconfig_local_path: "{{ playbook_dir }}/../.kube/config-dev.yaml"
+
+# API endpoint written into that kubeconfig. Empty = use the primary node's
+# public IP (6443 is open to the admin /32 in 20-security). Set this to a
+# private IP (reached via an SSM port-forward) or a DNS name for a no-public-IP
+# posture.
+kubernetes_api_endpoint: ""
+
+# --- Node → ECR auth: kubelet image credential provider ----------------------
+# So pods pull from ECR (incl. the pull-through cache) using the node's INSTANCE
+# PROFILE — no static or rotating imagePullSecrets. The kubelet invokes a vendored
+# ecr-credential-provider binary that mints a fresh ECR token per pull (the node
+# role already grants ecr:GetAuthorizationToken + pull + pull-through import).
+kubernetes_enable_ecr_credential_provider: true
+
+# cloud-provider-aws release channel (official binaries at artifacts.k8s.io).
+# Pinned to track the k8s minor (1.31). Vendored sha256 per arch — same supply-
+# chain stance as the k3s binary. REFRESH BOTH when bumping the version:
+#   curl -fsSL {{ kubernetes_ecr_credprovider_base }}/<ver>/linux/<arch>/ecr-credential-provider-linux-<arch> | shasum -a 256
+kubernetes_ecr_credprovider_version: "v1.31.7"
+kubernetes_ecr_credprovider_base: "https://artifacts.k8s.io/binaries/cloud-provider-aws"
+kubernetes_ecr_credprovider_sha256:
+  arm64: "1980e3a038cb16da48a137743b31fb81de6c0b59fa06c206c2bc20ce0a52f849"
+  amd64: "7644623e4ec9ad443ab352a8a5800a5180ee28741288be805286ba72bb8e7164"
+
+# On-node home for the provider binary (./bin) + its config (./config.yaml).
+kubernetes_credprovider_dir: "/var/lib/rancher/credentialprovider"

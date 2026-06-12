@@ -1,0 +1,69 @@
+# Traefik IngressRoutes — the HTTPS edge for every SSO host. All terminate TLS with
+# the one LE wildcard cert (Secret sso-wildcard-tls, issued by cert-manager) and
+# route to a backend in this same namespace, so no cross-namespace Traefik flag is
+# needed. The dex host goes straight to Dex (it IS the login surface); the three
+# app hosts go to their oauth2-proxy, which gates then reverse-proxies the real
+# service in monitoring/ or demo/.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: dex
+  namespace: sso
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: Host(`dex.sso.barzel.sh`)
+      services:
+        - name: dex
+          port: 5556
+  tls:
+    secretName: sso-wildcard-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana
+  namespace: sso
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: Host(`grafana.sso.barzel.sh`)
+      services:
+        - name: oauth2-proxy-grafana
+          port: 4180
+  tls:
+    secretName: sso-wildcard-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: prometheus
+  namespace: sso
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: Host(`prometheus.sso.barzel.sh`)
+      services:
+        - name: oauth2-proxy-prometheus
+          port: 4180
+  tls:
+    secretName: sso-wildcard-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: demo
+  namespace: sso
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: Host(`demo.sso.barzel.sh`)
+      services:
+        - name: oauth2-proxy-demo
+          port: 4180
+  tls:
+    secretName: sso-wildcard-tls

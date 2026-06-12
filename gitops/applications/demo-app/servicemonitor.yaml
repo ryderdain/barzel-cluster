@@ -1,0 +1,19 @@
+# Prometheus scrape config for the demo-app's /metrics endpoint. The
+# kube-prometheus-stack Prometheus discovers this cluster-wide (its
+# serviceMonitorSelectorNilUsesHelmValues is false), so no release label is
+# needed. Metrics are served on the same `http` port as the app.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demo-app
+  namespace: demo
+  labels:
+    app: demo-app
+spec:
+  selector:
+    matchLabels:
+      app: demo-app
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

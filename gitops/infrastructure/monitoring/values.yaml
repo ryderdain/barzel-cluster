@@ -1,0 +1,129 @@
+# kube-prometheus-stack values (chart 86.1.1, appVersion v0.91.0).
+#
+# Account-id hygiene (ADR-0016 pattern): the ONE account-bearing value is the ECR
+# registry host. The ApplicationSet injects it once as `global.imageRegistry` at
+# render (hostParams) — never committed. Every image `repository` below carries
+# its pull-through PREFIX (brzl-dev-quay / -k8s / -github / -docker-hub), so the
+# rendered ref is  <host>/<prefix>/<path>  — a valid ECR pull-through image.
+# Docker Hub (grafana) needs the brzl-dev-docker-hub rule (its credential is the
+# "monitoring block" analogue of the ghcr "CNPG block"); quay/k8s/ghcr are already
+# wired. __ECR_REGISTRY_HOST__ here is a documentation sentinel, overridden at render.
+global:
+  imageRegistry: __ECR_REGISTRY_HOST__
+
+# CRDs are large; applied server-side (ServerSideApply set on this app in the
+# ApplicationSet) to avoid the kubectl last-applied-annotation size limit.
+crds:
+  enabled: true
+
+# Trimmed (decision 2026-06-04): no notification receiver is wired, so Alertmanager
+# is off to save resources on the 3-node cluster. Re-enable by flipping this true.
+alertmanager:
+  enabled: false
+
+# Not a Windows cluster.
+windowsMonitoring:
+  enabled: false
+
+prometheusOperator:
+  image:
+    repository: brzl-dev-quay/prometheus-operator/prometheus-operator
+  prometheusConfigReloader:
+    image:
+      repository: brzl-dev-quay/prometheus-operator/prometheus-config-reloader
+  admissionWebhooks:
+    patch:
+      image:
+        repository: brzl-dev-github/jkroepke/kube-webhook-certgen
+
+prometheus:
+  prometheusSpec:
+    image:
+      repository: brzl-dev-quay/prometheus/prometheus
+    # Scrape monitors cluster-wide, not just chart-release-labeled ones — so CNPG's
+    # PodMonitor (enabled on the pg Cluster) is discovered without a release label.
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    retention: 7d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+    # Persist TSDB on gp3 (EBS) so metrics survive a pod reschedule.
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+kube-state-metrics:
+  image:
+    repository: brzl-dev-k8s/kube-state-metrics/kube-state-metrics
+
+prometheus-node-exporter:
+  image:
+    repository: brzl-dev-quay/prometheus/node-exporter
+
+grafana:
+  # admin credentials come from a bootstrap-created in-cluster Secret (never in git,
+  # same posture as the repo deploy-key / pull-through creds — see BOOTSTRAP.md).
+  # This is deterministic: the chart's own `adminPassword` default is a
+  # `randAlphaNum` that regenerates on every render, so the Secret would drift from
+  # Grafana's DB → 401. gitops/tools/ui_forward.sh reads this Secret to print the
+  # password. Create it once: kubectl -n monitoring create secret generic
+  # grafana-admin --from-literal=admin-user=admin --from-literal=admin-password=...
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  defaultDashboardsEnabled: true   # the kube/node/workload dashboards = system visibility
+  image:
+    repository: brzl-dev-docker-hub/grafana/grafana
+  # The grafana sidecar (quay) discovers the kube-prometheus-stack built-in
+  # dashboards (ConfigMaps labeled grafana_dashboard) — system/node/workload views.
+  sidecar:
+    image:
+      repository: brzl-dev-quay/kiwigrid/k8s-sidecar
+  # The Postgres dashboard (PLAN deliverable): the official CloudNativePG dashboard
+  # (grafana.com id 20417), pulled at startup by the curl downloader (routed through
+  # the Docker Hub pull-through) and pointed at the stack's Prometheus datasource.
+  downloadDashboards:
+    enabled: true
+  downloadDashboardsImage:
+    repository: brzl-dev-docker-hub/curlimages/curl
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: cnpg
+          orgId: 1
+          folder: CloudNativePG
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/cnpg
+  dashboards:
+    cnpg:
+      cloudnative-pg:
+        gnetId: 20417
+        revision: 1
+        datasource: Prometheus
+  # gp3 fsGroup handles ownership; skip the busybox initChown to drop an image.
+  initChownData:
+    enabled: false
+  # Persistence OFF deliberately: dashboards (provisioned from files + the sidecar)
+  # and the datasource (sidecar) are all declarative — Grafana's SQLite DB holds
+  # nothing we need to keep, and persisting it freezes the first-boot admin password
+  # (see adminPassword note above). emptyDir → the DB reinitialises from the env on
+  # every boot, keeping the admin login in sync with the Secret.
+  persistence:
+    enabled: false

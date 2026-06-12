@@ -1,0 +1,81 @@
+# DR-RESTORE variant of the CNPG Cluster — NOT in kustomization.yaml, NOT synced by
+# ArgoCD. This is the deliberate, one-shot recovery artifact for the full-teardown DR
+# test (RECOVERY.md "Full teardown + restore DR test", A2): it bootstraps a brand-new
+# `pg` cluster FROM the retained Barman object store instead of initdb'ing an empty DB.
+#
+# Why a separate file applied by hand (not the GitOps render): CNPG recovery is a
+# bootstrap-time, one-time operation, and the source `externalClusters` destinationPath
+# is account-bearing — but the ApplicationSet render only patches /spec/imageName and
+# /spec/backup/.../destinationPath, not externalClusters. So the drill resolves BOTH
+# sentinels at apply (same pattern as bootstrap), before ArgoCD manages the postgres app:
+#
+#   host="$(aws ssm get-parameter --name /brzl-dev/ecr/registry_host --query Parameter.Value --output text)"
+#   bucket="$(aws ssm get-parameter --name /brzl-dev/backup/bucket_name --query Parameter.Value --output text)"
+#   sed -e "s|__ECR_REGISTRY_HOST__|$host|g" -e "s|__BACKUP_BUCKET__|$bucket|g" \
+#       gitops/operators/postgres/cluster-recovery.yaml | kubectl apply -f -
+#
+# Non-destructive + repeatable: it RECOVERS from serverName `pg` (the originals) but
+# ARCHIVES its own new WAL under serverName `pg-restore`, so the retained `pg` series
+# stays pristine and the drill can be re-run. After verifying the row counts
+# (RECOVERY.md acceptance target) this cluster can be deleted; promoting it to the
+# steady-state GitOps `pg` (initdb cluster.yaml) is a separate, documented cutover.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: cnpg-demo
+spec:
+  instances: 3 # set 1 for a faster drill; 3 mirrors prod (primary + 2 standbys)
+  imageName: __ECR_REGISTRY_HOST__/brzl-dev-github/cloudnative-pg/postgresql:17.2
+
+  storage:
+    storageClass: gp3
+    size: 5Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  monitoring:
+    enablePodMonitor: true
+
+  # RECOVER from the retained backups. `source` references the externalClusters entry
+  # below; CNPG restores the latest base backup + replays WAL to the end (latest).
+  # The restored DB already contains the `app` role + data; CNPG reconciles the app
+  # secret's password against the restored role on bootstrap.
+  bootstrap:
+    recovery:
+      source: pg-origin
+      database: app
+      owner: app
+
+  # The SOURCE object store (read-only here): the original `pg` series in the retained
+  # bucket. inheritFromIAMRole → the node instance profile (no second IAM user).
+  externalClusters:
+    - name: pg-origin
+      barmanObjectStore:
+        destinationPath: s3://__BACKUP_BUCKET__/
+        serverName: pg
+        s3Credentials:
+          inheritFromIAMRole: true
+        wal:
+          compression: gzip
+        data:
+          compression: gzip
+
+  # This cluster's OWN ongoing backups go to a DISTINCT serverName so the drill never
+  # writes into (or clobbers) the original `pg` series — keeps the test repeatable.
+  backup:
+    retentionPolicy: 30d
+    barmanObjectStore:
+      destinationPath: s3://__BACKUP_BUCKET__/
+      serverName: pg-restore
+      s3Credentials:
+        inheritFromIAMRole: true
+      wal:
+        compression: gzip
+      data:
+        compression: gzip

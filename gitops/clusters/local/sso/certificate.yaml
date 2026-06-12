@@ -1,0 +1,23 @@
+# One wildcard cert for all the SSO hosts. cert-manager solves DNS-01 once for
+# *.sso.barzel.sh and stores the cert in the `sso-wildcard-tls` Secret, which the
+# Traefik IngressRoutes reference as their TLS store.
+#
+# __ACME_ISSUER__ is substituted at bring-up from $ACME_ISSUER (default
+# letsencrypt-staging — rate-limit-safe while validating the DNS-01 plumbing).
+# Flip to letsencrypt-prod (ACME_ISSUER=letsencrypt-prod, or kubectl patch the
+# Certificate + delete the Secret to force reissue) for a publicly-trusted chain —
+# required for a clean browser AND for the kube-API server to trust Dex's cert.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: sso-wildcard
+  namespace: sso
+spec:
+  secretName: sso-wildcard-tls
+  issuerRef:
+    name: __ACME_ISSUER__
+    kind: ClusterIssuer
+  commonName: "*.sso.barzel.sh"
+  dnsNames:
+    - "*.sso.barzel.sh"
+    - "sso.barzel.sh"

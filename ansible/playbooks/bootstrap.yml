@@ -1,0 +1,15 @@
+---
+# Node preparation: everything a host needs BEFORE k3s is installed.
+# Run after `tofu apply` on 50-compute + generating the inventory:
+#   AWS_PROFILE=brzl-apply bash inventory/generate-inventory.sh > inventory/dev.yml
+#   ansible-playbook playbooks/bootstrap.yml
+#
+# Terraform provisions the box; Ansible configures it (repo delegation rule).
+# k3s itself is installed by playbooks/cluster.yml (the `kubernetes` role).
+- name: Prepare k3s nodes
+  hosts: k3s_servers
+  become: true
+  gather_facts: true
+  roles:
+    - base      # packages, swap off, kernel modules, sysctl, time sync
+    - security  # SSH hardening, host firewall aligned with the SGs

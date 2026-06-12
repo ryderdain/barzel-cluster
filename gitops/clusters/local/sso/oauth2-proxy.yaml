@@ -1,0 +1,235 @@
+# Three oauth2-proxy instances — one per protected host — each in full
+# reverse-proxy mode (`--upstream=<service>`). This is the auto-redirecting
+# pattern: an unauthenticated request gets a native 302 to Dex, the /oauth2/*
+# endpoints live on the same host, and after the cookie is set the proxy forwards
+# to the upstream. No Traefik forward-auth middleware (which would 401 without
+# redirecting) and no cross-namespace Traefik routing — Traefik just TLS-terminates
+# each host and routes it to the matching proxy here in `sso`.
+#
+# TIERS (personal-GitHub model): the grafana + prometheus proxies enforce an email
+# allowlist (= __OPERATOR_EMAIL__, substituted at apply from $OPERATOR_EMAIL, which
+# must equal the GitHub primary email) → operator-only. The demo proxy allows any
+# authenticated GitHub user (`--email-domain=*`) → the low `users` tier. With a
+# GitHub org these become group checks (`--allowed-group`); see ACCESS.md.
+#
+# Dex reachability without resolving the public host in-cluster: discovery is
+# skipped and the browser-facing login-url stays public while token/JWKS are read
+# over in-cluster Service DNS. The id_token `iss` still validates against the
+# public issuer. Client + cookie secrets come from the oauth2-proxy-oidc Secret.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-ops-allowlist
+  namespace: sso
+data:
+  # One email per line. __OPERATOR_EMAIL__ is sed-substituted at bring-up.
+  authenticated-emails: |
+    __OPERATOR_EMAIL__
+---
+# ---- grafana (operator tier) ------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy-grafana
+  namespace: sso
+  labels: { app: oauth2-proxy, instance: grafana }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: oauth2-proxy, instance: grafana }
+  template:
+    metadata:
+      labels: { app: oauth2-proxy, instance: grafana }
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url=https://dex.sso.barzel.sh
+            - --skip-oidc-discovery=true
+            - --login-url=https://dex.sso.barzel.sh/auth
+            - --redeem-url=http://dex.sso.svc.cluster.local:5556/token
+            - --oidc-jwks-url=http://dex.sso.svc.cluster.local:5556/keys
+            - --client-id=oauth2-proxy
+            - --redirect-url=https://grafana.sso.barzel.sh/oauth2/callback
+            - --upstream=http://grafana.monitoring.svc.cluster.local:80
+            - --http-address=0.0.0.0:4180
+            - --reverse-proxy=true
+            - --cookie-secure=true
+            - --cookie-name=_oauth2_grafana
+            - --cookie-csrf-per-request=true
+            - --cookie-csrf-expire=5m
+            - --whitelist-domain=.sso.barzel.sh
+            - --scope=openid email profile groups
+            - --set-xauthrequest=true
+            - --pass-user-headers=true
+            - --skip-provider-button=true
+            - --authenticated-emails-file=/etc/oauth2-proxy/authenticated-emails
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: oauth2-proxy-oidc, key: client-secret } }
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom: { secretKeyRef: { name: oauth2-proxy-oidc, key: cookie-secret } }
+          ports:
+            - { name: http, containerPort: 4180 }
+          volumeMounts:
+            - { name: allowlist, mountPath: /etc/oauth2-proxy }
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            seccompProfile: { type: RuntimeDefault }
+      volumes:
+        - name: allowlist
+          configMap: { name: oauth2-proxy-ops-allowlist }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-grafana
+  namespace: sso
+spec:
+  selector: { app: oauth2-proxy, instance: grafana }
+  ports:
+    - { name: http, port: 4180, targetPort: http }
+---
+# ---- prometheus (operator tier) ---------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy-prometheus
+  namespace: sso
+  labels: { app: oauth2-proxy, instance: prometheus }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: oauth2-proxy, instance: prometheus }
+  template:
+    metadata:
+      labels: { app: oauth2-proxy, instance: prometheus }
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url=https://dex.sso.barzel.sh
+            - --skip-oidc-discovery=true
+            - --login-url=https://dex.sso.barzel.sh/auth
+            - --redeem-url=http://dex.sso.svc.cluster.local:5556/token
+            - --oidc-jwks-url=http://dex.sso.svc.cluster.local:5556/keys
+            - --client-id=oauth2-proxy
+            - --redirect-url=https://prometheus.sso.barzel.sh/oauth2/callback
+            - --upstream=http://prometheus.monitoring.svc.cluster.local:9090
+            - --http-address=0.0.0.0:4180
+            - --reverse-proxy=true
+            - --cookie-secure=true
+            - --cookie-name=_oauth2_prometheus
+            - --cookie-csrf-per-request=true
+            - --cookie-csrf-expire=5m
+            - --whitelist-domain=.sso.barzel.sh
+            - --scope=openid email profile groups
+            - --set-xauthrequest=true
+            - --pass-user-headers=true
+            - --skip-provider-button=true
+            - --authenticated-emails-file=/etc/oauth2-proxy/authenticated-emails
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: oauth2-proxy-oidc, key: client-secret } }
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom: { secretKeyRef: { name: oauth2-proxy-oidc, key: cookie-secret } }
+          ports:
+            - { name: http, containerPort: 4180 }
+          volumeMounts:
+            - { name: allowlist, mountPath: /etc/oauth2-proxy }
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            seccompProfile: { type: RuntimeDefault }
+      volumes:
+        - name: allowlist
+          configMap: { name: oauth2-proxy-ops-allowlist }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-prometheus
+  namespace: sso
+spec:
+  selector: { app: oauth2-proxy, instance: prometheus }
+  ports:
+    - { name: http, port: 4180, targetPort: http }
+---
+# ---- demo-app (users tier: any authenticated GitHub user) -------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy-demo
+  namespace: sso
+  labels: { app: oauth2-proxy, instance: demo }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: oauth2-proxy, instance: demo }
+  template:
+    metadata:
+      labels: { app: oauth2-proxy, instance: demo }
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url=https://dex.sso.barzel.sh
+            - --skip-oidc-discovery=true
+            - --login-url=https://dex.sso.barzel.sh/auth
+            - --redeem-url=http://dex.sso.svc.cluster.local:5556/token
+            - --oidc-jwks-url=http://dex.sso.svc.cluster.local:5556/keys
+            - --client-id=oauth2-proxy
+            - --redirect-url=https://demo.sso.barzel.sh/oauth2/callback
+            - --upstream=http://demo-app.demo.svc.cluster.local:80
+            - --http-address=0.0.0.0:4180
+            - --reverse-proxy=true
+            - --cookie-secure=true
+            - --cookie-name=_oauth2_demo
+            - --cookie-csrf-per-request=true
+            - --cookie-csrf-expire=5m
+            - --whitelist-domain=.sso.barzel.sh
+            - --scope=openid email profile groups
+            - --set-xauthrequest=true
+            - --pass-user-headers=true
+            - --skip-provider-button=true
+            - --email-domain=*
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: oauth2-proxy-oidc, key: client-secret } }
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom: { secretKeyRef: { name: oauth2-proxy-oidc, key: cookie-secret } }
+          ports:
+            - { name: http, containerPort: 4180 }
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            seccompProfile: { type: RuntimeDefault }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-demo
+  namespace: sso
+spec:
+  selector: { app: oauth2-proxy, instance: demo }
+  ports:
+    - { name: http, port: 4180, targetPort: http }

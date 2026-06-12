@@ -1,0 +1,29 @@
+# ArgoCD repository credential for the PRIVATE brzl-demo repo, via a read-only
+# GitHub deploy key (ADR-0013). ArgoCD discovers it by the
+# argocd.argoproj.io/secret-type=repository label.
+#
+# Bring it live (the real Secret is gitignored — never commit the private key):
+#   1. Generate a keypair:
+#        ssh-keygen -t ed25519 -N '' -C brzl-demo-argocd -f brzl_demo_deploy_key
+#   2. Add brzl_demo_deploy_key.pub to the repo:
+#        GitHub -> repo -> Settings -> Deploy keys -> Add key (leave write access OFF)
+#   3. Copy this file to repo-deploy-key.yaml, paste the PRIVATE key under
+#      sshPrivateKey (note the 4-space block indentation), then apply it
+#      (the bootstrap script does this for you if the file exists).
+#
+# GitHub's SSH host key is preloaded in ArgoCD's argocd-ssh-known-hosts-cm, so no
+# known_hosts wiring is needed.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: brzl-demo-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: git
+  url: git@github.com:ryderdain/barzel-cluster.git
+  sshPrivateKey: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    REPLACE_WITH_THE_PRIVATE_HALF_OF_THE_DEPLOY_KEY
+    -----END OPENSSH PRIVATE KEY-----

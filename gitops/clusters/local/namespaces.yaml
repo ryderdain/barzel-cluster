@@ -1,0 +1,12 @@
+# Namespaces for the local-dev (k3d) stack — same split as the AWS cluster
+# (Postgres in cnpg-demo, the app in demo) so the ESO cross-namespace projection
+# exercises the same path locally.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cnpg-demo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo

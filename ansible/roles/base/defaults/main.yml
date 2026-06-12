@@ -1,0 +1,32 @@
+---
+# Packages every node needs before k3s. Deliberately minimal — k3s bundles
+# containerd, so we don't install a separate runtime here.
+base_packages:
+  - curl
+  - ca-certificates
+  - gnupg
+  - jq
+  - python3
+
+# Kernel modules k8s networking depends on (overlayfs for the container
+# snapshotter, br_netfilter so bridged traffic is seen by iptables/sysctl).
+base_kernel_modules:
+  - overlay
+  - br_netfilter
+
+# Sysctls required for the k8s/CNI dataplane. br_netfilter must be loaded first
+# (it is, above) for the two bridge-nf knobs to exist.
+base_sysctl:
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  net.ipv4.ip_forward: 1
+
+# NTP sources for chrony. Deliberately the vendor-neutral global pool — NOT a
+# cloud provider's time service (e.g. AWS 169.254.169.123) — so the platform
+# stays cloud-agnostic (TASK.md). The base role removes the cloud-init drop-in
+# that would otherwise prefer the provider source.
+base_ntp_pools:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+  - 2.pool.ntp.org
+  - 3.pool.ntp.org

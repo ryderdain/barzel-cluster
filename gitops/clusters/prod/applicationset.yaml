@@ -1,0 +1,212 @@
+# Prod ApplicationSet — the dev one (gitops/clusters/dev/applicationset.yaml,
+# ADR-0016 — read that file for the full mechanics) with three deliberate diffs:
+#
+#   1. brzl-prod everywhere: project, cache prefixes (the prod 40-ecr layer
+#      provisions brzl-prod-* pull-through rules), demo-app repo.
+#   2. monitoring uses values-prod.yaml — kube-prometheus-stack is the one chart
+#      whose committed values carry the env-scoped pull-through prefixes
+#      (ADR-0017), so prod gets its own values file (same content, prod prefixes).
+#   3. demo-app Service patched to NodePort 30080 — the target the
+#      Terraform-owned NLB forwards to (prod 50-compute ingress.tf). Nodes are
+#      private; the NLB is the only public surface.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: brzl-prod
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  brzl.dev/appset-cluster: "true"
+          - list:
+              # Keyed `appName`, not `name` — the clusters generator injects
+              # `name` and would shadow it (the dev file records the incident).
+              elements:
+                - appName: argocd
+                  kind: helm
+                  wave: "-1"
+                  namespace: argocd
+                  serverSideApply: "true"
+                  chartRepo: https://argoproj.github.io/argo-helm
+                  chart: argo-cd
+                  chartVersion: "7.7.0"
+                  valueFile: gitops/infrastructure/argocd/values.yaml
+                  imageParams:
+                    - name: global.image.repository
+                      repoPath: brzl-prod-quay/argoproj/argocd
+                - appName: ebs-csi-driver
+                  kind: helm
+                  wave: "0"
+                  namespace: kube-system
+                  serverSideApply: "false"
+                  chartRepo: https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+                  chart: aws-ebs-csi-driver
+                  chartVersion: "2.37.0"
+                  valueFile: gitops/infrastructure/ebs-csi/values.yaml
+                  imageParams:
+                    - name: sidecars.provisioner.image.repository
+                      repoPath: brzl-prod-k8s/sig-storage/csi-provisioner
+                    - name: sidecars.attacher.image.repository
+                      repoPath: brzl-prod-k8s/sig-storage/csi-attacher
+                    - name: sidecars.snapshotter.image.repository
+                      repoPath: brzl-prod-k8s/sig-storage/csi-snapshotter
+                    - name: sidecars.resizer.image.repository
+                      repoPath: brzl-prod-k8s/sig-storage/csi-resizer
+                    - name: sidecars.livenessProbe.image.repository
+                      repoPath: brzl-prod-k8s/sig-storage/livenessprobe
+                    - name: sidecars.nodeDriverRegistrar.image.repository
+                      repoPath: brzl-prod-k8s/sig-storage/csi-node-driver-registrar
+                - appName: cnpg-operator
+                  kind: helm
+                  wave: "1"
+                  namespace: cnpg-system
+                  serverSideApply: "true"
+                  chartRepo: https://cloudnative-pg.github.io/charts
+                  chart: cloudnative-pg
+                  chartVersion: "0.28.2"
+                  valueFile: gitops/infrastructure/cnpg/values.yaml
+                  imageParams:
+                    - name: image.repository
+                      repoPath: brzl-prod-github/cloudnative-pg/cloudnative-pg
+                - appName: external-secrets
+                  kind: helm
+                  wave: "1"
+                  namespace: external-secrets
+                  serverSideApply: "true"
+                  chartRepo: https://charts.external-secrets.io
+                  chart: external-secrets
+                  chartVersion: "0.10.7"
+                  valueFile: gitops/infrastructure/external-secrets/values.yaml
+                  imageParams:
+                    - name: image.repository
+                      repoPath: brzl-prod-github/external-secrets/external-secrets
+                    - name: webhook.image.repository
+                      repoPath: brzl-prod-github/external-secrets/external-secrets
+                    - name: certController.image.repository
+                      repoPath: brzl-prod-github/external-secrets/external-secrets
+                - appName: monitoring
+                  kind: helm
+                  wave: "1"
+                  namespace: monitoring
+                  serverSideApply: "true"
+                  chartRepo: https://prometheus-community.github.io/helm-charts
+                  chart: kube-prometheus-stack
+                  chartVersion: "86.1.1"
+                  valueFile: gitops/infrastructure/monitoring/values-prod.yaml
+                  hostParams:
+                    - global.imageRegistry
+                - appName: postgres
+                  kind: kustomize
+                  wave: "2"
+                  namespace: cnpg-demo
+                  serverSideApply: "false"
+                  path: gitops/operators/postgres
+                - appName: demo-app
+                  kind: kustomize
+                  wave: "3"
+                  namespace: demo
+                  serverSideApply: "false"
+                  path: gitops/applications/demo-app
+  template:
+    metadata:
+      name: '{{.appName}}'
+      labels:
+        brzl.dev/app: '{{.appName}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{.wave}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: brzl-prod
+      destination:
+        server: '{{.server}}'
+        namespace: '{{.namespace}}'
+  templatePatch: |
+    {{- $host := index .metadata.annotations "brzl.dev/ecr-host" }}
+    spec:
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          {{- if eq .serverSideApply "true" }}
+          - ServerSideApply=true
+          {{- end }}
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+      {{- if eq .kind "helm" }}
+      sources:
+        - repoURL: {{ .chartRepo }}
+          chart: {{ .chart }}
+          targetRevision: "{{ .chartVersion }}"
+          helm:
+            valueFiles:
+              - $values/{{ .valueFile }}
+            parameters:
+              {{- range .imageParams }}
+              - name: {{ .name }}
+                value: "{{ $host }}/{{ .repoPath }}{{ if .tag }}:{{ .tag }}{{ end }}"
+              {{- end }}
+              {{- /* hostParams: registry-only injection (value = the host verbatim,
+                     no repo path) — kube-prometheus-stack's global.imageRegistry;
+                     the pull-through PREFIXES live in values-prod.yaml. */}}
+              {{- range .hostParams }}
+              - name: {{ . }}
+                value: "{{ $host }}"
+              {{- end }}
+        - repoURL: git@github.com:ryderdain/barzel-cluster.git
+          targetRevision: main
+          ref: values
+      {{- else if eq .appName "demo-app" }}
+      sources:
+        - repoURL: git@github.com:ryderdain/barzel-cluster.git
+          targetRevision: main
+          path: {{ .path }}
+          kustomize:
+            images:
+              - "__ECR_REGISTRY_HOST__/brzl-dev/demo-app={{ $host }}/brzl-prod/demo-app:0.2.0"
+            patches:
+              # Expose the UI on the fixed NodePort the Terraform NLB targets
+              # (prod 50-compute ingress.tf). Prod-only; dev stays ClusterIP.
+              - target:
+                  version: v1
+                  kind: Service
+                  name: demo-app
+                patch: |-
+                  - op: replace
+                    path: /spec/type
+                    value: NodePort
+                  - op: add
+                    path: /spec/ports/0/nodePort
+                    value: 30080
+      {{- else if eq .appName "postgres" }}
+      {{- $bucket := index .metadata.annotations "brzl.dev/backup-bucket" }}
+      sources:
+        - repoURL: git@github.com:ryderdain/barzel-cluster.git
+          targetRevision: main
+          path: {{ .path }}
+          kustomize:
+            patches:
+              - target:
+                  group: postgresql.cnpg.io
+                  version: v1
+                  kind: Cluster
+                  name: pg
+                patch: |-
+                  - op: replace
+                    path: /spec/imageName
+                    value: {{ $host }}/brzl-prod-github/cloudnative-pg/postgresql:17.2
+                  - op: replace
+                    path: /spec/backup/barmanObjectStore/destinationPath
+                    value: s3://{{ $bucket }}/
+      {{- end }}

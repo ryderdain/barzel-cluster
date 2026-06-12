@@ -1,0 +1,4 @@
+# Keep the build context tiny: only go.mod/go.sum and *.go are needed.
+Dockerfile
+.dockerignore
+*.md

@@ -1,0 +1,25 @@
+# aws-cli v2 installer GPG public key — REFRESH TEMPLATE
+#
+# The toolbox Dockerfile verifies the aws-cli v2 installer's signature against
+# AWS's published signing key (a real supply-chain check, not a checksum the
+# same server serves). The current key IS vendored in this repo as the colocated
+# awscli-public-key.asc — it's public, with its fingerprint documented in-file
+# for independent verification. This .example exists to ROTATE that key.
+#
+# WHEN TO REFRESH: the vendored key expires (currently 2026-07-07), or AWS
+# rotates it — after which `gpg --verify` warns/fails and the build breaks.
+#
+# TO REFRESH the vendored key:
+#   1. Open the AWS CLI docs section "Verifying the integrity of your
+#      downloaded files" (search: "aws cli gpg public key").
+#   2. Copy the PGP PUBLIC KEY BLOCK shown there.
+#   3. Overwrite  containers/toolbox/awscli-public-key.asc  with it (keep a
+#      short comment header documenting the new fingerprint + expiry).
+#   4. Confirm the fingerprint printed by:  gpg --show-keys awscli-public-key.asc
+#      matches the fingerprint AWS lists in those docs, then rebuild.
+#
+# (To build without a key — not recommended — pass --build-arg AWSCLI_VERIFY=false.)
+#
+# -----BEGIN PGP PUBLIC KEY BLOCK-----
+# ...paste AWS's published aws-cli public key here...
+# -----END PGP PUBLIC KEY BLOCK-----

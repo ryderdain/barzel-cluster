@@ -1,0 +1,29 @@
+# external-secrets operator Helm values (chart external-secrets).
+#
+# Projects the CNPG-generated `pg-app` secret from the cnpg-demo namespace into
+# the demo-app's own `demo` namespace (ClusterSecretStore + ExternalSecret live
+# with the app, in gitops/applications/demo-app/). This is the platform's
+# secret-distribution mechanism — the same operator generalises to AWS Secrets
+# Manager (already used for the ECR pull-through credentials), so one tool
+# answers "how are secrets managed + distributed" for the security doc.
+#
+# All three images (controller, webhook, cert-controller) share the ghcr.io repo
+# external-secrets/external-secrets, routed through ECR pull-through
+# (brzl-dev-github prefix → ghcr.io upstream, same as CNPG; needs the ghcr
+# Secrets Manager credential wired into 40-ecr). __ECR_REGISTRY_HOST__ is resolved
+# at bootstrap so no account id lands in git (ADR-0013). Verify the chart version
+# (and that v1beta1 is still served) at bring-up — see 25-external-secrets.yaml.
+installCRDs: true
+
+replicaCount: 1
+
+image:
+  repository: __ECR_REGISTRY_HOST__/brzl-dev-github/external-secrets/external-secrets
+
+webhook:
+  image:
+    repository: __ECR_REGISTRY_HOST__/brzl-dev-github/external-secrets/external-secrets
+
+certController:
+  image:
+    repository: __ECR_REGISTRY_HOST__/brzl-dev-github/external-secrets/external-secrets

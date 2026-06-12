@@ -1,0 +1,82 @@
+# CloudNativePG Postgres cluster for the demo app, with continuous backup to S3
+# via Barman Cloud. Authenticates to S3 with the EC2 instance profile
+# (inheritFromIAMRole) — no second IAM user, no static keys in a Secret
+# (CLAUDE.md). The node role (30-iam) carries the bucket read/write + the backup
+# CMK grant.
+#
+# Two sentinels are resolved at bootstrap (ADR-0013), keeping the account id and
+# account-bearing bucket name out of git:
+#   __ECR_REGISTRY_HOST__ — the ECR registry host (SSM /brzl-dev/ecr/registry_host)
+#   __BACKUP_BUCKET__      — the backup bucket name (SSM /brzl-dev/backup/bucket_name)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: cnpg-demo
+spec:
+  # 3 instances: 1 primary + 2 hot standbys, one per node (anti-affinity is the
+  # operator default) — survives a node loss. Scaling is just bumping this number
+  # (README: scaling is automated, no runbook).
+  instances: 3
+
+  # Pin the Postgres image and route it through ECR pull-through (ghcr upstream).
+  # MUST be set explicitly: the operator's built-in default would pull straight
+  # from ghcr.io, bypassing the cache. Verify/bump the tag against the operator
+  # version (1.29.x supports PG 13–17).
+  imageName: __ECR_REGISTRY_HOST__/brzl-dev-github/cloudnative-pg/postgresql:17.2
+
+  storage:
+    storageClass: gp3 # default SC from the EBS CSI driver (wave 0); CMK-encrypted
+    size: 5Gi
+
+  # PoC footprint; raise for real workloads.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  # Expose Postgres metrics to Prometheus. enablePodMonitor makes the operator
+  # create a PodMonitor (monitoring.coreos.com CRD, shipped by kube-prometheus-
+  # stack at wave 1, before this wave-2 cluster re-syncs). The stack scrapes it
+  # cluster-wide — its *SelectorNilUsesHelmValues are set false in the chart values.
+  monitoring:
+    enablePodMonitor: true
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+
+  backup:
+    # Barman deletes obsolete base backups + WAL beyond this window.
+    retentionPolicy: 30d
+    barmanObjectStore:
+      destinationPath: s3://__BACKUP_BUCKET__/
+      s3Credentials:
+        # Use the node EC2 instance profile — the deliberate "no second IAM user"
+        # choice. The SDK resolves the region + credentials from instance metadata.
+        inheritFromIAMRole: true
+      # No `encryption:` here on purpose: the bucket's DEFAULT SSE-KMS (our CMK)
+      # applies to un-headered PutObjects. Setting aws:kms without a key id would
+      # fall back to the aws/s3 managed key, which the bucket policy rejects.
+      wal:
+        compression: gzip
+      data:
+        compression: gzip
+---
+# Daily base backup at 03:00. Continuous WAL archiving is automatic once
+# barmanObjectStore is configured above; this adds periodic full backups so
+# point-in-time recovery has recent anchors.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: pg-daily
+  namespace: cnpg-demo
+spec:
+  # CNPG cron is 6-field (seconds first): 03:00:00 every day.
+  schedule: "0 0 3 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: pg

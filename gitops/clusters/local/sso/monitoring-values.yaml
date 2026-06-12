@@ -1,0 +1,99 @@
+# kube-prometheus-stack values for the LOCAL SSO build — the same stack the AWS
+# cluster runs (gitops/infrastructure/monitoring/values.yaml), trimmed for a laptop
+# and with the AWS-only bits dropped:
+#   - no global.imageRegistry (AWS injects the ECR pull-through host; local pulls
+#     upstream quay.io / registry.k8s.io directly);
+#   - no persistence (ephemeral Prometheus + Grafana);
+#   - alertmanager + node-exporter off, and the k3s-absent control-plane scrape
+#     jobs disabled so there are no permanently-down targets.
+#
+# Grafana is fronted by oauth2-proxy (operator tier) and trusts its auth.proxy
+# header — the local login form is OFF, so the only way in is through the SSO gate.
+# Anyone who clears that gate is the operator, so auto-assign Admin.
+crds:
+  enabled: true
+
+alertmanager:
+  enabled: false
+nodeExporter:
+  enabled: false
+# k3s does not expose these as separate scrapeable endpoints → disable to avoid
+# permanently-"down" targets cluttering Prometheus.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    # Discover the demo-app ServiceMonitor + CNPG PodMonitor cluster-wide (no Helm
+    # release label needed) — matches the AWS stack's setting.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { memory: 640Mi }
+
+grafana:
+  fullnameOverride: grafana
+  persistence:
+    enabled: false
+  service:
+    port: 80
+  ingress:
+    enabled: false
+  # SSO only — no local login; identity arrives in the oauth2-proxy header.
+  grafana.ini:
+    server:
+      root_url: https://grafana.sso.barzel.sh
+    auth:
+      disable_login_form: true
+    # oauth2-proxy forwards the identity to the UPSTREAM as X-Forwarded-* (via
+    # --pass-user-headers); X-Auth-Request-* are response-only (nginx auth_request
+    # mode), so Grafana must read X-Forwarded-Email here, not X-Auth-Request-Email.
+    "auth.proxy":
+      enabled: true
+      header_name: X-Forwarded-Email
+      header_property: email
+      auto_sign_up: true
+      enable_login_token: false
+    users:
+      auto_assign_org_role: Admin
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+      label: grafana_dashboard
+    datasources:
+      enabled: true
+  # CloudNativePG community dashboard (grafana.com id 20417) — parity with the AWS
+  # stack. Pulled at startup by the chart's downloadDashboards init container
+  # (upstream curlimages/curl locally; AWS routes it through ECR pull-through) and
+  # pointed at the auto-provisioned Prometheus datasource. The custom brzl-demo
+  # overview dashboard arrives separately via the sidecar (its grafana_dashboard
+  # ConfigMap in the demo namespace).
+  downloadDashboards:
+    enabled: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: cnpg
+          orgId: 1
+          folder: CloudNativePG
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/cnpg
+  dashboards:
+    cnpg:
+      cloudnative-pg:
+        gnetId: 20417
+        revision: 1
+        datasource: Prometheus

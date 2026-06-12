@@ -1,0 +1,316 @@
+---
+# kubernetes role — install a k3s HA control plane (3 servers, embedded etcd):
+# cluster-init on the primary, join the rest, then fetch an admin kubeconfig to
+# the operator's machine.
+#
+# Ordering note: this runs as ONE play across all of k3s_servers. We don't need
+# `serial` — Ansible is task-synchronised (every host finishes task N before any
+# host starts task N+1), so a primary-only task (the `--cluster-init`) fully
+# completes before the joiner-only task runs. The `when` guards do the rest.
+#
+# The primary is the inventory host flagged `k3s_primary: true` (set by
+# generate-inventory.sh); that host var stays in the inventory's k3s_ vocabulary,
+# while this role's own vars use the kubernetes_ prefix.
+
+# --- Work out roles + shared facts (deterministic from the inventory) --------
+- name: Determine the primary (cluster-init) node
+  ansible.builtin.set_fact:
+    kubernetes_primary_host: >-
+      {{ groups['k3s_servers']
+         | map('extract', hostvars)
+         | selectattr('k3s_primary', 'defined')
+         | selectattr('k3s_primary')
+         | map(attribute='inventory_hostname')
+         | list | first }}
+
+- name: Assemble the API TLS SANs from the inventory
+  ansible.builtin.set_fact:
+    kubernetes_tls_sans: >-
+      {{ (groups['k3s_servers'] | map('extract', hostvars)
+            | map(attribute='private_ip') | list)
+         + (groups['k3s_servers'] | map('extract', hostvars)
+            | selectattr('public_ip', 'defined') | map(attribute='public_ip') | list)
+         + kubernetes_extra_tls_sans }}
+
+# Equals-form flags (--disable=…, --tls-san=…) so they survive being joined into
+# the single INSTALL_K3S_EXEC string without word-splitting surprises.
+- name: Build the common k3s server flags (kubeconfig mode, disables, TLS SANs)
+  ansible.builtin.set_fact:
+    kubernetes_common_args: >-
+      {{ ['--write-kubeconfig-mode=0644']
+         + (kubernetes_disabled_components | map('regex_replace', '^(.*)$', '--disable=\1') | list)
+         + (kubernetes_tls_sans | map('regex_replace', '^(.*)$', '--tls-san=\1') | list) }}
+
+# --- Vendor + verify the k3s binary, then stage the installer ----------------
+# We download the pinned binary and verify it against the VENDORED sha256 (get_url
+# fails the task on mismatch), so the installer never downloads or trusts a
+# run-time-fetched checksum — it runs with INSTALL_K3S_SKIP_DOWNLOAD=true.
+- name: Ensure the local script staging directory exists
+  ansible.builtin.file:
+    path: /usr/local/share/brzl
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download + verify the k3s binary (vendored sha256)
+  ansible.builtin.get_url:
+    url: "{{ kubernetes_k3s_release_base }}/{{ kubernetes_version }}/{{ kubernetes_k3s_binary }}"
+    dest: /usr/local/bin/k3s
+    checksum: "sha256:{{ kubernetes_k3s_sha256[kubernetes_k3s_arch] }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Stage the k3s install script (run from disk, not piped)
+  ansible.builtin.get_url:
+    url: "{{ kubernetes_install_script_url }}"
+    dest: /usr/local/share/brzl/k3s-install.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+# --- Node → ECR auth: vendor the credential provider + wire the kubelet -------
+# Laid down BEFORE the k3s install so a fresh node comes up with the kubelet args
+# already in /etc/rancher/k3s/config.yaml (k3s merges that with its CLI flags).
+# For an already-running cluster the install task is skipped, so a later throttled
+# restart task (one node at a time) loads the args without breaking etcd quorum.
+- name: Ensure the credential-provider bin dir exists
+  ansible.builtin.file:
+    path: "{{ kubernetes_credprovider_dir }}/bin"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: kubernetes_enable_ecr_credential_provider
+
+- name: Download + verify the ecr-credential-provider binary (vendored sha256)
+  ansible.builtin.get_url:
+    # Folded + `~`-joined so each physical line stays short; the folded newlines
+    # fall between Jinja tokens (insignificant whitespace), so the URL has no
+    # spurious spaces.
+    url: >-
+      {{ kubernetes_ecr_credprovider_base ~ '/' ~ kubernetes_ecr_credprovider_version
+         ~ '/linux/' ~ kubernetes_k3s_arch
+         ~ '/ecr-credential-provider-linux-' ~ kubernetes_k3s_arch }}
+    dest: "{{ kubernetes_credprovider_dir }}/bin/ecr-credential-provider"
+    checksum: "sha256:{{ kubernetes_ecr_credprovider_sha256[kubernetes_k3s_arch] }}"
+    owner: root
+    group: root
+    mode: "0755"
+  register: kubernetes_credprovider_binary
+  when: kubernetes_enable_ecr_credential_provider
+
+- name: Write the kubelet CredentialProviderConfig
+  ansible.builtin.template:
+    src: credential-provider-config.yaml.j2
+    dest: "{{ kubernetes_credprovider_dir }}/config.yaml"
+    owner: root
+    group: root
+    mode: "0644"
+  register: kubernetes_credprovider_config
+  when: kubernetes_enable_ecr_credential_provider
+
+- name: Ensure the k3s config directory exists
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: kubernetes_enable_ecr_credential_provider
+
+- name: Point k3s's kubelet at the credential provider (merged via config.yaml)
+  ansible.builtin.copy:
+    dest: /etc/rancher/k3s/config.yaml
+    content: |
+      # Managed by Ansible (kubernetes role). Merged with the server's CLI flags.
+      kubelet-arg:
+        - "image-credential-provider-config={{ kubernetes_credprovider_dir }}/config.yaml"
+        - "image-credential-provider-bin-dir={{ kubernetes_credprovider_dir }}/bin"
+    owner: root
+    group: root
+    mode: "0644"
+  register: kubernetes_k3s_config
+  when: kubernetes_enable_ecr_credential_provider
+
+- name: Record whether the credential-provider wiring changed (drives the restart)
+  ansible.builtin.set_fact:
+    kubernetes_credprovider_changed: >-
+      {{ (kubernetes_credprovider_binary is changed)
+         or (kubernetes_credprovider_config is changed)
+         or (kubernetes_k3s_config is changed) }}
+  when: kubernetes_enable_ecr_credential_provider
+
+# Install marker = the systemd unit, NOT the binary version. Because this role
+# vendors the k3s binary itself (above), `k3s --version` would succeed as soon as
+# the binary is staged — before anything is configured — so it can't tell us
+# whether k3s is actually installed. The service unit is what the install script
+# creates, so its presence is the real "already installed" signal. (A binary
+# version bump for an upgrade is a separate flow: re-download + restart.)
+- name: Detect whether k3s is already installed (service unit present)
+  ansible.builtin.stat:
+    path: /etc/systemd/system/k3s.service
+  register: kubernetes_service_unit
+
+# --- Primary: cluster-init ---------------------------------------------------
+- name: Install + start k3s server (--cluster-init) on the primary
+  ansible.builtin.command:
+    cmd: /usr/local/share/brzl/k3s-install.sh
+  environment:
+    INSTALL_K3S_SKIP_DOWNLOAD: "true"
+    INSTALL_K3S_VERSION: "{{ kubernetes_version }}"
+    INSTALL_K3S_EXEC: "server --cluster-init {{ kubernetes_common_args | join(' ') }}"
+  when:
+    - inventory_hostname == kubernetes_primary_host
+    - not kubernetes_service_unit.stat.exists
+  changed_when: true
+
+- name: Wait for the primary API server to accept connections
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 120
+  when: inventory_hostname == kubernetes_primary_host
+
+- name: Wait for the cluster join token to be written
+  ansible.builtin.wait_for:
+    path: /var/lib/rancher/k3s/server/token
+    timeout: 60
+  when: inventory_hostname == kubernetes_primary_host
+
+# --- Share the join token with the joiners (kept out of logs) ----------------
+- name: Read the cluster join token from the primary
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/token
+  register: kubernetes_token_raw
+  when: inventory_hostname == kubernetes_primary_host
+  no_log: true
+
+- name: Distribute the join token to the joiner nodes
+  ansible.builtin.set_fact:
+    kubernetes_token: "{{ hostvars[kubernetes_primary_host].kubernetes_token_raw.content | b64decode | trim }}"
+  when: inventory_hostname != kubernetes_primary_host
+  no_log: true
+
+# --- Joiners: join the existing control plane --------------------------------
+- name: Install + start k3s server (join) on the remaining nodes
+  ansible.builtin.command:
+    cmd: /usr/local/share/brzl/k3s-install.sh
+  environment:
+    INSTALL_K3S_SKIP_DOWNLOAD: "true"
+    INSTALL_K3S_VERSION: "{{ kubernetes_version }}"
+    INSTALL_K3S_EXEC: >-
+      server
+      --server=https://{{ hostvars[kubernetes_primary_host].private_ip }}:6443
+      --token={{ kubernetes_token }}
+      {{ kubernetes_common_args | join(' ') }}
+  when:
+    - inventory_hostname != kubernetes_primary_host
+    - not kubernetes_service_unit.stat.exists
+  changed_when: true
+  no_log: true  # the join command embeds the token
+
+# --- Apply credential-provider args to an ALREADY-running cluster ------------
+# Fresh nodes booted with the args already in config.yaml; existing nodes need a
+# restart to pick them up. throttle:1 makes this strictly one node at a time, and
+# we block on local /readyz before releasing the next — so at most one server is
+# ever down and etcd keeps quorum (2/3). Skipped on a fresh install (no prior
+# unit) and when nothing changed (idempotent).
+# shell (not the systemd module) on purpose: the restart and the /readyz wait
+# must be one throttled unit per host, so the next node only restarts once this
+# one is serving again — that coupling is what preserves etcd quorum.
+- name: Roll-restart k3s one node at a time to load the credential provider  # noqa: command-instead-of-module
+  ansible.builtin.shell:
+    cmd: |
+      systemctl restart k3s
+      for _ in $(seq 1 60); do
+        if k3s kubectl get --raw='/readyz' >/dev/null 2>&1; then exit 0; fi
+        sleep 2
+      done
+      echo "k3s /readyz did not return OK within 120s after restart" >&2
+      exit 1
+  throttle: 1
+  changed_when: true
+  when:
+    - kubernetes_enable_ecr_credential_provider
+    - kubernetes_service_unit.stat.exists
+    - kubernetes_credprovider_changed | default(false)
+
+# --- Verify the cluster converged (primary drives kubectl) -------------------
+- name: Wait for all server nodes to register
+  ansible.builtin.command: k3s kubectl get nodes -o name
+  register: kubernetes_nodes
+  changed_when: false
+  retries: 15
+  delay: 6
+  until: (kubernetes_nodes.stdout_lines | length) >= (groups['k3s_servers'] | length)
+  when: inventory_hostname == kubernetes_primary_host
+
+# Use the argv (list) form, NOT a command string: the command module runs a
+# string through shlex, which strips the shell quotes around "Ready" (kubectl
+# then errors with 'unrecognized identifier Ready'). argv passes each item
+# literally, preserving the quotes. The jsonpath emits each node's Ready
+# condition status, space-separated (e.g. "True True True").
+- name: Wait until every node reports Ready
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - nodes
+      - -o
+      - jsonpath={.items[*].status.conditions[?(@.type=="Ready")].status}
+  register: kubernetes_ready
+  changed_when: false
+  retries: 20
+  delay: 6
+  until:
+    - kubernetes_ready.rc == 0
+    - (kubernetes_ready.stdout.split() | length) >= (groups['k3s_servers'] | length)
+    - "'False' not in kubernetes_ready.stdout.split()"
+  when: inventory_hostname == kubernetes_primary_host
+
+# --- Fetch an admin kubeconfig to the operator's machine ---------------------
+- name: Read the admin kubeconfig from the primary
+  ansible.builtin.slurp:
+    src: /etc/rancher/k3s/k3s.yaml
+  register: kubernetes_kubeconfig_raw
+  when: inventory_hostname == kubernetes_primary_host
+  no_log: true
+
+- name: Determine the API endpoint for the local kubeconfig
+  ansible.builtin.set_fact:
+    kubernetes_effective_endpoint: >-
+      {{ kubernetes_api_endpoint if kubernetes_api_endpoint
+         else (hostvars[kubernetes_primary_host].public_ip
+               | default(hostvars[kubernetes_primary_host].private_ip)) }}
+
+- name: Ensure the local kubeconfig directory exists
+  ansible.builtin.file:
+    path: "{{ kubernetes_kubeconfig_local_path | dirname }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Write the kubeconfig locally (server URL rewritten to the endpoint)
+  ansible.builtin.copy:
+    dest: "{{ kubernetes_kubeconfig_local_path }}"
+    content: >-
+      {{ hostvars[kubernetes_primary_host].kubernetes_kubeconfig_raw.content | b64decode
+         | replace('https://127.0.0.1:6443',
+                   'https://' ~ kubernetes_effective_endpoint | trim ~ ':6443') }}
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  no_log: true
+
+- name: Show how to use the fetched kubeconfig
+  ansible.builtin.debug:
+    msg: >-
+      k3s HA up ({{ groups['k3s_servers'] | length }} servers, embedded etcd).
+      Use it with: KUBECONFIG={{ kubernetes_kubeconfig_local_path }} kubectl get nodes
+  run_once: true

@@ -1,0 +1,26 @@
+# kube-API OIDC RBAC. The API server is started (k3d_up.sh --with-sso) with
+# --oidc-issuer-url=https://dex.sso.barzel.sh, --oidc-client-id=kubernetes,
+# --oidc-username-claim=email, --oidc-groups-claim=groups. So an oidc-login
+# (kubelogin) kubectl context authenticating through Dex→GitHub arrives as the
+# user `<email>` with whatever groups Dex emits.
+#
+# Personal-GitHub model: no org → no group claims, so we bind the operator by
+# *username* (= the email, __OPERATOR_EMAIL__, substituted at apply). With a GitHub
+# org, replace the User subject with Group subjects (e.g. `oidc:brzl-admins`) and
+# Dex's teams→groups mapping — the binding shape is identical, only kind/name change.
+#
+# This is the cluster-admin grant; layer narrower ClusterRoles (view + pods/exec on
+# the toolbox ns for an `operators` tier) the same way when an org provides groups.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sso-operator-admin
+  labels: { app.kubernetes.io/part-of: operator-sso }
+subjects:
+  - kind: User
+    name: __OPERATOR_EMAIL__
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io

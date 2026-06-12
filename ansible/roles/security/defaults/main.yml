@@ -1,0 +1,21 @@
+---
+# SSH hardening — key-only, no root login. We connect as `ubuntu` over the
+# TF-generated key, so disabling passwords/root is safe (won't lock us out).
+security_ssh_permit_root_login: "no"
+security_ssh_password_authentication: "no"
+security_ssh_max_auth_tries: 3
+
+# fail2ban for sshd. Belt-and-suspenders: SSH is already SG-locked to the admin
+# /32, but this is cheap and a good signal.
+security_install_fail2ban: true
+security_fail2ban_maxretry: 4
+security_fail2ban_bantime: 1h
+
+# Host firewall (nftables) is OFF by default. The AWS security groups are the
+# enforced network boundary; an on-host firewall must coexist carefully with the
+# iptables(-nft) rules k3s/flannel manage, so we treat it as opt-in
+# defense-in-depth. When enabling, you MUST set security_admin_cidr (your /32)
+# or you risk locking yourself out. See templates/nftables.conf.j2.
+security_enable_host_firewall: false
+security_admin_cidr: ""
+security_vpc_cidr: "10.10.0.0/16"
