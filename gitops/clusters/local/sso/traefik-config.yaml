@@ -1,0 +1,18 @@
+# k3s ships Traefik and reconciles it from this HelmChartConfig (the k3s addon
+# pattern — drop the file in and the k3s helm-controller re-renders Traefik). We
+# only need one behaviour change for the SSO edge: redirect plain :80 to :443 so
+# every SSO host is HTTPS-only (the LE wildcard cert terminates at Traefik). No
+# cross-namespace provider flag is needed — every IngressRoute, its TLS secret,
+# and its oauth2-proxy backend all live in the `sso` namespace; the proxies reach
+# Grafana/Prometheus/demo-app by in-cluster Service DNS, not by Traefik routing.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    ports:
+      web:
+        redirectTo:
+          port: websecure

@@ -1,0 +1,29 @@
+# AppProject scoping every prod Application — same constraints as dev
+# (gitops/clusters/dev/project.yaml has the rationale).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: brzl-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: brzl-demo prod cluster — infrastructure, operators, applications
+  sourceRepos:
+    - git@github.com:ryderdain/barzel-cluster.git
+    - https://argoproj.github.io/argo-helm
+    - https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+    - https://cloudnative-pg.github.io/charts
+    - https://charts.external-secrets.io
+    - https://prometheus-community.github.io/helm-charts
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  # PoC: cluster-scoped resources allowed (CRDs, StorageClass, operator
+  # ClusterRoles). Tighten to an explicit allowlist as the prod posture matures.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

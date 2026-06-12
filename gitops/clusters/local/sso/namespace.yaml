@@ -1,0 +1,7 @@
+# Namespace for the operator-SSO gateway (Dex + the per-service oauth2-proxies).
+# Monitoring (Grafana/Prometheus) lives in its own `monitoring` namespace, created
+# by the kube-prometheus-stack helm release; the SSO edge reverse-proxies into it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sso

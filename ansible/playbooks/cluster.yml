@@ -1,0 +1,16 @@
+---
+# Install the k3s HA control plane (3 servers, embedded etcd). Run AFTER
+# playbooks/bootstrap.yml has prepared the nodes:
+#   ansible-playbook playbooks/cluster.yml
+#
+# The `kubernetes` role bootstraps the cluster on the k3s_primary node
+# (--cluster-init) and joins the rest, then fetches the kubeconfig locally.
+- name: Install k3s HA cluster
+  hosts: k3s_servers
+  become: true
+  gather_facts: true
+  # Serialize the control-plane bring-up: primary first (cluster-init), then the
+  # joiners, so etcd forms cleanly rather than racing three inits.
+  order: sorted
+  roles:
+    - kubernetes

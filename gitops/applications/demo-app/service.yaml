@@ -1,0 +1,17 @@
+# ClusterIP fronting the demo-app pods. Reached in-cluster at
+# demo-app.demo.svc:80; expose externally with a port-forward or an Ingress
+# (not part of the PoC surface).
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-app
+  namespace: demo
+  labels:
+    app: demo-app
+spec:
+  selector:
+    app: demo-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

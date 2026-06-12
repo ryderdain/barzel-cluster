@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored) and set a globally-unique bucket name.
+# Suggested form embeds your account id to guarantee uniqueness:
+#   aws sts get-caller-identity --query Account --output text
+state_bucket_name = "brzl-demo-tfstate-123456789012"
+# aws_region      = "eu-central-1"
+# lock_table_name = "brzl-demo-tflock"

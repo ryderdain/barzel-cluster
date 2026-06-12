@@ -1,0 +1,6 @@
+# Template — copy to backend.hcl (gitignored) and set your real bucket name.
+# tofu init -backend-config=backend.hcl
+bucket         = "brzl-demo-tfstate-<account_id>"
+region         = "eu-central-1"
+dynamodb_table = "brzl-demo-tflock"
+encrypt        = true

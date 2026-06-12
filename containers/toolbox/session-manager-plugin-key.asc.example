@@ -1,0 +1,27 @@
+# session-manager-plugin GPG public key — REFRESH TEMPLATE
+#
+# The toolbox Dockerfile GPG-verifies AWS's session-manager-plugin .deb against
+# AWS's plugin signing key (AWS publishes a detached .deb.sig alongside the
+# package). This is a DIFFERENT key than the aws-cli one. The current key IS
+# vendored in this repo as the colocated session-manager-plugin-key.asc — it's
+# public, with its fingerprint documented in-file. This .example exists to
+# ROTATE that key.
+#
+# WHEN TO REFRESH: AWS rotates the key (the vendored one, keyid 2C4D4AFF6F6757EE,
+# has no expiry as published) — after which `gpg --verify` fails and the build
+# breaks until refreshed.
+#
+# TO REFRESH the vendored key:
+#   1. Open the AWS docs page "Verify the signature of the Session Manager
+#      plugin" (Systems Manager User Guide, install-plugin-verify).
+#   2. Copy the GPG PUBLIC KEY BLOCK shown there.
+#   3. Overwrite  containers/toolbox/session-manager-plugin-key.asc  with it
+#      (keep a short comment header documenting the new fingerprint + expiry).
+#   4. Confirm  gpg --show-keys session-manager-plugin-key.asc  matches the
+#      fingerprint AWS lists, then rebuild.
+#
+# (To build without a key — not recommended — pass --build-arg SMP_VERIFY=false.)
+#
+# -----BEGIN PGP PUBLIC KEY BLOCK-----
+# ...paste AWS's published Session Manager plugin public key here...
+# -----END PGP PUBLIC KEY BLOCK-----

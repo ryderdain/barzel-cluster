@@ -1,0 +1,11 @@
+# Kustomize base for the CloudNativePG Cluster + ScheduledBackup. The
+# ApplicationSet renders this path and injects `patches:` at render time, setting
+# the two account-bearing CRD fields from the cluster Secret annotations:
+#   /spec/imageName                              → <host>/.../postgresql:17.2
+#   /spec/backup/barmanObjectStore/destinationPath → s3://<bucket>/
+# so the account id / bucket name never live in these manifests (only the
+# __ECR_REGISTRY_HOST__ / __BACKUP_BUCKET__ sentinels that document them).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cluster.yaml

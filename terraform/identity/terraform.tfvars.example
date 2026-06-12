@@ -1,0 +1,5 @@
+# Copy to terraform.tfvars (gitignored). Keeps account-id-bearing values out of git.
+# Operators allowed to assume the plan/apply roles locally:
+operator_principal_arns = ["arn:aws:iam::<account_id>:user/<you>"]
+# The state bucket name is derived in main.tf from the caller's account id — no var.
+# apply_subjects = ["repo:ryderdain/barzel-cluster:ref:refs/heads/main"]

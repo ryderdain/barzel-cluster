@@ -1,0 +1,40 @@
+# argo-cd Helm values (chart 7.7.0). Non-HA single-replica PoC footprint; the
+# replica knobs below are the scale-up levers for prod.
+#
+# __ECR_REGISTRY_HOST__ is a sentinel: the account-bearing ECR host
+# (<account>.dkr.ecr.eu-central-1.amazonaws.com) is resolved at bootstrap so no
+# account id lands in git (ADR-0013). The pull-through prefix (brzl-dev-quay)
+# is deterministic and committed as-is.
+
+global:
+  image:
+    # ArgoCD ships one image used by all components; route it through ECR
+    # pull-through (quay.io/argoproj/argocd upstream).
+    repository: __ECR_REGISTRY_HOST__/brzl-dev-quay/argoproj/argocd
+
+# No in-cluster SSO for the PoC (avoids the ghcr.io/dexidp/dex pull). AWS OIDC /
+# Identity Center is the platform's identity story for operators (ADR-0005);
+# Dex/Ory is the documented future for in-cluster app SSO.
+dex:
+  enabled: false
+
+redis:
+  enabled: true
+  # Chart default image is public.ecr.aws/docker/library/redis (ECR Public — not
+  # account-scoped, no pull-through credential needed), so it's left as default.
+
+controller:
+  replicas: 1
+server:
+  replicas: 1
+  service:
+    type: ClusterIP # no cloud LoadBalancer (cost); reach via port-forward
+repoServer:
+  replicas: 1
+applicationSet:
+  replicas: 1
+
+configs:
+  params:
+    # TLS is terminated at the port-forward / future ingress, not in-pod.
+    server.insecure: true

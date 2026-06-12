@@ -1,0 +1,9 @@
+# Template — copy to backend.hcl (gitignored) and set your real bucket name.
+# Shared partial backend for every prod layer:  tofu init -backend-config=../backend.hcl
+# Same bucket as dev (single-account PoC, ADR-0011); the layers separate by state
+# KEY prefix (prod/…). In the account-per-customer prod model this becomes the
+# target account's own bucket.
+bucket         = "brzl-demo-tfstate-<account_id>"
+region         = "eu-central-1"
+dynamodb_table = "brzl-demo-tflock"
+encrypt        = true

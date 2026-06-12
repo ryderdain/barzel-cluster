@@ -1,0 +1,74 @@
+# Demo REST API — proves a read/write round-trip against the CNPG Postgres.
+#
+# Runs in its own `demo` namespace, decoupled from the operator's cnpg-demo
+# namespace. The DB credential is the CNPG-generated `pg-app` secret, projected
+# into `demo` by External Secrets Operator (see secret-projection.yaml) — the app
+# never reaches into cnpg-demo, and CNPG keeps owning + rotating the credential.
+# ESO rebuilds the DSN with the pg-rw FQDN (CNPG's own `uri` uses the short host,
+# which wouldn't resolve from `demo`), exposed here as the `uri` key.
+#
+# The image host is the __ECR_REGISTRY_HOST__ sentinel (ADR-0013), resolved by
+# the GitOps bootstrap render so no account id lands in git. Immutable tag.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+  namespace: demo
+  labels:
+    app: demo-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: demo-app
+  template:
+    metadata:
+      labels:
+        app: demo-app
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        # distroless:nonroot declares its user by NAME (nonroot); the kubelet
+        # can't verify runAsNonRoot without a numeric UID, so pin it explicitly.
+        # 65532 is the nonroot uid/gid baked into gcr.io/distroless/static.
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: demo-app
+          image: __ECR_REGISTRY_HOST__/brzl-dev/demo-app:0.2.0
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # DSN straight from the CNPG-managed secret — no creds in git or image.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pg-app
+                  key: uri
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

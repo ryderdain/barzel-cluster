@@ -1,0 +1,42 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Defense-in-depth host firewall, BEHIND the AWS security groups (which are the
+# enforced boundary). OFF by default — see security/defaults/main.yml.
+#
+# CAUTION: k3s/flannel manage their own iptables(-nft) rules. This `inet filter`
+# table is intentionally permissive to intra-VPC and forwarded traffic so it
+# coexists with the cluster dataplane. Test pod/service networking after enabling.
+
+flush ruleset
+
+table inet filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    iif "lo" accept
+    ct state established,related accept
+    ct state invalid drop
+
+    # ICMP / ICMPv6 (PMTUD, diagnostics)
+    ip protocol icmp accept
+    ip6 nexthdr ipv6-icmp accept
+
+    # Admin access from the operator's /32 only (mirrors the SG)
+    ip saddr {{ security_admin_cidr }} tcp dport { 22, 6443 } accept
+
+    # Intra-cluster mesh: trust the VPC CIDR for the k3s HA control plane,
+    # kubelet, NodePorts, and flannel VXLAN (mirrors the self-referencing SG).
+    ip saddr {{ security_vpc_cidr }} tcp dport { 6443, 2379-2380, 10250 } accept
+    ip saddr {{ security_vpc_cidr }} tcp dport 30000-32767 accept
+    ip saddr {{ security_vpc_cidr }} udp dport 8472 accept
+  }
+
+  # Pods rely on forwarding; let k3s/flannel govern it.
+  chain forward {
+    type filter hook forward priority filter; policy accept;
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}

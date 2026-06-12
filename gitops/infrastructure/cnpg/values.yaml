@@ -1,0 +1,18 @@
+# cloudnative-pg operator Helm values (chart 0.28.2 / operator appVersion 1.29.1).
+#
+# The operator image (ghcr.io/cloudnative-pg/cloudnative-pg) is routed through ECR
+# pull-through (brzl-dev-github prefix → ghcr.io upstream). That prefix needs the
+# ghcr Secrets Manager credential wired into 40-ecr (ghcr_credential_arn) — unlike
+# quay.io, ECR requires an authenticated pull-through for ghcr even for public
+# packages. __ECR_REGISTRY_HOST__ is resolved at bootstrap so no account id lands
+# in git (ADR-0013). tag defaults to the chart appVersion.
+image:
+  repository: __ECR_REGISTRY_HOST__/brzl-dev-github/cloudnative-pg/cloudnative-pg
+
+# Single operator replica for the PoC; raise for HA in prod.
+replicaCount: 1
+
+# No PodMonitor: the Prometheus operator (and its CRDs) aren't installed yet.
+# Flip on once a monitoring stack lands.
+monitoring:
+  podMonitorEnabled: false

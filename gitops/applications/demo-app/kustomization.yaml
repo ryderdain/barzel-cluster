@@ -1,0 +1,12 @@
+# Kustomize base for the demo app. The ApplicationSet renders this path and
+# injects `images:` (the real ECR host, from the cluster Secret annotation) at
+# render time — so the account id never lives in these manifests, only the
+# __ECR_REGISTRY_HOST__ sentinel that documents the routing.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+  - secret-projection.yaml
+  - servicemonitor.yaml
+  - dashboard.yaml

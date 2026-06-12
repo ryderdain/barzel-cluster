@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(command -v hadolint)",
+      "Bash(docker run *)",
+      "Bash(kubectl get *)",
+      "Bash(kubectl describe *)",
+      "Bash(kubectl logs *)",
+      "Bash(kubectl auth *)",
+      "Bash(kubectl config *)",
+      "Bash(kubectl top *)",
+      "Bash(shellcheck *)",
+      "Bash(hadolint *)",
+      "Bash(tofu plan *)",
+      "Bash(tofu show *)",
+      "Bash(tofu validate *)",
+      "Bash(tofu state list *)",
+      "Bash(helm list *)",
+      "Bash(helm status *)",
+      "Bash(helm show *)",
+      "Bash(helm get *)",
+      "Bash(aws sts get-caller-identity *)",
+      "Bash(aws ec2 describe-*)",
+      "Bash(aws ssm get-parameter *)",
+      "Bash(aws s3 ls *)"
+    ]
+  }
+}

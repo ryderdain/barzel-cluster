@@ -1,0 +1,74 @@
+---
+# security role — SSH hardening, fail2ban, and an optional (default-off) host
+# firewall aligned with the AWS security groups. ansible.builtin only.
+
+# --- SSH hardening ----------------------------------------------------------
+- name: Harden sshd via a drop-in (key-only, no root login)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-hardening.conf
+    content: |
+      # Managed by Ansible (security role).
+      PermitRootLogin {{ security_ssh_permit_root_login }}
+      PasswordAuthentication {{ security_ssh_password_authentication }}
+      KbdInteractiveAuthentication no
+      X11Forwarding no
+      MaxAuthTries {{ security_ssh_max_auth_tries }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Validate and restart ssh
+
+# --- fail2ban ---------------------------------------------------------------
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+  when: security_install_fail2ban | bool
+
+- name: Configure the fail2ban sshd jail
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.d/sshd.local
+    content: |
+      [sshd]
+      enabled = true
+      backend = systemd
+      maxretry = {{ security_fail2ban_maxretry }}
+      bantime = {{ security_fail2ban_bantime }}
+    owner: root
+    group: root
+    mode: "0644"
+  when: security_install_fail2ban | bool
+  notify: Restart fail2ban
+
+# --- Optional host firewall (default off; SGs are the primary boundary) ------
+- name: Host firewall (nftables, defense-in-depth behind the SGs)
+  when: security_enable_host_firewall | bool
+  block:
+    - name: Refuse to enable the firewall without an admin CIDR
+      ansible.builtin.assert:
+        that:
+          - security_admin_cidr | length > 0
+        fail_msg: >-
+          set security_admin_cidr (your /32) before enabling the host firewall,
+          or you will lock yourself out.
+
+    - name: Install nftables
+      ansible.builtin.apt:
+        name: nftables
+        state: present
+
+    - name: Deploy the nftables ruleset (syntax-checked before install)
+      ansible.builtin.template:
+        src: nftables.conf.j2
+        dest: /etc/nftables.conf
+        owner: root
+        group: root
+        mode: "0644"
+        validate: "nft -c -f %s"
+      notify: Reload nftables
+
+    - name: Enable and start nftables
+      ansible.builtin.systemd:
+        name: nftables
+        enabled: true
+        state: started

@@ -1,0 +1,7 @@
+# Template — copy to backend.hcl (gitignored) and set your real bucket name.
+# Shared partial backend for every dev layer:  tofu init -backend-config=../backend.hcl
+# Values must match what terraform/bootstrap created.
+bucket         = "brzl-demo-tfstate-<account_id>"
+region         = "eu-central-1"
+dynamodb_table = "brzl-demo-tflock"
+encrypt        = true
