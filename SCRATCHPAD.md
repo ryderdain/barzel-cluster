@@ -19,13 +19,15 @@ with the agent's internal cycles, not instead of them.
 ## Current focus
 
 *(2026-06-12)* **Consolidation daemon — build order §7** (spec:
-[CONSOLIDATION_DAEMON.md](CONSOLIDATION_DAEMON.md)). Step 0 scaffold staged:
-the vault is the standalone repo `~/Local/github.com/ryderdain/aroni`
-(NOT in-repo `vault/` as the spec's §7.0 wording assumed — README there records
-the variance). Remaining in step 0: the scratch-worktree + atomic-commit
-write-back confirmation, blocked on aroni's initial commit (worktrees need a
-HEAD). Next: §7.1 ingest adapter; first milestone is §8 (the 13 hiccups
-end-to-end through the gate).
+[CONSOLIDATION_DAEMON.md](CONSOLIDATION_DAEMON.md)). **Step 0 DONE:** vault
+scaffolded at the standalone repo `~/Local/github.com/ryderdain/aroni` (spec
+§7.0 said in-repo `vault/`; variance recorded in the vault README), both repos
+committed + pushed (aroni `c00bc45`, barzel `9807925`), and the
+scratch-worktree + atomic-commit write-back **confirmed live** as
+`consolidation/pass-000` → ff-only land (`04c277e`). Next: **§7.1 ingest
+adapter** (RETROSPECTIVE + notes/PROD_RUN_REPORT → episode records, verify
+`surprise` tagging); first milestone is §8 (the 13 hiccups end-to-end through
+the gate, one logged arbiter verdict).
 
 ## Open considerations
 
