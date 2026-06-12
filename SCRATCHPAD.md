@@ -19,15 +19,17 @@ with the agent's internal cycles, not instead of them.
 ## Current focus
 
 *(2026-06-12)* **Consolidation daemon — build order §7** (spec:
-[CONSOLIDATION_DAEMON.md](CONSOLIDATION_DAEMON.md)). **Step 0 DONE:** vault
-scaffolded at the standalone repo `~/Local/github.com/ryderdain/aroni` (spec
-§7.0 said in-repo `vault/`; variance recorded in the vault README), both repos
-committed + pushed (aroni `c00bc45`, barzel `9807925`), and the
-scratch-worktree + atomic-commit write-back **confirmed live** as
-`consolidation/pass-000` → ff-only land (`04c277e`). Next: **§7.1 ingest
-adapter** (RETROSPECTIVE + notes/PROD_RUN_REPORT → episode records, verify
-`surprise` tagging); first milestone is §8 (the 13 hiccups end-to-end through
-the gate, one logged arbiter verdict).
+[CONSOLIDATION_DAEMON.md](CONSOLIDATION_DAEMON.md)). **§7.0 DONE** (vault =
+standalone `aroni` repo; write-back mechanics proven as pass-000 `04c277e`).
+**§7.1 DONE:** `daemon/ingest_adapter.py` (stdlib-only python — no PyYAML on
+host) normalizes RETROSPECTIVE + the hiccup ledger → `aroni/episodes/`;
+landed as pass-001 (`1ead0ce`): 14 records (13 hiccups, 1 retrospective),
+surprise histogram {0:1, 2:10, 3:3} — masked failures auto-escalate to 3;
+idempotency proven (re-run over landed output = zero diff). Decision recorded:
+episodes live IN the vault so `children:` links resolve as Obsidian links.
+Next: **§7.2 bundler** (cluster episodes → candidate bundles, draft one
+candidate note per bundle), then **§7.3 the SINBAD gate** against the 13
+hiccups as fixtures. Milestone §8 = one gated candidate + one logged verdict.
 
 ## Open considerations
 
