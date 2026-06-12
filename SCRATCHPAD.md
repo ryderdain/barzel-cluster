@@ -18,19 +18,21 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-06-12)* **Consolidation daemon: §8 MILESTONE COMPLETE** — full RETRO
-entry has the record. Open threads, in order:
-- **cand-002 (env-coupling)** drafted, ungated — next gate run (4 children =
-  8 leave-one-out tasks). Sharpen its boundary via the critic.
-- **Bundler noise:** keyword rules pulled the retrospective founding record
-  into `argo_sync_ops`; consider a `source != retrospective` filter for
-  hiccup-pattern bundles, or weight rules by field (claim vs body).
-- **§7.5 write-back checks** not yet automated (link integrity / orphan scan
-  ran by eye this pass) and **§7.6 scheduler** unbuilt — both fine at n=1
-  pass, needed before passes get routine.
-- Rationale discipline: pass-003's accept logged with rationale "(none
-  given)" — fine once, but the §7.7 shadow-arbiter path starves without
-  real rationales; nudge (don't nag) at future verdicts.
+*(2026-06-12)* **Consolidation daemon: §7.5 + §7.6 built; cand-002 gated,
+verdict PENDING.**
+- `vault_check.py` (§7.5): frontmatter/links/supersession/decision checks —
+  clean over the live vault; run it in every pass worktree pre-land.
+- `scheduler.py` (§7.6): consumption derived from active notes' children (no
+  state file). Current queue: doc_drift 10 > argo_sync_ops 8 = env_coupling 8;
+  masked_failure consumed → 0. **doc_drift leads the next drafting cycle.**
+- Bundler noise fixed: failure-pattern rules apply to `source=hiccup` only.
+- **cand-002**: lift +0.25 (baseline 0.44 — h2/h6/h7 near-clones inflate it;
+  the gate's value concentrated in h10 + the discovery-mode claim). Critic
+  LANDED a hit via child h2 (pre-empted = review-time find, contradicting
+  "runtime, serially") → claim narrowed to audited→review / unaudited→runtime.
+  Narrowed form awaits the arbiter. On accept: pass-004 = note + decision
+  record, vault_check in the worktree, ff-only land.
+- Rationale discipline note stands (pass-003 logged "(none given)").
 
 ## Open considerations
 
