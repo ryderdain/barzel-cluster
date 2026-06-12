@@ -84,10 +84,15 @@ def ingest_hiccups(ledger: Path, out_dir: Path) -> list[dict]:
         haystack = f"{symptom} {root_cause}".lower()
         surprise = 3 if any(m in haystack for m in MASKED_MARKERS) else 2
         eid = stable_id("hiccup", f"{num}|{symptom}")
+        # Mapping (user decision 2026-06-12): claim = the ROOT-CAUSE
+        # generalization (the truth the episode established); the fix stays in
+        # the body. expected is left empty — the violated assumption is the
+        # claim's inverse, and inverting it faithfully is judgment, not
+        # adapter mechanics (surprise>0 holds by construction, spec §2a).
         episodes.append(dict(
             eid=eid, ts="2026-06-10", source="hiccup",
-            claim=f"[hiccup {num}, {phase}] {fix}",
-            expected=f"Phase proceeds cleanly; the assumption that broke: {root_cause}",
+            claim=f"[hiccup {num}, {phase}] {root_cause}",
+            expected="",
             actual=symptom,
             surprise=surprise,
             refs=[f"barzel-cluster/notes/PROD_RUN_REPORT.md ledger row {num}", doc_dest],
