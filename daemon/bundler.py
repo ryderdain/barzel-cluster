@@ -22,6 +22,13 @@ from pathlib import Path
 
 # entity -> patterns matched (case-insensitive) against claim + body.
 # Reviewed prose for each rule lives in the candidate notes, not here.
+#
+# These are FAILURE-pattern rules, so they apply to failure-shaped sources
+# only (v1 noise fix: the founding retrospective record keyword-matched into
+# argo_sync_ops via body mentions). Retrospective records join bundles via
+# explicit links, not keyword luck.
+RULE_SOURCES = {"hiccup"}
+
 ENTITY_RULES = {
     "env_coupling": [
         r"dev-hardcod", r"hardcoded the dev", r"dev default", r"dev refs",
@@ -76,6 +83,8 @@ def main() -> int:
 
     bundles: dict[str, list[dict]] = {e: [] for e in ENTITY_RULES}
     for ep in episodes:
+        if ep["source"] not in RULE_SOURCES:
+            continue
         haystack = f"{ep['claim']}\n{ep['text']}".lower()
         for entity, patterns in ENTITY_RULES.items():
             if any(re.search(p, haystack) for p in patterns):
