@@ -41,3 +41,27 @@ take-home, repurposed as its own project. Verified state at founding:
 - The take-home's hiccup ledger (13 entries, with fixes and doc destinations)
   is preserved at `notes/PROD_RUN_REPORT.md`; the delivery-day session log is
   the final entry of `notes/LLM-CONDUCT.md`.
+
+## 2026-06-12 — Consolidation daemon: §8 milestone, first gated admission
+
+The full §7 steps 0–4 loop ran end to end and the user-as-arbiter issued the
+first verdict. Verified state:
+
+- **Vault live** (`aroni`, standalone repo): four passes landed via the
+  scratch-worktree → ff-only mechanism (000 mechanics probe, 001 ingest,
+  002 claim remap, 003 admission), each one atomic commit, pushed.
+- **Ingest (§7.1):** `daemon/ingest_adapter.py` — 14 episode records (13
+  hiccups, 1 retrospective), stable content-hash ids, idempotent (zero diff
+  on re-run); surprise histogram {0:1, 2:10, 3:3}, masked failures
+  auto-escalated. User decision folded in: `claim` = root-cause
+  generalization (pass-002, no id churn).
+- **Bundler (§7.2):** deterministic entity-rule clustering; 4 eligible
+  bundles; known v1 noise (keyword match pulled the retrospective record
+  into `argo_sync_ops`).
+- **Gate (§7.3) + arbiter (§7.4):** cand-001 ("a success signal that does
+  not assert the outcome is not evidence of success", children h5/h9/h12)
+  scored lift +0.33 over 0.25 baseline (ordinal, self-judged per spec
+  caveat), survived falsification after one boundary narrowing, and was
+  **accepted** by the arbiter (bare accept; rationale recorded as none
+  given). Admitted to `aroni/notes/` with provenance; decision in
+  `aroni/decisions/pass-003.md`. cand-002 (env-coupling) drafted, queued.

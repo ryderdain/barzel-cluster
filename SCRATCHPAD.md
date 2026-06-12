@@ -18,18 +18,19 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-06-12)* **Consolidation daemon — build order §7** (spec:
-[CONSOLIDATION_DAEMON.md](CONSOLIDATION_DAEMON.md)). **§7.0 DONE** (vault =
-standalone `aroni` repo; write-back mechanics proven as pass-000 `04c277e`).
-**§7.1 DONE:** `daemon/ingest_adapter.py` (stdlib-only python — no PyYAML on
-host) normalizes RETROSPECTIVE + the hiccup ledger → `aroni/episodes/`;
-landed as pass-001 (`1ead0ce`): 14 records (13 hiccups, 1 retrospective),
-surprise histogram {0:1, 2:10, 3:3} — masked failures auto-escalate to 3;
-idempotency proven (re-run over landed output = zero diff). Decision recorded:
-episodes live IN the vault so `children:` links resolve as Obsidian links.
-Next: **§7.2 bundler** (cluster episodes → candidate bundles, draft one
-candidate note per bundle), then **§7.3 the SINBAD gate** against the 13
-hiccups as fixtures. Milestone §8 = one gated candidate + one logged verdict.
+*(2026-06-12)* **Consolidation daemon: §8 MILESTONE COMPLETE** — full RETRO
+entry has the record. Open threads, in order:
+- **cand-002 (env-coupling)** drafted, ungated — next gate run (4 children =
+  8 leave-one-out tasks). Sharpen its boundary via the critic.
+- **Bundler noise:** keyword rules pulled the retrospective founding record
+  into `argo_sync_ops`; consider a `source != retrospective` filter for
+  hiccup-pattern bundles, or weight rules by field (claim vs body).
+- **§7.5 write-back checks** not yet automated (link integrity / orphan scan
+  ran by eye this pass) and **§7.6 scheduler** unbuilt — both fine at n=1
+  pass, needed before passes get routine.
+- Rationale discipline: pass-003's accept logged with rationale "(none
+  given)" — fine once, but the §7.7 shadow-arbiter path starves without
+  real rationales; nudge (don't nag) at future verdicts.
 
 ## Open considerations
 
