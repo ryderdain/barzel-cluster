@@ -18,28 +18,27 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-06-12, later)* **cand-002 ADMITTED** (pass-004, narrowed form, arbiter
-rationale logged — first real one). Vault: 2 active notes, 7 of 13 hiccups
-consumed. **Next drafting cycle: doc_drift** (4 pending, priority 8 — h1
-digest rows, h3 ssh flags, h4 token shapes, h8 prereqs; likely claim shape:
-"docs drift toward the env that exercised them last; instructions unexercised
-since their last change are stale until proven otherwise"). argo_sync_ops
-fell ineligible (2 pending) — may merge into a future ops-pattern bundle.
+*(2026-06-14, opus)* **aroni method formalized + doc_drift cycle surfaced,
+verdict PENDING.** Refinements taken on board this session (user-directed):
+- **Keyword "aroni"** = the vault + the consolidation method/skill — anchored
+  in CLAUDE.md; the repeated procedure is `daemon/ARONI_METHOD.md`.
+- **Candidates surfaced in-vault**: new `aroni/_candidates/` tray (note +
+  `.gate.md`) so the arbiter reads them in Obsidian, not buried in chat;
+  `aroni/gate_runs/` is the post-admission gate-provenance home. (cand-001/002
+  artifacts stay in `barzel-cluster/daemon/`, historical.)
+- **Rationale optional on face-valid accepts** (required for reject/revise +
+  non-obvious accepts). pass-003's "(none given)" is now legitimate, not a
+  debt; deferring belief-refinement to a later pass IS the method.
 
-*(superseded below — kept this session for context)*
-- `vault_check.py` (§7.5): frontmatter/links/supersession/decision checks —
-  clean over the live vault; run it in every pass worktree pre-land.
-- `scheduler.py` (§7.6): consumption derived from active notes' children (no
-  state file). Current queue: doc_drift 10 > argo_sync_ops 8 = env_coupling 8;
-  masked_failure consumed → 0. **doc_drift leads the next drafting cycle.**
-- Bundler noise fixed: failure-pattern rules apply to `source=hiccup` only.
-- **cand-002**: lift +0.25 (baseline 0.44 — h2/h6/h7 near-clones inflate it;
-  the gate's value concentrated in h10 + the discovery-mode claim). Critic
-  LANDED a hit via child h2 (pre-empted = review-time find, contradicting
-  "runtime, serially") → claim narrowed to audited→review / unaudited→runtime.
-  Narrowed form awaits the arbiter. On accept: pass-004 = note + decision
-  record, vault_check in the worktree, ff-only land.
-- Rationale discipline note stands (pass-003 logged "(none given)").
+**doc_drift cycle — cand-003** staged for review in `aroni/_candidates/`
+(pass-005, `4079eb3`): "docs/procedures are stale-until-exercised." Gate
+landed a hit → **h3 ejected** (missing `IdentitiesOnly` is config
+fix-propagation, not doc staleness); narrowed to h1/h4/h8, lift +0.30.
+Awaiting arbiter verdict → then pass-006 write-back.
+
+**Seeds forward:** (1) h3 + a sibling → a future "fix doesn't propagate across
+parallel surfaces" bundle. (2) cand-001 flagged by the arbiter as
+likely-refinable by a later pass — a supersession candidate, not a defect.
 
 ## Open considerations
 
