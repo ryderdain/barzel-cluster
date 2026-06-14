@@ -29,15 +29,20 @@ vault, `init_project`; recorded in RETROSPECTIVE.)
 - **Doctrine in METHOD:** subordinating generalizations + **failure-driven** narrowing
   + the **seam test** (`d19417a`: "does the fix read both contexts and check they
   agree?" yes=seam/no=source). The seam test is the wire/snip mechanism (Hebbian).
-- **cand-005 "context-seam"** — first **second-order** note (children are notes:
-  cand-001/002/003/004). "A property true in one context breaks on contact with a
-  second; the bug lives in the *relation*, invisible from either side → instrument
-  the seam, don't fortify the source." (i) falsifiable via the seam test ✓; (ii)
-  cand-001 seated ✓; **(iii) OPEN: the second-order instrument.** Explained `lift`
-  in depth. Agent rec: **demote lift to a sanity check at second order**; let the
-  *intersection test* (parent predicts co-firings no child predicts alone —
-  h11=002∩004) + *seam boundary* carry releveling. cand-005 stays candidate until
-  (iii) is set → then re-emit for the admission verdict.
+- **cand-005 "context-seam"** (first second-order note, children cand-001/002/003/004)
+  — **HELD** (pass-013). All three Qs resolved: (i) seam test ✓; (ii) cand-001 seated ✓;
+  (iii) **second-order gate accepted** = (seam-boundary) AND (≥1 *demonstrated*
+  intersection); **lift demoted** to a sanity check. New instrument
+  `tools/intersections.py` finds **zero co-firings** → cand-005's intersections were
+  *asserted, not demonstrated* (h11 even excluded by cand-002's boundary) → FAILS the
+  gate → held, not admitted, pending a real co-firing. The instrument caught my
+  over-reach (working as designed). Seam test stands in METHOD regardless.
+- **Doctrine now in METHOD:** the intersection test (2nd-order gate) + **co-fire
+  re-evaluation** (a shared new child makes subordinates' lift stale → re-gate;
+  direction = wire/narrow/merge, Hebbian — the user's instinct, verified). Generalizing
+  notes track `subordinate_lifts` (baseline for that re-eval).
+- **OPEN:** the co-fire re-gate is arbiter-run today, not automated — `intersections.py`
+  only *detects* the trigger. Candidate for future tooling.
 
 **Seeds forward:** (1) fix-propagation bundle (h3 + a sibling — none in corpus yet);
 (2) on (iii) resolving, the second-order *instrument* likely needs encoding in
