@@ -81,3 +81,27 @@ first verdict. Verified state:
   rationale.
 - Queue after consumption: doc_drift (4 pending, priority 8) is the next
   drafting cycle; argo_sync_ops fell ineligible (2 pending).
+
+## 2026-06-14 — aroni method formalized; doc_drift cycle (first revise verdict)
+
+- **Method formalized** (user-directed, barzel `a92b712`): keyword **aroni**
+  anchored in CLAUDE.md (vault + method); the repeated cycle codified as
+  `daemon/ARONI_METHOD.md`. Two refinements: (1) candidates are surfaced in the
+  vault (`aroni/_candidates/`, note + `.gate.md`) for the arbiter to read in
+  Obsidian, never buried in chat; (2) verdict rationale is required for
+  reject/revise + non-obvious accepts, **optional on a face-valid accept**
+  (deferred refinement is the method, not a debt). New trays `_candidates/` +
+  `gate_runs/` established (pass-005).
+- **cand-003 admitted, REVISED** (pass-006 — first `revise` verdict, first
+  substantive decision-log rationale). Gate ejected h3 (config fix-propagation,
+  not doc rot; seeded forward) → narrowed to h1/h4/h8, lift +0.30. The claim was
+  *face-valid* on rarity/time; the arbiter used the rationale-optional latitude
+  to **sharpen causation** — rot is determined by **drift from
+  last-validated conditions** (substrate + assumed use-context), not rarity (a
+  non-causal correlate). h8 strengthened, h1 held, h4 retained via the
+  context-drift dimension (boundary, confidence 0.65).
+- **Corpus state:** 3 active notes (cand-001/002/003) consume 10 of 13 hiccups.
+  Remaining 3 sit in now-ineligible bundles: h3 (seeded "fix doesn't propagate
+  across parallel surfaces"), h11 + h13 (argo_sync_ops, 2 < the 3-child floor).
+  The 13-hiccup fixture corpus is effectively exhausted; further consolidation
+  awaits new episodes (or a second-order pass over the notes themselves).

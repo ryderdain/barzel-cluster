@@ -30,15 +30,27 @@ verdict PENDING.** Refinements taken on board this session (user-directed):
   non-obvious accepts). pass-003's "(none given)" is now legitimate, not a
   debt; deferring belief-refinement to a later pass IS the method.
 
-**doc_drift cycle — cand-003** staged for review in `aroni/_candidates/`
-(pass-005, `4079eb3`): "docs/procedures are stale-until-exercised." Gate
-landed a hit → **h3 ejected** (missing `IdentitiesOnly` is config
-fix-propagation, not doc staleness); narrowed to h1/h4/h8, lift +0.30.
-Awaiting arbiter verdict → then pass-006 write-back.
+**doc_drift cycle CLOSED** — cand-003 admitted REVISED (pass-006). Arbiter
+revised the causal claim: rot = **drift from last-validated conditions**
+(substrate + assumed use-context), not rarity/time (a non-causal correlate).
+First `revise` verdict + first substantive rationale. h3 ejected at gate
+(fix-propagation, seeded); h4 retained as the context-drift boundary child.
 
-**Seeds forward:** (1) h3 + a sibling → a future "fix doesn't propagate across
-parallel surfaces" bundle. (2) cand-001 flagged by the arbiter as
-likely-refinable by a later pass — a supersession candidate, not a defect.
+**Corpus exhausted at the bundle level.** 3 active notes consume 10/13 hiccups;
+remaining 3 (h3; h11+h13) sit in sub-floor bundles. No eligible bundle pending
+— the daemon is *between cycles* until new episodes arrive.
+
+**Seeds forward (when episodes/appetite return):**
+1. **fix-propagation** bundle — h3 + a sibling ("a fix to one surface doesn't
+   propagate to parallel surfaces"). Needs a second episode; none in corpus yet.
+2. **cand-001 refinement** — arbiter flagged it likely-refinable; supersession
+   candidate, not a defect.
+3. **cand-003 refinement** — quantify "validated conditions"; possibly split
+   substrate-drift vs context-drift (h4 is the lone context case).
+4. **second-order pass** — cand-001/002/003 share a root (single-context dev
+   hides assumptions until contact with a second context/execution). Once more
+   first-order notes exist, a pass could consolidate the *notes* themselves
+   (children may be notes, not only episodes — spec §2b allows it).
 
 ## Open considerations
 
