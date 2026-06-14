@@ -583,3 +583,18 @@ overridden, what was done by hand).
 - **Not yet verified:** offline-validated only; awaits a live `platform.sh operator`
   / `restore` run before it graduates to RETROSPECTIVE. Guardrails held — no billable
   or cluster-mutating commands run.
+- **Pivot to item 3 (env realignment) — pass 1 + a methodology correction.** Audit
+  showed the prod ApplicationSet's `imageParams` already swap `brzl-dev-*`→`brzl-prod-*`,
+  so the `brzl-dev-*` in shared `infrastructure/*/values.yaml` is a dead (overridden)
+  GitOps sentinel — but a LIVE latent bug for the two STANDALONE consumers that read
+  those files directly: `install_ebs_csi.sh` and `render_recovery_manifest.sh` would
+  pull prod DR images from the dev cache repos. Fixed: install_ebs_csi swaps the k8s
+  prefix per `$NAME_PREFIX`; cluster-recovery.yaml + its renderer gained a third
+  sentinel `__PULLTHROUGH_PREFIX__`. GitOps values left pristine. Offline-verified
+  (prod + dev renders).
+- **Human correction, integrated:** "env-DRY" must NOT collapse dev/prod — the parallel
+  same-root trees ARE the dev→staging→prod promotion gate (prove pre-prod before the
+  reputation-exposed prod). Recalibrated BACKLOG item 3 around *intentional separation
+  (keep) vs accidental coupling/drift (fix)*; DRY lives in shared modules/templates,
+  not in merging instances. Saved as a cross-session memory + flagged as an aroni
+  cand-002 (env-coupling) refinement.

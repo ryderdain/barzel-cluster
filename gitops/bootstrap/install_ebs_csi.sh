@@ -46,6 +46,12 @@ source "${repo_root}/gitops/tools/lib/runlib.sh"
 
 ebs_csi_chart_version="${EBS_CSI_CHART_VERSION:-2.37.0}"
 namespace="${EBS_CSI_NAMESPACE:-kube-system}"
+# Env pull-through prefix (brzl-dev | brzl-prod). The committed ebs-csi values carry
+# the `brzl-dev-k8s` literal as the GitOps base; the ApplicationSet's imageParams
+# OVERRIDE it per-env at render (brzl-prod-k8s for prod). This standalone install
+# reads the values file directly with no such override, so it must do the env swap
+# ITSELF — otherwise a prod DR drill pulls the CSI sidecars from the dev cache repo.
+name_prefix="${NAME_PREFIX:-brzl-dev}"
 
 emit_install_ebs_csi() {
   require_tools aws helm kubectl || end_function "$?" 'need aws + helm + kubectl on PATH'
@@ -73,7 +79,8 @@ emit_install_ebs_csi() {
   # secret (bootstrap_argocd.sh likewise emits it verbatim via --set).
   printf '%s\n' "\
 rendered_values=\"\$(mktemp -t brzl-ebs-csi-values.XXXXXX.yaml)\" && \\
-sed 's|__ECR_REGISTRY_HOST__|${registry}|g' ${values_file} > \"\$rendered_values\" && \\
+sed -e 's|__ECR_REGISTRY_HOST__|${registry}|g' -e 's|brzl-dev-k8s|${name_prefix}-k8s|g' \\
+  ${values_file} > \"\$rendered_values\" && \\
 helm repo add aws-ebs-csi-driver https://kubernetes-sigs.github.io/aws-ebs-csi-driver && \\
 helm repo update aws-ebs-csi-driver && \\
 helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver \\
@@ -92,7 +99,8 @@ kubectl patch storageclass local-path \\
 
   printf '\n--- NOTE ---------------------------------------------------------------\n' >&2
   printf 'Standalone EBS CSI + gp3 install (DR path; GUIDANCE §2.6). CSI sidecars\n' >&2
-  printf 'pull through %s; the gp3 StorageClass is set default. Verify after run:\n' "$registry" >&2
+  printf 'pull through %s/%s-k8s; the gp3 StorageClass is set default. Verify after run:\n' \
+    "$registry" "$name_prefix" >&2
   printf '  kubectl -n %s get pods -l app.kubernetes.io/name=aws-ebs-csi-driver\n' "$namespace" >&2
   printf '  kubectl get storageclass   # gp3 (default), local-path (no longer default)\n' >&2
   printf -- '----------------------------------------------------------------------\n' >&2

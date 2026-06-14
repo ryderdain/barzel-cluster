@@ -28,6 +28,10 @@ region="${AWS_REGION:-eu-central-1}"
 manifest="${RECOVERY_MANIFEST:-${script_dir}/cluster-recovery.yaml}"
 ecr_host_param="${ECR_HOST_PARAM:-/brzl-dev/ecr/registry_host}"
 backup_bucket_param="${BACKUP_BUCKET_PARAM:-/brzl-dev/backup/bucket_name}"
+# Env pull-through prefix for __PULLTHROUGH_PREFIX__ (brzl-dev | brzl-prod). platform.sh
+# exports NAME_PREFIX per ENV; standalone defaults to dev. This is what keeps a PROD DR
+# drill from pulling the postgres image through the dev (-github) cache repo.
+name_prefix="${NAME_PREFIX:-brzl-dev}"
 
 # _ssm <param-name> — read-only single-parameter fetch; prints the value or empty.
 _ssm() {
@@ -59,7 +63,8 @@ render_recovery_manifest() {
     return 1
   fi
 
-  printf 'resolved  : ECR host=%s  backup bucket=%s\n' "$host" "$bucket" >&2
+  printf 'resolved  : ECR host=%s  backup bucket=%s  pull-through prefix=%s\n' \
+    "$host" "$bucket" "$name_prefix" >&2
 
   # Substitute both sentinels. Bashism-first (no sed): read the manifest and replace
   # via parameter expansion on the whole-file string. Sentinels are unique tokens.
@@ -67,6 +72,7 @@ render_recovery_manifest() {
   body="$(<"$manifest")"
   body="${body//__ECR_REGISTRY_HOST__/$host}"
   body="${body//__BACKUP_BUCKET__/$bucket}"
+  body="${body//__PULLTHROUGH_PREFIX__/$name_prefix}"
   printf '%s\n' "$body"
   end_function 0 'rendered cluster-recovery manifest to stdout'
 }

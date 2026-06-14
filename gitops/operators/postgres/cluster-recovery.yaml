@@ -6,12 +6,21 @@
 # Why a separate file applied by hand (not the GitOps render): CNPG recovery is a
 # bootstrap-time, one-time operation, and the source `externalClusters` destinationPath
 # is account-bearing — but the ApplicationSet render only patches /spec/imageName and
-# /spec/backup/.../destinationPath, not externalClusters. So the drill resolves BOTH
-# sentinels at apply (same pattern as bootstrap), before ArgoCD manages the postgres app:
-#
-#   host="$(aws ssm get-parameter --name /brzl-dev/ecr/registry_host --query Parameter.Value --output text)"
-#   bucket="$(aws ssm get-parameter --name /brzl-dev/backup/bucket_name --query Parameter.Value --output text)"
+# /spec/backup/.../destinationPath, not externalClusters. So the drill resolves the
+# sentinels at apply (same pattern as bootstrap), before ArgoCD manages the postgres app.
+# Three sentinels, all env/account-bearing — DON'T hardcode dev (a prod DR drill must
+# pull from the prod pull-through repos):
+#   __ECR_REGISTRY_HOST__   — this account's ECR host (SSM /<prefix>/ecr/registry_host)
+#   __BACKUP_BUCKET__       — the CNPG backup bucket (SSM /<prefix>/backup/bucket_name)
+#   __PULLTHROUGH_PREFIX__  — the env pull-through prefix (brzl-dev | brzl-prod), so the
+#                             postgres image routes through THIS env's -github cache repo
+# The canonical, env-aware path is the renderer (it derives all three; no dev default
+# leaks): `ENV=<env> bash gitops/operators/postgres/render_recovery_manifest.sh | kubectl apply -f -`.
+# Manual equivalent (note the third substitution — easy to forget by hand):
+#   host="$(aws ssm get-parameter --name /brzl-prod/ecr/registry_host --query Parameter.Value --output text)"
+#   bucket="$(aws ssm get-parameter --name /brzl-prod/backup/bucket_name --query Parameter.Value --output text)"
 #   sed -e "s|__ECR_REGISTRY_HOST__|$host|g" -e "s|__BACKUP_BUCKET__|$bucket|g" \
+#       -e "s|__PULLTHROUGH_PREFIX__|brzl-prod|g" \
 #       gitops/operators/postgres/cluster-recovery.yaml | kubectl apply -f -
 #
 # Non-destructive + repeatable: it RECOVERS from serverName `pg` (the originals) but
@@ -26,7 +35,7 @@ metadata:
   namespace: cnpg-demo
 spec:
   instances: 3 # set 1 for a faster drill; 3 mirrors prod (primary + 2 standbys)
-  imageName: __ECR_REGISTRY_HOST__/brzl-dev-github/cloudnative-pg/postgresql:17.2
+  imageName: __ECR_REGISTRY_HOST__/__PULLTHROUGH_PREFIX__-github/cloudnative-pg/postgresql:17.2
 
   storage:
     storageClass: gp3
