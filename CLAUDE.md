@@ -29,10 +29,13 @@ verified, immutable).
 
 **"aroni"** names both the semantic-memory vault
 (`~/Local/github.com/ryderdain/aroni`) **and** the method/skill that populates
-it. When the user invokes "aroni" at a meta level, engage that machinery:
-- spec + invariants → `daemon/CONSOLIDATION_DAEMON.md`
-- the repeated procedure → **`daemon/ARONI_METHOD.md`** (run this each cycle)
-- tooling → `daemon/*.py` (ingest / bundler / scheduler / vault_check)
+it. The vault is **self-contained and shared** — barzel is just one episode
+source (its `RETROSPECTIVE.md`). When the user invokes "aroni" at a meta level,
+engage that machinery (it lives in the vault repo):
+- spec + invariants → `../aroni/SPEC.md`
+- the repeated procedure → **`../aroni/METHOD.md`** (run this each cycle)
+- tooling → `../aroni/tools/` (ingest / bundler / scheduler / vault_check / init_project)
+- onboarding another repo/domain → `../aroni/ADOPTING.md`
 
 Two standing rules the method turns on:
 1. **Surface candidates in the vault, never in chat alone.** A drafted+gated
