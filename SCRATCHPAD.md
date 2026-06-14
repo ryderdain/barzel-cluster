@@ -78,6 +78,36 @@ intersection the intersection-test wants — possibly the event that admits
 **cand-005 (context-seam)**. Episode lives here until the work is verified + lands
 in RETROSPECTIVE; the aroni session can ingest from there.
 
+## Refactor item 3 — env realignment, REFRAMED + pass 1 LANDED, 2026-06-14 (opus)
+
+**Reframing (user):** env-DRY does NOT mean collapsing dev/prod. Parallel
+same-root-structure trees are the *point* of dev→staging→prod — prove pre-prod
+before the reputation-exposed prod; collapsing them kills the promotion gate.
+Target = **fix accidental coupling/drift in shared code**, **keep intentional,
+independently-promotable per-env separation**. DRY lives in shared
+modules/templates (define once, instantiate per-env), not in merging instances.
+(Full statement in BACKLOG item 3.)
+
+**Pass 1 (de-pin the standalone/DR path) — offline-validated:** the prod
+ApplicationSet's `imageParams` already swap `brzl-dev-*`→`brzl-prod-*` per env, so
+the `brzl-dev-*` in shared `gitops/infrastructure/*/values.yaml` is a dead GitOps
+sentinel (overridden) — NOT a live bug there. It WAS a live latent bug for the two
+**standalone** consumers that read the committed files directly (no imageParams):
+- `install_ebs_csi.sh` (pass-1 new) now sed-swaps `brzl-dev-k8s`→`${NAME_PREFIX}-k8s`.
+- `render_recovery_manifest.sh` + `cluster-recovery.yaml` now carry a third sentinel
+  `__PULLTHROUGH_PREFIX__` (→ `$NAME_PREFIX`), so a PROD DR drill pulls the postgres
+  image from `brzl-prod-github`, not dev. Verified both prod + dev-default renders.
+GitOps `values.yaml` files left **pristine** (avoid GitOps churn under deferred
+validation; they're correctly overridden). This is exactly the *right* kind of
+env-DRY: make shared code env-agnostic so the SAME code is correct in any env —
+which *supports* the promotion model, doesn't collapse it.
+
+**Next item-3 candidates (need design, not blind de-dup):** the ApplicationSet
+divergence — reduce the hand-maintained dev/prod surface (template+overlay or
+param) WITHOUT losing independent promotion (relates ADR-0019 root-app). Terraform
+env layers already DRY via `terraform/modules/*`; the per-env `.tf` is thin
+instantiation (the deliberate separation) — audit for *accidental* drift only.
+
 ## Open considerations
 
 - First bring-up under the `brzl-*` names is unexercised: watch for any

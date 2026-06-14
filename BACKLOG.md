@@ -41,9 +41,22 @@ Open threads:
 2. **Polish `notes/GUIDANCE.md` itself** — as much for the user as for the
    agent.
 3. **Environment realignment.** Simplify and consolidate the operational
-   paths: bootstrapping on local, dev, and prod; bring dev and prod together
-   DRY (today they are ~90% duplicated trees — the ApplicationSet divergence
-   bug of 2026-06-10 is the standing argument).
+   paths: bootstrapping on local, dev, and prod.
+   **Reframed (user, 2026-06-14):** the goal is NOT to collapse dev and prod into
+   one definition — the parallel same-root-structure trees are *the point* of a
+   dev→staging→prod split: you prove the pre-production model + code in dev before
+   applying it to the reputation-exposed prod. Over-DRYing them away destroys that
+   promotion gate. So the real target is the distinction:
+   - **Intentional separation — KEEP:** each env is its own independently-promotable
+     instance (own state/tfvars, own ApplicationSet apply), so a change lands in dev,
+     is validated, then promoted to prod. Real per-env differences (prod private
+     nodes + NLB/NodePort, instance sizes, conductor is dev-only) stay explicit.
+   - **Accidental coupling/drift — FIX:** shared code that hardcodes one env (the
+     `brzl-dev-*` leaks into env-agnostic scripts), and hand-maintained near-duplicate
+     files that silently DRIFT (the 2026-06-10 ApplicationSet divergence *bug*). DRY
+     belongs in shared **modules/templates** (define once, instantiate per-env), not
+     in merging the instances. The divergence bug argues for reducing the
+     hand-maintained surface, NOT for one-file-for-both.
 4. **Multi-account CI design.** Expand the brzl demo model to showcase
    local-dev → infra-test → full-with-app-staging → full-prod across accounts
    — the piece the take-home never reached; have it ready to deliver for a
