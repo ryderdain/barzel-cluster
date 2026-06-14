@@ -25,6 +25,23 @@ compaction.**
 Lifecycle: BACKLOG (planned) → SCRATCHPAD (in flight) → RETROSPECTIVE (done,
 verified, immutable).
 
+## aroni — the consolidation method (meta-keyword)
+
+**"aroni"** names both the semantic-memory vault
+(`~/Local/github.com/ryderdain/aroni`) **and** the method/skill that populates
+it. When the user invokes "aroni" at a meta level, engage that machinery:
+- spec + invariants → `daemon/CONSOLIDATION_DAEMON.md`
+- the repeated procedure → **`daemon/ARONI_METHOD.md`** (run this each cycle)
+- tooling → `daemon/*.py` (ingest / bundler / scheduler / vault_check)
+
+Two standing rules the method turns on:
+1. **Surface candidates in the vault, never in chat alone.** A drafted+gated
+   candidate is staged in `aroni/_candidates/` (note + `.gate.md`) so the
+   arbiter reads it in Obsidian before ruling.
+2. **Rationale is conditional.** Required on reject/revise and non-obvious
+   accepts; **optional on a face-valid accept** — a later pass refines the
+   belief, and that deferral is the method working, not a gap.
+
 ## What this repo is
 A GitOps-driven infrastructure platform for a Lead Infrastructure Engineer take-home (a confidential-computing vendor): Terraform provisions AWS infra, Ansible bootstraps k3s, ArgoCD syncs the cluster, CloudNativePG manages a stateful Postgres, and a demo REST app reads/writes it. Deliverable is a reproducible repo + docs + leadership answers.
 
