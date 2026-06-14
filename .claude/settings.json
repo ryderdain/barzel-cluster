@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '=== aroni: live state (SCRATCHPAD current focus) ==='; awk '/^## Current focus/,/^## Open considerations/' SCRATCHPAD.md 2>/dev/null | head -40; echo '--- aroni vault, last passes ---'; git -C ../aroni log --oneline -3 2>/dev/null || echo '(aroni vault not found at ../aroni — see CLAUDE.md aroni anchor)'"
+            "command": "echo '=== aroni: live state (SCRATCHPAD current focus) ==='; awk '/^## Current focus/,/^## Open considerations/' SCRATCHPAD.md 2>/dev/null | head -40; echo '--- aroni vault, last passes ---'; git -C ../aroni log --oneline -3 2>/dev/null || echo '(aroni vault not found at ../aroni - see CLAUDE.md aroni anchor)'"
           }
         ]
       }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'aroni reminder: before this window is summarized, flush live working state into SCRATCHPAD.md (## Current focus) so the next context rehydrates faithfully — the summary is not guaranteed to preserve it.'"
+            "command": "echo 'aroni reminder: before this window is summarized, flush live working state into SCRATCHPAD.md (## Current focus) so the next context rehydrates faithfully; the summary is not guaranteed to preserve it.'"
           }
         ]
       }

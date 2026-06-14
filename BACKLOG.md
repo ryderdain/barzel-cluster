@@ -5,13 +5,21 @@ land here when decided, move to [SCRATCHPAD.md](SCRATCHPAD.md) while being
 worked, and produce a [RETROSPECTIVE.md](RETROSPECTIVE.md) entry when done and
 user-verified.
 
-## Active
+## Active — aroni (consolidation daemon)
 
-- **Consolidation daemon** (spec: [CONSOLIDATION_DAEMON.md](CONSOLIDATION_DAEMON.md),
-  2026-06-12) — semantic vault tier (`~/Local/github.com/ryderdain/aroni`) +
-  SINBAD-gated promotion from episodic records, human-arbitrated. Build order
-  §7; first milestone §8 (the 13 hiccups through the gate, one logged verdict).
-  Step 0 scaffold staged 2026-06-12.
+**Operational.** Self-contained shared vault at `~/Local/github.com/ryderdain/aroni`
+(spec/method/tools/notes all there; barzel is just an episode source). 3 admitted
+notes from the 13-hiccup corpus; survival hooks wired; portable to other repos/domains
+(`aroni/ADOPTING.md`, `tools/init_project.py`). Open threads:
+
+- **aroni `lift` is not calibrated across models/sessions** (ordinal, judge-relative).
+  A future "re-gate with one judge" pass would be needed before any cross-pass score
+  comparison. Tabled 2026-06-14 per user. (Documented in `aroni/ADOPTING.md`.)
+- Corpus exhausted at the bundle level (3 notes consume 10/13 hiccups; h3/h11/h13 in
+  sub-floor bundles). Next consolidation awaits new episodes or a **second-order pass**
+  over the notes themselves (cand-001/002/003 share a root).
+- Seeds: fix-propagation bundle (h3 + a sibling); cand-001 + cand-003 refinement
+  (supersession candidates flagged by the arbiter).
 
 ## Planned (user, 2026-06-10 — in intended order)
 

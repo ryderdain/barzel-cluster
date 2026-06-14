@@ -105,3 +105,30 @@ first verdict. Verified state:
   across parallel surfaces"), h11 + h13 (argo_sync_ops, 2 < the 3-child floor).
   The 13-hiccup fixture corpus is effectively exhausted; further consolidation
   awaits new episodes (or a second-order pass over the notes themselves).
+
+## 2026-06-14 (later) — aroni made durable across sessions + portable across projects
+
+- **Survival hooks** (user-directed): barzel `.claude/settings.json` gained a
+  SessionStart hook that injects the SCRATCHPAD current-focus + the vault's last
+  passes into every session (so state survives compaction and prose-compliance
+  decay), and a PreCompact flush nudge. The store always survived (git); this
+  makes the *practice* survive — and surfaces state to the human, whose cheap
+  re-invocation is the real durability, not agent diligence.
+- **aroni is now self-contained + shared.** The `daemon/` (tools + specs) moved
+  out of barzel into the aroni repo (`tools/`, `SPEC.md`, `METHOD.md`); barzel is
+  demoted to one *episode source*. One vault shared across all projects (universal
+  beliefs transfer; per-project vaults rejected). Notes carry `scope:`
+  (universal | project:<name>). Historical cand-001/002 gate runs + drafts folded
+  into `aroni/gate_runs/` (pass-007), note provenance repointed in-vault.
+- **Portability is one idempotent command.** `aroni/tools/init_project.py <repo>`
+  installs the hooks (how they *travel*), scaffolds RETROSPECTIVE/SCRATCHPAD/BACKLOG,
+  and emits the CLAUDE.md anchor; `aroni/ADOPTING.md` covers other repos *and* other
+  domains (the method is domain-agnostic; only ingest is domain-coupled). ingest is
+  now source-path explicit (retro-only path works for non-infra domains). A signature
+  bug (PreCompact duplicated on re-run) was caught by dogfooding and fixed; hook
+  strings are ASCII so machine-written settings.json is byte-stable.
+- **Tabled** (BACKLOG): aroni `lift` is ordinal + judge-relative — not comparable
+  across passes by different models without a single-judge re-gate.
+- Commits: barzel `a92b712`→hooks/anchor; aroni `17e67a0` (self-contained move),
+  `892aba4` (pass-007 provenance + scope). Consolidation state otherwise unchanged
+  (3 notes, corpus bundle-exhausted).

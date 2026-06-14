@@ -18,39 +18,33 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-06-14, opus)* **aroni method formalized + doc_drift cycle surfaced,
-verdict PENDING.** Refinements taken on board this session (user-directed):
-- **Keyword "aroni"** = the vault + the consolidation method/skill — anchored
-  in CLAUDE.md; the repeated procedure is `daemon/ARONI_METHOD.md`.
-- **Candidates surfaced in-vault**: new `aroni/_candidates/` tray (note +
-  `.gate.md`) so the arbiter reads them in Obsidian, not buried in chat;
-  `aroni/gate_runs/` is the post-admission gate-provenance home. (cand-001/002
-  artifacts stay in `barzel-cluster/daemon/`, historical.)
-- **Rationale optional on face-valid accepts** (required for reject/revise +
-  non-obvious accepts). pass-003's "(none given)" is now legitimate, not a
-  debt; deferring belief-refinement to a later pass IS the method.
+*(2026-06-14, opus)* **aroni made durable + portable; between consolidation cycles.**
+This session's structural work (all landed + pushed):
+- **Survival hooks** in barzel `.claude/settings.json` — SessionStart injects the
+  scratchpad focus + last vault passes every session (compaction-proof, prose-decay-
+  proof); PreCompact nudges a flush. The hook surfaces state to the *human* too —
+  cheap re-invocation is what makes aroni survive, not my unprompted diligence.
+- **aroni is now self-contained + shared**: `daemon/` moved out of barzel into the
+  aroni repo (`tools/`, `SPEC.md`, `METHOD.md`). barzel is just an episode source.
+  One shared vault across all projects (universal beliefs transfer); notes carry a
+  `scope:` field. ingest is source-path explicit (portable; retro-only works for
+  non-infra domains).
+- **Adoption is one idempotent command**: `aroni/tools/init_project.py <repo>` installs
+  the hooks (this is how they *travel*), scaffolds memory files, emits the CLAUDE.md
+  anchor. Guide: `aroni/ADOPTING.md`. (A signature bug duplicated PreCompact on first
+  run — caught by dogfooding, fixed; hooks are ASCII so machine-written JSON is byte-stable.)
 
-**doc_drift cycle CLOSED** — cand-003 admitted REVISED (pass-006). Arbiter
-revised the causal claim: rot = **drift from last-validated conditions**
-(substrate + assumed use-context), not rarity/time (a non-causal correlate).
-First `revise` verdict + first substantive rationale. h3 ejected at gate
-(fix-propagation, seeded); h4 retained as the context-drift boundary child.
+**Consolidation state unchanged this session:** 3 admitted notes (cand-001/002/003)
+consume 10/13 hiccups; corpus exhausted at the bundle level (h3/h11/h13 sub-floor).
+Between cycles until new episodes arrive. NB: barzel `RETROSPECTIVE.md` has grown to
+4 entries — the next ingest will surface 3 new surprise-0 episodes.
 
-**Corpus exhausted at the bundle level.** 3 active notes consume 10/13 hiccups;
-remaining 3 (h3; h11+h13) sit in sub-floor bundles. No eligible bundle pending
-— the daemon is *between cycles* until new episodes arrive.
-
-**Seeds forward (when episodes/appetite return):**
-1. **fix-propagation** bundle — h3 + a sibling ("a fix to one surface doesn't
-   propagate to parallel surfaces"). Needs a second episode; none in corpus yet.
-2. **cand-001 refinement** — arbiter flagged it likely-refinable; supersession
-   candidate, not a defect.
-3. **cand-003 refinement** — quantify "validated conditions"; possibly split
-   substrate-drift vs context-drift (h4 is the lone context case).
-4. **second-order pass** — cand-001/002/003 share a root (single-context dev
-   hides assumptions until contact with a second context/execution). Once more
-   first-order notes exist, a pass could consolidate the *notes* themselves
-   (children may be notes, not only episodes — spec §2b allows it).
+**Seeds forward:** (1) fix-propagation bundle (h3 + a sibling — none in corpus yet);
+(2) cand-001 + cand-003 refinement (arbiter-flagged supersession candidates);
+(3) second-order pass over the notes themselves once more first-order notes exist
+(cand-001/002/003 share a root: single-context dev hides assumptions until contact).
+**Tabled (BACKLOG):** aroni `lift` is judge-relative — not comparable across passes
+by different models without a one-judge re-gate.
 
 ## Open considerations
 
