@@ -48,11 +48,43 @@ should assist: as you hit decisions/failures, they become episodes (log them in
 RETROSPECTIVE / a build ledger) → consolidation. Expect the refactor to *generate*
 the corpus that grows aroni — the flywheel.
 
+## Refactor item 1 — pass 1 LANDED (pending live verify), 2026-06-14 (opus)
+
+The "fix carried bugs first" entry to the automation overhaul. Four changes, all
+offline-validated (bash -n + shellcheck clean; `_run_phases` resume hint tested in
+BOTH direct-run and sourced modes incl. the `if ! cmd; rc=$?` negation-capture bug,
+now fixed):
+
+1. **`operator()` no longer lies.** New `gitops/bootstrap/install_ebs_csi.sh`
+   (emit-style, sourceable) renders the SAME committed `ebs-csi/values.yaml` the
+   ApplicationSet wave 0 uses → the standalone DR path can't drift from GitOps.
+   `operator()` previews→confirms→pipes it, then asserts the `gp3` class exists.
+2. **`preflight()` backend guard** — warns if any layer lacks `backend "s3"`
+   (missing = silent LOCAL state).
+3. **`_run_phases`** — on any phase failure prints the stopped phase + exact resume
+   command + phases not reached. Dual-mode (EXIT trap direct / return-catch sourced).
+4. **`generate-inventory.sh` → `generate_inventory.sh`** (snake_case); live callers
+   updated, `notes/` history untouched.
+
+**Not yet RETROSPECTIVE** — needs a live `platform.sh restore` (or at least
+`operator`) run to user-verify before it graduates (RETROSPECTIVE = verified+immutable).
+
+### aroni hook for the parallel session — a real CO-FIRING to ingest
+The `operator()` bug is a genuine co-firing of **cand-001 (masked-failure)** ×
+**cand-003 (doc-rot)**: an honest-looking comment + a hedge `end_function` message
+*claimed* a storage install the body never did, masking a DR failure (PVCs hang
+Pending) that only fires in the recover path. This is the kind of demonstrated
+intersection the intersection-test wants — possibly the event that admits
+**cand-005 (context-seam)**. Episode lives here until the work is verified + lands
+in RETROSPECTIVE; the aroni session can ingest from there.
+
 ## Open considerations
 
 - First bring-up under the `brzl-*` names is unexercised: watch for any
   stragglers the rename sweep couldn't reach (live-account values were all
   retired, but conventions baked into helper scripts deserve a first-run eye).
+- **Env-coupling found (item 3):** `ebs-csi/values.yaml` hardcodes `brzl-dev-k8s`;
+  prod consumes it too. Recovery path is dev-pinned end-to-end. Park for item 3.
 
 ## Session notes
 

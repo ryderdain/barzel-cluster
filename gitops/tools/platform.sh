@@ -178,6 +178,23 @@ preflight() {
   else
     printf 'WARN: %s missing — cp backend.hcl.example backend.hcl and set the real bucket\n' "${env_dir}/backend.hcl" >&2
   fi
+
+  # Backend-block guard: a layer missing its `backend "s3"` block silently applies
+  # to LOCAL state (and a later run then can't find what it created). Assert every
+  # layer present declares one — cheap insurance against a dropped backend.tf, so
+  # correctness never rests on the operator noticing (GUIDANCE §1.7, generalized).
+  local -a all_layers=(00-conductor 10-network 15-kms 20-security 30-iam 40-ecr 50-compute)
+  local l missing_backend=0
+  for l in "${all_layers[@]}"; do
+    [[ -d "${env_dir}/${l}" ]] || continue
+    if ! grep -rqs 'backend "s3"' "${env_dir}/${l}"; then
+      # shellcheck disable=SC2016  # backticks are literal display text, not a subshell
+      printf 'WARN: layer %s has NO `backend "s3"` block — tofu would use LOCAL state\n' "$l" >&2
+      missing_backend=1
+    fi
+  done
+  [[ "$missing_backend" == 0 ]] && printf 'backends  : all layers declare backend "s3" ✓\n' >&2
+
   end_function 0 'pre-flight complete (review the WARNs above)'
 }
 
@@ -316,7 +333,7 @@ images() {
 cluster() {
   require_tools ansible-playbook kubectl || end_function "$?" 'need ansible + kubectl'
   printf 'rendering inventory from %s 50-compute outputs...\n' "$env_name" >&2
-  ( cd "$ansible_dir" && bash inventory/generate-inventory.sh \
+  ( cd "$ansible_dir" && bash inventory/generate_inventory.sh \
       "${repo_root}/terraform/environments/${env_name}/50-compute" > "inventory/${env_name}.yml" ) \
     || { end_function 1 'inventory generation failed'; return 1; }
   printf 'inventory : %s\n' "${ansible_dir}/inventory/${env_name}.yml" >&2
@@ -435,12 +452,32 @@ roundtrip() {
   end_function 0 'bring-up checks printed (CNPG + ESO + demo-app)'
 }
 
-# ---- Phase: operator (standalone CNPG + storage, recover-before-GitOps) -------
-# The DR path bypasses the wave-0 GitOps storage app, so it installs EBS CSI + gp3
-# itself (a standalone path inherits GitOps's setup responsibilities — GUIDANCE §2.6).
+# ---- Phase: operator (standalone EBS CSI + gp3, then CNPG; recover-before-GitOps)
+# The DR path bypasses the wave-0 GitOps storage app, so this phase installs EBS CSI
+# + the default gp3 StorageClass ITSELF, BEFORE the operator — without a default
+# StorageClass the recovered CNPG cluster's gp3 PVCs hang Pending (a standalone path
+# inherits GitOps's setup responsibilities — GUIDANCE §2.6, the A2 lesson). The
+# install is the SAME chart/version/values the ApplicationSet wave 0 uses, via
+# gitops/bootstrap/install_ebs_csi.sh (so the two paths can't drift).
 operator() {
-  require_tools helm kubectl || end_function "$?" 'need helm + kubectl'
+  require_tools helm kubectl aws || end_function "$?" 'need helm + kubectl + aws'
   _kube_ready || { end_function 1 'kube API unreachable (tunnel failed)'; return 1; }
+
+  # 1) EBS CSI driver + default gp3 StorageClass — the wave-0 prereq, standalone.
+  # shellcheck disable=SC1091
+  source "${repo_root}/gitops/bootstrap/install_ebs_csi.sh"   # defines emit_install_ebs_csi
+  printf -- '--- preview: EBS CSI + gp3 standalone install ---\n' >&2
+  emit_install_ebs_csi >/dev/null || { end_function 1 'ebs-csi emit failed'; return 1; }
+  if _confirm "install EBS CSI driver + default gp3 StorageClass (the DR storage prereq)?"; then
+    set -o pipefail
+    emit_install_ebs_csi | bash || { end_function 1 'ebs-csi install failed'; return 1; }
+    # The emitted stream ends in a tolerant `|| true` (local-path patch); assert the
+    # OUTCOME that recover() actually depends on rather than trusting the pipe's rc.
+    kubectl get storageclass gp3 >/dev/null 2>&1 \
+      || { end_function 1 'gp3 StorageClass absent after install — see output above'; return 1; }
+  fi
+
+  # 2) Standalone CNPG operator — the recovery cluster's controller.
   if _confirm "helm-install the standalone CNPG operator (ns cnpg-system)?"; then
     helm repo add cnpg https://cloudnative-pg.github.io/charts >/dev/null 2>&1
     helm repo update cnpg >/dev/null 2>&1
@@ -451,7 +488,7 @@ operator() {
       || { end_function 1 'cnpg operator not Available'; return 1; }
     kubectl create namespace "$cnpg_ns" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
   fi
-  end_function 0 'CNPG operator ready (install EBS CSI + gp3 before recover if not present)'
+  end_function 0 'storage (gp3) + CNPG operator ready for recover'
 }
 
 # ---- Phase: recover (render manifest + apply + wait) -------------------------
@@ -527,6 +564,44 @@ teardown() {
 }
 
 # ---- Happy paths -------------------------------------------------------------
+# A halted multi-phase run must say WHERE it stopped and HOW to resume — the
+# operator should never have to reconstruct "which phase was next?" from memory
+# (GUIDANCE §1.7, generalized from values to sequencing). _run_phases sequences a
+# phase list and, on the first failure, prints the failed phase + the exact resume
+# command + the phases not reached.
+#
+# Dual-mode, because a phase's end_function EXITS on failure when the script is run
+# directly but RETURNS when it was sourced (the runlib contract): in a direct run an
+# EXIT trap fires the hint (the loop never regains control); when sourced we catch
+# the nonzero return and print it after the loop — and we do NOT install an EXIT trap
+# then, so a sourcing parent shell's own traps are left untouched.
+current_phase=""
+_resume_hint() {
+  printf '\n✗ stopped at phase %q.\n' "${current_phase:-?}" >&2
+  printf '  resume with: ENV=%s bash %s %s\n' \
+    "$env_name" "${BASH_SOURCE[0]}" "${current_phase:-<phase>}" >&2
+}
+_phase_exit_trap() {
+  local rc=$?
+  (( rc == 0 )) && return 0
+  [[ -n "${current_phase:-}" ]] && _resume_hint
+  return 0
+}
+_run_phases() {
+  current_phase=""
+  [[ "$is_sourced" == false ]] && trap _phase_exit_trap EXIT
+  local phase rc=0
+  for phase in "$@"; do
+    current_phase="$phase"
+    "$phase"; rc=$?                         # capture the phase's OWN rc (not a negation's)
+    (( rc != 0 )) && break                  # direct run: end_function already exited here
+  done
+  [[ "$is_sourced" == false ]] && trap - EXIT
+  (( rc != 0 )) && _resume_hint            # sourced run: hint after the caught return
+  current_phase=""
+  return "$rc"
+}
+
 # bootstrap — the FROM-ZERO happy path, run FROM THE CONDUCTOR (the execution locus
 # for AWS envs). Establishes the upstream secrets, then brings up every layer
 # (INCLUDING 15-kms) and hands to GitOps. Each phase is still individually gated.
@@ -534,20 +609,19 @@ teardown() {
 # (apply role) as admin, then `platform.sh conductor` to launch this box. Use this
 # when 15-kms / the upstream secrets do NOT yet exist.
 bootstrap() {
-  preflight && secrets || return 1
   INCLUDE_KMS=1   # from-zero: 15-kms (backup bucket + CMKs) must be applied with the rest
-  layers && images && cluster && gitops && watch && roundtrip
+  _run_phases preflight secrets layers images cluster gitops watch roundtrip
 }
 
 # all — the normal GitOps bring-up when the foundation (15-kms + secrets) is already
 # up (e.g. iterating with only 50-compute torn down). Each phase still gated.
 all() {
-  preflight && layers && images && cluster && gitops && watch && roundtrip
+  _run_phases preflight layers images cluster gitops watch roundtrip
 }
 
 # restore — the DR happy path (recover-before-GitOps; each phase still gated).
 restore() {
-  preflight && layers && images && cluster && operator && recover && verify
+  _run_phases preflight layers images cluster operator recover verify
 }
 
 # CLI dispatch — only when run directly. Default prints the usage header (the leading

@@ -548,3 +548,38 @@ overridden, what was done by hand).
 - **Outcome:** prod 7/7 Synced/Healthy on private nodes, demo-app through the NLB,
   monitoring included. Docs link-swept after the human moved LEADERSHIP/TIMETABLE to
   root. Guardrails held: human drove every apply/sync, finalized every commit.
+
+## 2026-06-14 — Refactor item 1, pass 1: carried-bug fixes (automation overhaul)
+
+- **Used for:** Entry pass on the major-refactor item 1 (bring tooling into closer
+  adherence with `notes/GUIDANCE.md`). Scope chosen by the human ("fix carried bugs
+  first") from a surfaced gap list. Four offline, no-infra changes:
+  1. **`operator()` comment/body mismatch fixed.** The DR phase's comment claimed an
+     EBS CSI + gp3 install the body never did (and a hedge `end_function` message
+     papered over it) — a masked DR failure: recovery PVCs hang Pending (GUIDANCE
+     §2.6). New emit-style `gitops/bootstrap/install_ebs_csi.sh` renders the **same
+     committed `ebs-csi/values.yaml`** the ApplicationSet wave 0 uses, so the
+     standalone path can't drift from GitOps; `operator()` previews→confirms→pipes
+     it and asserts the `gp3` class exists. RECOVERY.md Step 4 updated.
+  2. **`preflight()` backend guard** — closes the very lesson the 2026-06-10 prod run
+     banked ("driver should preflight backend blocks"): warns if any layer lacks
+     `backend "s3"` (missing = silent LOCAL state).
+  3. **`_run_phases` resume guidance** — a halted happy-path run now prints the
+     stopped phase + exact resume command + phases-not-reached. Dual-mode: EXIT trap
+     for direct runs (end_function exits), return-catch when sourced (no parent-shell
+     trap pollution).
+  4. **`generate-inventory.sh` → `generate_inventory.sh`** (snake_case rule; live
+     callers updated, `notes/` history left as the record it is).
+- **LLM self-caught bug:** first `_run_phases` draft used `if ! "$phase"; then rc=$?`
+  — `$?` captured the negation's status, not the phase's (sourced-mode test showed
+  `rc=0` for a phase that returned 3). Fixed to `"$phase"; rc=$?`. Validated both
+  modes offline (bash -n + shellcheck clean).
+- **Discovered + parked (item 3):** `ebs-csi/values.yaml` hardcodes `brzl-dev-k8s`;
+  prod consumes it too, and the recovery path is dev-pinned end-to-end. Left faithful
+  for now (fixing it here would diverge the standalone path from GitOps).
+- **aroni note:** the `operator()` bug is a genuine co-firing of masked-failure
+  (cand-001) × doc-rot (cand-003) — flagged in SCRATCHPAD for the parallel aroni
+  session to ingest once this work is live-verified into RETROSPECTIVE.
+- **Not yet verified:** offline-validated only; awaits a live `platform.sh operator`
+  / `restore` run before it graduates to RETROSPECTIVE. Guardrails held — no billable
+  or cluster-mutating commands run.

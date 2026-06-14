@@ -56,11 +56,27 @@ Most fold naturally into the numbered items above; tracked here until they do.
 - Root-app pattern for the ApplicationSet (close the GitOps seam — ADR-0019
   names the design: include-glob `applicationset.yaml` + `project.yaml`,
   exclude `in-cluster.yaml`). → item 3
-- `platform.sh` `operator()` phase: comment claims it installs EBS CSI + gp3,
-  body doesn't (open since the A2 drill). → item 1
-- Driver hardening: preflight per-layer `backend "s3"` blocks (a missing
-  backend.tf silently applies to local state); print "next phase: X" on any
-  phase failure. → item 1
+- ~~`platform.sh` `operator()` phase: comment claims it installs EBS CSI + gp3,
+  body doesn't (open since the A2 drill).~~ → item 1 — **DONE (pass 1, pending live
+  verify):** `operator()` now installs EBS CSI + gp3 via the new
+  `gitops/bootstrap/install_ebs_csi.sh` (emit-style, renders the SAME committed
+  ebs-csi values the ApplicationSet wave 0 uses → can't drift), then asserts the
+  gp3 class exists before continuing. RECOVERY.md Step 4 updated.
+- ~~Driver hardening: preflight per-layer `backend "s3"` blocks; print "next
+  phase: X" on any phase failure.~~ → item 1 — **DONE (pass 1, pending live verify):**
+  `preflight()` now asserts every layer declares `backend "s3"` (missing = silent
+  LOCAL state); `_run_phases` prints the stopped phase + exact resume command (+
+  phases not reached) on any failure, dual-mode (EXIT trap for direct runs,
+  return-catch when sourced — no parent-shell trap pollution).
+- **Pass-1 also:** renamed `generate-inventory.sh` → `generate_inventory.sh`
+  (snake_case rule; all live callers updated, `notes/` history left as-is).
+- **Discovered (→ item 3, env-DRY / aroni cand-002 env-coupling):** the shared
+  `gitops/infrastructure/ebs-csi/values.yaml` hardcodes the `brzl-dev-k8s`
+  pull-through prefix; both dev AND prod ApplicationSets (and now the standalone
+  DR install) consume it, so prod's CSI sidecars pull through a `brzl-dev-*`
+  repo. The whole recovery path is similarly dev-pinned (`cluster-recovery.yaml`
+  → `brzl-dev-github`). Left faithful for now (changing it would diverge the
+  standalone path from GitOps); fix env-wide in item 3.
 - Generalize local-first state + `init -migrate-state` promotion as the
   bootstrap-from-zero mechanism (and its reverse for retirement) — noted in
   `docs/TEARDOWN.md` §3 / `docs/BOOTSTRAP.md` Phase 0. → items 1, 3

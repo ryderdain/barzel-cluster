@@ -1,5 +1,5 @@
 # Generated inventories carry ephemeral public IPs that change every bring-up.
-# They're build artifacts (re-create with generate-inventory.sh), not source.
+# They're build artifacts (re-create with generate_inventory.sh), not source.
 dev.yml
 prod.yml
 *.generated.yml

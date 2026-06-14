@@ -100,12 +100,18 @@ nodes (gated — real hosts), then `AWS_PROFILE=brzl-apply bash gitops/tools/kub
 
 **Step 4 — storage + CNPG operator** (standalone for the drill, so the DB is recovered
 *before* the ApplicationSet would initdb an empty `pg`). The standalone path bypasses
-the wave-0 GitOps storage app, so install **EBS CSI + the gp3 default StorageClass
-first** (chart 2.37.0, values from `gitops/infrastructure/ebs-csi/values.yaml`, sidecar
-images via the `brzl-dev-k8s` pull-through) — the 2026-06-08 drill confirmed the
-recovery PVCs hang Pending without it. Then:
+the wave-0 GitOps storage app, so it must install **EBS CSI + the gp3 default
+StorageClass first** — the 2026-06-08 drill confirmed the recovery PVCs hang Pending
+without it. The **`operator` phase now does this itself** ([`platform.sh`](../gitops/tools/platform.sh)
+sources [`install_ebs_csi.sh`](../gitops/bootstrap/install_ebs_csi.sh) before the CNPG
+operator), so the storage prerequisite can't be forgotten. The standalone EBS CSI
+install renders the **same committed values** the ApplicationSet wave 0 uses (chart
+2.37.0, `gitops/infrastructure/ebs-csi/values.yaml`, sidecars via the `brzl-dev-k8s`
+pull-through), so the two paths can't drift. Manual reference:
 
 ```sh
+bash gitops/bootstrap/install_ebs_csi.sh        # PREVIEW the EBS CSI + gp3 install
+bash gitops/bootstrap/install_ebs_csi.sh | bash # run it (gp3 becomes the default class)
 helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
   --version 0.28.2 -n cnpg-system --create-namespace
 kubectl -n cnpg-system wait --for=condition=Available deploy --all --timeout=300s
