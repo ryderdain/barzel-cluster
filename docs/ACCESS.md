@@ -88,7 +88,7 @@ aws ssm start-session --target i-0123456789abcdef0
 **Ansible** needs no extra steps — `ansible.cfg` carries an SSH-over-SSM
 `ProxyCommand` and the generated inventory uses the instance-id as `ansible_host`:
 ```sh
-AWS_PROFILE=brzl-apply bash inventory/generate-inventory.sh > inventory/dev.yml
+AWS_PROFILE=brzl-apply bash inventory/generate_inventory.sh > inventory/dev.yml
 AWS_PROFILE=brzl-apply ansible-playbook playbooks/bootstrap.yml
 ```
 

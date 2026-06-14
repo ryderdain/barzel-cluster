@@ -9,7 +9,7 @@
 # completes before the joiner-only task runs. The `when` guards do the rest.
 #
 # The primary is the inventory host flagged `k3s_primary: true` (set by
-# generate-inventory.sh); that host var stays in the inventory's k3s_ vocabulary,
+# generate_inventory.sh); that host var stays in the inventory's k3s_ vocabulary,
 # while this role's own vars use the kubernetes_ prefix.
 
 # --- Work out roles + shared facts (deterministic from the inventory) --------
