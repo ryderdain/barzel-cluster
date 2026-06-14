@@ -58,11 +58,17 @@ by different models without a one-judge re-gate.
 First self-referential cycle (2 episodes from building aroni).
 - **(1) cand-001 amended (pass-009):** +child `8b8a3678bbcf` (init idempotency
   bug), confidence 0.7, first cross-domain child. Arbiter confirmed clean fit.
-- **(2) SSOT → arbiter chose (b).** 3rd episode `573f87428538` (derive-don't-store,
-  take-home record) promoted to reach the ≥3 floor with real evidence (user: the
-  rule-of-three isn't a mere heuristic). **cand-004** gated (pass-010) over
-  [`df037edd9536`, `d320583ddb68`/h11, `573f87428538`], lift +0.23. Claim
-  broadened divergence→diverge/drift/lost (3rd child's mode is LOSS), bounded by
-  a coupled/uncoupled cut (the anti-truism boundary). **Arbiter verdict PENDING**
-  — load-bearing Q: is the broadening genuine or a reach to seat the 3rd child?
-  If accepted, narrow cand-003 to conditions-change drift.
+- **(2) SSOT → cand-004 ADMITTED** (pass-011). Arbiter ruled the broadening
+  *correct generalization*, and gave a **doctrine**: when claims overlap,
+  generate a subordinating higher-order claim (overlaps/distinctions explicit);
+  narrowing is **failure-driven**, not preemptive; aim = claims re-bundle by
+  point of contact. Captured in METHOD (`f128c8e`).
+- **NEW: cand-005 "context-seam"** — the vault's first **second-order** note
+  (children are notes: cand-002/003/004). "A property true in one context breaks
+  on contact with a second context, invisibly; instrument the seam, don't fortify
+  the source." Subordinates the three failure-notes with intersections
+  (h11=002∩004; stale-state=003∩004). Gated soft (second-order; falsification
+  carries it). **Arbiter verdict PENDING** — Qs: (i) is the prevention-claim
+  boundary non-truistic? (ii) seat cand-001 as 4th subordinate? (iii) trust the
+  soft second-order gate, or lean on falsification+intersections? cand-003 left
+  whole (overlap held at parent, not narrowed).
