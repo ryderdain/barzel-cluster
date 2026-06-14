@@ -58,10 +58,11 @@ by different models without a one-judge re-gate.
 First self-referential cycle (2 episodes from building aroni).
 - **(1) cand-001 amended (pass-009):** +child `8b8a3678bbcf` (init idempotency
   bug), confidence 0.7, first cross-domain child. Arbiter confirmed clean fit.
-- **(2) SSOT belief** ("duplicated truth diverges") expanded in review-001:
-  distinct from cand-003 (orthogonal), intersects cand-002 at h11. 2 hard
-  episodes (`df037edd9536` + `d320583ddb68`/h11) + conceptual siblings
-  (derive-don't-store, ADR-0016, rename). Below the ≥3 floor. Options posed:
-  (a) hold; **(b) promote the "derive don't store" take-home episode → n=3, gate
-  honestly [recommended]**; (c) relax floor. Then maybe narrow cand-003 to
-  conditions-change drift. **Awaiting arbiter pick.**
+- **(2) SSOT → arbiter chose (b).** 3rd episode `573f87428538` (derive-don't-store,
+  take-home record) promoted to reach the ≥3 floor with real evidence (user: the
+  rule-of-three isn't a mere heuristic). **cand-004** gated (pass-010) over
+  [`df037edd9536`, `d320583ddb68`/h11, `573f87428538`], lift +0.23. Claim
+  broadened divergence→diverge/drift/lost (3rd child's mode is LOSS), bounded by
+  a coupled/uncoupled cut (the anti-truism boundary). **Arbiter verdict PENDING**
+  — load-bearing Q: is the broadening genuine or a reach to seat the 3rd child?
+  If accepted, narrow cand-003 to conditions-change drift.
