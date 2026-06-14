@@ -132,3 +132,38 @@ first verdict. Verified state:
 - Commits: barzel `a92b712`→hooks/anchor; aroni `17e67a0` (self-contained move),
   `892aba4` (pass-007 provenance + scope). Consolidation state otherwise unchanged
   (3 notes, corpus bundle-exhausted).
+
+## 2026-06-14 (late) — aroni's second order: doctrine, instruments, and a closed loop
+
+The self-referential arc — the vault consolidating its own construction, and
+growing a structure. All arbiter-verified in-session.
+
+- **cand-004 (SSOT) admitted** (pass-011): an uncoupled redundant copy of a
+  single-source fact diverges/drifts/is-lost. Reached the ≥3 floor by promoting a
+  real take-home episode (derive-don't-store); the arbiter ruled the predicate
+  broadening *correct generalization*, not a reach.
+- **Subordination doctrine** (METHOD): when claims overlap, generate a higher-order
+  claim that subordinates them (overlaps + distinctions explicit); narrowing is
+  **failure-driven**, never preemptive; the aim is claims that re-bundle by point of
+  contact so the model self-selects experience-laden context.
+- **cand-005 "context-seam"** — the first **second-order** note (children are notes).
+  "A property true in one context breaks on contact with a second; the bug lives in
+  the *relation*, invisible from either side → instrument the seam, don't fortify the
+  source." Made falsifiable by **the seam test** (a one-question seam/source
+  classifier).
+- **The second-order gate**, accepted after a deep `lift` explanation: lift is a
+  *first-order* instrument (it makes concrete episodes mutually predictable); over
+  claims it's a plausibility vibe → **demoted to a sanity check**. Second-order
+  admission = (seam-boundary) AND (≥1 **demonstrated intersection** — an episode that
+  is a child of ≥2 subordinates). Instrumented by `tools/intersections.py`.
+- **cand-005 is HELD**: the intersection instrument finds **zero** co-firings, so its
+  asserted intersections (h11=002∩004 — even excluded by cand-002's boundary) don't
+  count. The instrument caught its author's over-reach on first use — the system
+  holding its own builder to the standard.
+- **Co-fire re-evaluation** (the user's instinct, verified + mechanised): a shared new
+  child makes subordinates' lift stale → re-gate; the direction (hold/rise=wire,
+  drop=narrow, persistent=merge) is the Hebbian signal. **The loop is closed +
+  enforced**: `vault_check` fails any pass that lands an unacknowledged co-firing;
+  `intersections.py --work-order` emits the tasks. Code detects+enforces; the model
+  judges. Verified by dogfooding.
+- Vault at aroni `b5744e3`: 4 notes, 17 episodes, 5 decisions, passes 000–013.

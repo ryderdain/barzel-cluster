@@ -5,21 +5,33 @@ land here when decided, move to [SCRATCHPAD.md](SCRATCHPAD.md) while being
 worked, and produce a [RETROSPECTIVE.md](RETROSPECTIVE.md) entry when done and
 user-verified.
 
-## Active — aroni (consolidation daemon)
+## Active — the major refactor (next barzel session) + aroni assists
 
-**Operational.** Self-contained shared vault at `~/Local/github.com/ryderdain/aroni`
-(spec/method/tools/notes all there; barzel is just an episode source). 3 admitted
-notes from the 13-hiccup corpus; survival hooks wired; portable to other repos/domains
-(`aroni/ADOPTING.md`, `tools/init_project.py`). Open threads:
+**The refactor is the next focus** (items 1–4 below: automation overhaul vs
+`notes/GUIDANCE.md`; env DRY/consolidation; multi-account CI). **aroni should drive
+it forward** — and the refactor will *generate aroni's next corpus*: every decision,
+failure, and fix is an episode. Log them (RETROSPECTIVE / a build ledger) as you go;
+consolidate periodically. Watch for the first **co-firing** between existing notes —
+that's the event that admits cand-005 and exercises the closed loop for real.
+
+## aroni (consolidation daemon) — machinery complete through 2nd order
+
+Self-contained shared vault at `~/Local/github.com/ryderdain/aroni` (b5744e3): 4
+admitted notes, 17 episodes, doctrine (subordination, seam test, intersection test,
+co-fire loop — all in METHOD), survival hooks, portable (`init_project`). The
+co-fire re-evaluation loop is **closed + enforced** (vault_check + intersections
+--work-order). cand-005 (first 2nd-order note) is HELD pending a real co-firing.
+Open threads:
+
+- **Next cycle:** ingest the 3 new surprise-0 RETROSPECTIVE episodes; normal pass.
+- **Fully automating the co-fire re-gate** (vs the current detect+enforce, judge-by-hand)
+  — only if it ever proves a bottleneck; the judgment is deliberately human.
 
 - **aroni `lift` is not calibrated across models/sessions** (ordinal, judge-relative).
-  A future "re-gate with one judge" pass would be needed before any cross-pass score
-  comparison. Tabled 2026-06-14 per user. (Documented in `aroni/ADOPTING.md`.)
-- Corpus exhausted at the bundle level (3 notes consume 10/13 hiccups; h3/h11/h13 in
-  sub-floor bundles). Next consolidation awaits new episodes or a **second-order pass**
-  over the notes themselves (cand-001/002/003 share a root).
-- Seeds: fix-propagation bundle (h3 + a sibling); cand-001 + cand-003 refinement
-  (supersession candidates flagged by the arbiter).
+  A future "re-gate with one judge" pass before any cross-pass score comparison.
+  Tabled 2026-06-14. (At second order, lift is already demoted to a sanity check.)
+- Seeds: fix-propagation bundle (h3 + a sibling, needs a 2nd episode); cand-005 admits
+  on its first demonstrated co-firing; cand-001/003 refinement (arbiter-flagged).
 
 ## Planned (user, 2026-06-10 — in intended order)
 
