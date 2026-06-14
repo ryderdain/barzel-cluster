@@ -18,33 +18,33 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-06-14, opus)* **aroni made durable + portable; between consolidation cycles.**
-This session's structural work (all landed + pushed):
-- **Survival hooks** in barzel `.claude/settings.json` — SessionStart injects the
-  scratchpad focus + last vault passes every session (compaction-proof, prose-decay-
-  proof); PreCompact nudges a flush. The hook surfaces state to the *human* too —
-  cheap re-invocation is what makes aroni survive, not my unprompted diligence.
-- **aroni is now self-contained + shared**: `daemon/` moved out of barzel into the
-  aroni repo (`tools/`, `SPEC.md`, `METHOD.md`). barzel is just an episode source.
-  One shared vault across all projects (universal beliefs transfer); notes carry a
-  `scope:` field. ingest is source-path explicit (portable; retro-only works for
-  non-infra domains).
-- **Adoption is one idempotent command**: `aroni/tools/init_project.py <repo>` installs
-  the hooks (this is how they *travel*), scaffolds memory files, emits the CLAUDE.md
-  anchor. Guide: `aroni/ADOPTING.md`. (A signature bug duplicated PreCompact on first
-  run — caught by dogfooding, fixed; hooks are ASCII so machine-written JSON is byte-stable.)
+*(2026-06-14, opus)* **aroni self-referential arc — cand-005 pending (iii).**
+(Durability+portability done earlier this session: hooks, self-contained shared
+vault, `init_project`; recorded in RETROSPECTIVE.)
 
-**Consolidation state unchanged this session:** 3 admitted notes (cand-001/002/003)
-consume 10/13 hiccups; corpus exhausted at the bundle level (h3/h11/h13 sub-floor).
-Between cycles until new episodes arrive. NB: barzel `RETROSPECTIVE.md` has grown to
-4 entries — the next ingest will surface 3 new surprise-0 episodes.
+**The live thread — the vault consolidating its own construction:**
+- **4 admitted notes.** cand-001 (masked-failure, now 4 children incl. the build-bug
+  `8b8a3678bbcf`, conf 0.7), cand-002 (env-coupling), cand-003 (doc-rot, left whole),
+  cand-004 (SSOT, admitted pass-011).
+- **Doctrine in METHOD:** subordinating generalizations + **failure-driven** narrowing
+  + the **seam test** (`d19417a`: "does the fix read both contexts and check they
+  agree?" yes=seam/no=source). The seam test is the wire/snip mechanism (Hebbian).
+- **cand-005 "context-seam"** — first **second-order** note (children are notes:
+  cand-001/002/003/004). "A property true in one context breaks on contact with a
+  second; the bug lives in the *relation*, invisible from either side → instrument
+  the seam, don't fortify the source." (i) falsifiable via the seam test ✓; (ii)
+  cand-001 seated ✓; **(iii) OPEN: the second-order instrument.** Explained `lift`
+  in depth. Agent rec: **demote lift to a sanity check at second order**; let the
+  *intersection test* (parent predicts co-firings no child predicts alone —
+  h11=002∩004) + *seam boundary* carry releveling. cand-005 stays candidate until
+  (iii) is set → then re-emit for the admission verdict.
 
 **Seeds forward:** (1) fix-propagation bundle (h3 + a sibling — none in corpus yet);
-(2) cand-001 + cand-003 refinement (arbiter-flagged supersession candidates);
-(3) second-order pass over the notes themselves once more first-order notes exist
-(cand-001/002/003 share a root: single-context dev hides assumptions until contact).
+(2) on (iii) resolving, the second-order *instrument* likely needs encoding in
+SPEC/METHOD (intersection test + seam boundary as the releveling gate); (3) next
+ingest surfaces 3 new surprise-0 RETROSPECTIVE episodes (barzel RETRO has grown).
 **Tabled (BACKLOG):** aroni `lift` is judge-relative — not comparable across passes
-by different models without a one-judge re-gate.
+by different models without a one-judge re-gate (this feeds the (iii) decision).
 
 ## Open considerations
 
@@ -54,21 +54,5 @@ by different models without a one-judge re-gate.
 
 ## Session notes
 
-*(2026-06-14)* **review-001 — (1) DONE, (2) SSOT decision PENDING.**
-First self-referential cycle (2 episodes from building aroni).
-- **(1) cand-001 amended (pass-009):** +child `8b8a3678bbcf` (init idempotency
-  bug), confidence 0.7, first cross-domain child. Arbiter confirmed clean fit.
-- **(2) SSOT → cand-004 ADMITTED** (pass-011). Arbiter ruled the broadening
-  *correct generalization*, and gave a **doctrine**: when claims overlap,
-  generate a subordinating higher-order claim (overlaps/distinctions explicit);
-  narrowing is **failure-driven**, not preemptive; aim = claims re-bundle by
-  point of contact. Captured in METHOD (`f128c8e`).
-- **NEW: cand-005 "context-seam"** — the vault's first **second-order** note
-  (children are notes: cand-002/003/004). "A property true in one context breaks
-  on contact with a second context, invisibly; instrument the seam, don't fortify
-  the source." Subordinates the three failure-notes with intersections
-  (h11=002∩004; stale-state=003∩004). Gated soft (second-order; falsification
-  carries it). **Arbiter verdict PENDING** — Qs: (i) is the prevention-claim
-  boundary non-truistic? (ii) seat cand-001 as 4th subordinate? (iii) trust the
-  soft second-order gate, or lean on falsification+intersections? cand-003 left
-  whole (overlap held at parent, not narrowed).
+*(detail lives in `aroni/decisions/pass-008..012` + `_candidates/`; not restated
+here — Current focus is the live snapshot.)*
