@@ -54,4 +54,9 @@ by different models without a one-judge re-gate.
 
 ## Session notes
 
-*(empty)*
+*(2026-06-14)* **review-001 PENDING arbiter** (`aroni/_candidates/`, pass-008).
+The first self-referential cycle: 2 episodes from building aroni
+(`8b8a3678bbcf` init idempotency bug; `df037edd9536` relocation doc-dup) — both
+map to existing notes. Asks: (1) add ep A to cand-001 as a child + conf 0.6→0.7
+(cross-domain); (2) SSOT seed ep B + h11 (`d320583ddb68`) — bank at n=2 or fold
+into cand-003. On verdict → pass-009 write-back (amend cand-001 children).
