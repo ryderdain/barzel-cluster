@@ -36,6 +36,12 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 
+# EXCEPTION (model B): committed per-env stack inputs — non-secret CIDRs/flags, the
+# reviewable env definitions. Rendered secret/account-bearing tfvars (e.g. 40-ecr
+# credential ARNs) must use a DIFFERENT name (*.auto.tfvars) so they stay ignored.
+!terraform/stack/aws/**/dev.tfvars
+!terraform/stack/aws/**/prod.tfvars
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
