@@ -2,9 +2,17 @@
 
 Context and rules for any Claude Code / Cowork session in this repo. The
 take-home that produced this snapshot is delivered and **no longer the
-governing scope** — the historical working files (`SPEC.md`, `PLAN.md`,
-`TASK.md`, the run reports) live under `notes/`, tracked, as reference. The
-design doc remains `docs/ARCHITECTURE.md` (+ ADR log).
+governing scope**; ongoing work is the refactor in `BACKLOG.md`.
+
+**Design directives live in [`SPEC.md`](SPEC.md) (root) — the design source of
+truth.** Standing technical decisions, the environment/state model, and new
+design decisions land there first (then promote to an ADR in
+`docs/ARCHITECTURE.md`). This file does **not** restate them — it carries the
+*operational* contract (memory protocol, guardrails, workflow, git, aroni) and
+points at SPEC for the *what/why* of the design. The take-home working files
+(`notes/PLAN-HISTORICAL.md`, `notes/TASK.md`, the run reports) live under `notes/`,
+tracked, as reference; the delivery-facing design doc is `docs/ARCHITECTURE.md`
+(+ ADR log).
 
 ## Memory files — read these first, every session
 
@@ -57,34 +65,38 @@ A GitOps-driven infrastructure platform for a Lead Infrastructure Engineer take-
 - `docs/` runbooks — `BOOTSTRAP.md`, `UPGRADE.md`, `RECOVERY.md`, `TEARDOWN.md` (living operator runbooks)
 - `terraform/identity/` — trust anchor: GitHub OIDC provider + scoped `tofu-plan`/`tofu-apply` roles (admin-run once, after `bootstrap/`)
 - `containers/` — `toolbox/` (arm64 tofu/ansible/kubectl/helm image) + `bootstrap-vm/` (cloud-init) *(planned, SPEC §4.2)*
-- `SPEC.md` — end-design target/scope (internal) · `docs/ARCHITECTURE.md` — delivery-facing design + ADRs · `PLAN.md` — execution checklist · `LLM-CONDUCT.md` — log of LLM use
+- `SPEC.md` (root) — the **design source of truth** (standing decisions §3, scope, resolved decisions) · `docs/ARCHITECTURE.md` — delivery-facing design + ADRs · `BACKLOG.md` — the live plan-of-record · `notes/PLAN-HISTORICAL.md` + `notes/TASK.md` — take-home history · `LLM-CONDUCT.md` — log of LLM use
 
 ## Living docs — keep in sync (don't lose across compaction)
 These evolve together every iteration; when a design/decision changes, update **all** of the affected set, not just one:
-- **`SPEC.md`** is the internal working scratchpad / source of truth for scope, differentiators (§4: SSO/OIDC identity; toolbox/bootstrap containers), and resolved decisions (§7). **New decisions land here first** (SPEC iterates).
-- **`docs/ARCHITECTURE.md`** is the **delivery-facing** design doc: the curated distillation of SPEC + a running ADR log (ARCHITECTURE curates). When a decision resolves in SPEC, promote it here — add/update the matching **ADR** and the affected prose. This is what a reviewer reads; keep its links valid (no links to gitignored `SPEC.md`/`PLAN.md`/`TASK.md`).
+- **`SPEC.md`** (root, tracked) is the internal **design source of truth**: standing technical decisions (§3 — the one home), scope, differentiators (§4), resolved decisions (§7). **New design decisions land here first** (SPEC iterates), then promote to ARCHITECTURE.
+- **`docs/ARCHITECTURE.md`** is the **delivery-facing** design doc: the curated distillation of SPEC + a running ADR log (ARCHITECTURE curates). When a decision resolves in SPEC, promote it here — add/update the matching **ADR** and the affected prose. This is what a reviewer reads; keep its links valid (it's fine to link `SPEC.md` now that it's root+tracked; don't link the `notes/` take-home working files from the delivery-facing docs — they're reference).
 - **Runbooks** (`docs/BOOTSTRAP|UPGRADE|RECOVERY|TEARDOWN.md`) are the operator-facing realization. A change to identity, KMS, backups, or the toolbox must be reflected in the relevant runbook(s):
   - identity/OIDC + KMS + secrets-hygiene → `BOOTSTRAP.md` (phases 0–2) + `TEARDOWN.md` (KMS/state sweep)
   - operator/CI toolbox + session-timeout-safe long ops → `UPGRADE.md` (+ `BOOTSTRAP.md` long phases)
   - CNPG backup/restore + instance-profile auth + state recovery → `RECOVERY.md`
 - **`docs/SECRETS.md`** is the credential/key/secret inventory (delivery-facing). Any change that adds, moves, or retires a credential, KMS key, Secrets-Manager/SSM entry, in-cluster Secret, or gitignored secret-bearing file must update the matching `SECRETS.md` row (+ the ADR if the decision is new).
-- **`PLAN.md`** schedules the work; **`LLM-CONDUCT.md`** logs LLM use each session.
+- **`BACKLOG.md`** is the live plan-of-record (schedules the work); **`LLM-CONDUCT.md`** logs LLM use each session.
 - Runbooks set: `docs/{BOOTSTRAP,ACCESS,UPGRADE,RECOVERY,TEARDOWN}.md`. Scaling and backups are **automated** (HPA / CNPG `.spec.instances` / Terraform node count; CNPG→S3 continuous+scheduled) and described in the top-level `README.md` — no separate SCALING runbook.
 
 ## Documentation convention — README is the front door
-- The **top-level `README.md` is the primary documentation file.** It orients the reader (architecture-at-a-glance, repo layout, reproduce steps, scaling/backups automation) and points to the expanded delivery docs (`docs/ARCHITECTURE.md` + the operator runbooks `docs/*.md`). It must not link to gitignored working files (`SPEC.md`, `PLAN.md`, `TASK.md`) — those won't exist in a fresh clone.
+- The **top-level `README.md` is the primary documentation file.** It orients the reader (architecture-at-a-glance, repo layout, reproduce steps, scaling/backups automation) and points to the expanded **delivery-facing** docs (`docs/ARCHITECTURE.md` + the operator runbooks `docs/*.md`). `SPEC.md` is the *internal* design SoT that ARCHITECTURE curates from — the README front-doors ARCHITECTURE, not SPEC; and it doesn't link the `notes/` take-home working files (reference, not part of a fresh clone's front door).
 - **No per-directory/leaf `README.md` files** — they add cognitive noise and drift. Describe each area in the top-level README and detail it in `docs/ARCHITECTURE.md` or the relevant runbook. When adding a new area, add a line to the README's documentation map, don't create a nested README.
 
-## Standing technical decisions (do not silently change)
-- **Kubernetes:** k3s, HA (3 servers, embedded etcd). Not kubeadm/Talos.
-- **Terraform:** modular, reusable, strict dev/prod separation; remote state in S3 + DynamoDB lock.
-- **Registry:** AWS ECR for images AND OCI Helm charts, with pull-through cache (Docker Hub, registry.k8s.io). Document Harbor as the production recommendation.
-- **Storage:** EBS CSI driver + gp3 default StorageClass for PVCs. `local-path` only as an explicit, documented fallback.
-- **Backups:** CloudNativePG → S3 via Barman Cloud. Authenticate using the EC2 instance profile — do NOT create a second IAM user.
-- **GitOps:** ArgoCD app-of-apps; sync waves so operators land before applications.
-- **CI:** keep all pipeline/runner definitions generic and CI-system agnostic (must work on GitHub Actions or GitLab CI).
-- **State bucket name — DERIVED, never an env var.** The S3 state bucket is `brzl-demo-tfstate-<account_id>`. The layer's own `backend` block can't use a data source, so `../backend.hcl` (gitignored, copied from `.example` once at bootstrap) carries the literal. But the `terraform_remote_state` **data sources** that read lower layers now derive the bucket via `data.aws_caller_identity.current.account_id` in each `remote_state.tf` — **no `TF_VAR_state_bucket`**. Do NOT reintroduce a per-run env var for account-bearing values: if I can drop it between runs (I did — `NoSuchBucket` on a destroy), so can any operator. Derive account-bearing names at runtime from the caller, or persist them in a gitignored file tofu auto-loads — never lean on the operator's shell memory.
-- **Operations run from the toolbox, not the laptop.** From pre-flight onward, the standard execution locus for infra/cluster operations (bootstrap, recovery, deploy, teardown) is the **operator toolbox** — the pinned `containers/toolbox/` image — run either **in-cluster** (`gitops/tools/toolbox_shell.sh`) once the cluster exists, or on a **one-off disposable EC2 "conductor"** (arm64 `t4g.*`, Graviton — the toolbox image is `linux/arm64`) reached via **SSM Session Manager** (no inbound SSH). Three goals this serves: (1) **identical toolchain across all operators** — no version drift between bootstrap/recovery/deploy; errors are reproducible/traceable; (2) **operator entry is IAM-gateable** — authorization constrained to the toolbox/SSM, not scattered laptops; (3) **all activity is audited** — toolbox operations + the triggering identity (SSM/IAM) are logged. Operator scripts must therefore run **both** with `AWS_PROFILE=<assumed-role>` (laptop) **and** with no profile (instance-role creds on the conductor) — don't hard-require `AWS_PROFILE`. The conductor is built as a **self-contained `00-conductor` layer** (own VPC/subnet/IGW, inline IAM, fully deploy/destroyable without touching any other layer — DRY deliberately relaxed there). **Execution locus splits by environment:** the **AWS environments (`dev`, `prod`) run from the conductor** via `gitops/tools/platform.sh` (`ENV=dev|prod`, the AWS orchestrator — it *rejects* `local`); the **laptop is only for (a) the admin trust-anchor bootstrap** (`terraform/bootstrap` + `terraform/identity`, run once as the admin user) **and launching the conductor** (`platform.sh conductor`), **and (b) the entire local-dev (k3d) environment**, which is laptop-native via `gitops/clusters/local/k3d_up.sh` (no AWS, no conductor). So: AWS ops → conductor; local-dev + the one-time conductor launch → laptop. (local-dev itself was above-and-beyond `TASK.md` scope — kept as the portability story, not a required target.)
+## Standing technical decisions → [`SPEC.md`](SPEC.md) §3 (one home)
+
+The standing technical decisions — Kubernetes, compute, **Terraform layering +
+the environment/state model** (single-source `terraform/stack/aws/<layer>` +
+per-env tfvars; one state bucket + CMK, env split by S3 object key, backend
+composed by the driver), registry, storage, backups, GitOps (single
+ApplicationSet), CI-agnostic, node access (SSM), **operations-run-from-the-toolbox**
+(dual-locus scripts; AWS envs from the conductor, laptop only for the admin
+bootstrap + conductor launch + local-dev), encryption, secrets/account-bearing
+values (derived, never an env var to remember), runbooks — **live in
+[`SPEC.md`](SPEC.md) §3**. Do not restate them here; do not silently change them;
+land any new design decision in SPEC first. (The saved-plan workflow and
+ask-before-billable rule are *also* hard guardrails below — they bind operationally
+every session, so they stay in this file too.)
 
 ## Bash-specific design decisions
 - Only draft Bash scripts using the guidelines set out in <https://mywiki.wooledge.org/BashPitfalls>.
@@ -117,7 +129,7 @@ Always print the exact command and what it will create/change/cost first. Prefer
 
 ## Workflow
 - Confirm access rights and permissions before testing, request from user as needed.
-- Work one PLAN.md block at a time (commits map to blocks — supports the GitOps/release story).
+- Work one `BACKLOG.md` item/pass at a time (commits map to passes — supports the GitOps/release story).
 - **Git division of labor (delegated 2026-06-12):** the working tree of this repo and the vault (`aroni`) is **Claude's to manage** — staging, commits, and pushes, without per-commit confirmation. Standing obligations: surface what was committed in chat, keep commits small and message-honest, flag any secrets/leak concern BEFORE pushing, and never rewrite published history. The infra guardrails above are unaffected — billable/mutating cloud operations still gate on explicit confirmation.
 - Use git commits as rollback checkpoints.
 - Show diffs and wait for approval; do not auto-accept infra changes.
