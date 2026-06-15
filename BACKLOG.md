@@ -24,6 +24,12 @@ co-fire re-evaluation loop is **closed + enforced** (vault_check + intersections
 Open threads:
 
 - **Next cycle:** ingest the 3 new surprise-0 RETROSPECTIVE episodes; normal pass.
+  Also drain the two new **inbox** captures (2026-06-15): the brzl-dev-* standalone-path
+  leak (cand-002 evidence) + the instances-vs-source-layout correction (cand-005 framing).
+- **Hooks gap (→ aroni BACKLOG, 2026-06-15):** no hook auto-captured the in-session
+  correction this session; it took a manual "aronize it". Capture still leans on operator
+  memory — the dependency the method exists to remove. Tracked in aroni BACKLOG ("No
+  auto-capture of in-session episodes"); sibling of the surprise-mis-tag gap.
 - **Fully automating the co-fire re-gate** (vs the current detect+enforce, judge-by-hand)
   — only if it ever proves a bottleneck; the judgment is deliberately human.
 
@@ -57,6 +63,16 @@ Open threads:
      belongs in shared **modules/templates** (define once, instantiate per-env), not
      in merging the instances. The divergence bug argues for reducing the
      hand-maintained surface, NOT for one-file-for-both.
+   **Direction chosen (user, 2026-06-15): model B** — single source per layer + per-env
+   `backend.hcl` + `terraform.tfvars`, driver-enforced backend↔tfvars pairing. Keeps
+   separate state + independent apply (the gate); kills drift; fits the per-env-backend
+   convention + the item-4 multi-account roadmap. Workspaces (C) rejected (weak state
+   isolation, fights multi-account, switch footgun). Per-env structural deltas stay
+   explicit: prod-only NLB → `count`/`var.enable_public_ingress`; node placement → vars;
+   `00-conductor` stays its own optional standalone layer. **Merge plan pending user review
+   before execution** (prototype on `10-network` first, prove the pattern, then roll).
+   Full live validation deferred to the batch live-pass; in pass-1 (item 3) the standalone
+   DR path was already de-pinned (commit 6941c78).
 4. **Multi-account CI design.** Expand the brzl demo model to showcase
    local-dev → infra-test → full-with-app-staging → full-prod across accounts
    — the piece the take-home never reached; have it ready to deliver for a
