@@ -102,11 +102,80 @@ validation; they're correctly overridden). This is exactly the *right* kind of
 env-DRY: make shared code env-agnostic so the SAME code is correct in any env —
 which *supports* the promotion model, doesn't collapse it.
 
-**Next item-3 candidates (need design, not blind de-dup):** the ApplicationSet
-divergence — reduce the hand-maintained dev/prod surface (template+overlay or
-param) WITHOUT losing independent promotion (relates ADR-0019 root-app). Terraform
-env layers already DRY via `terraform/modules/*`; the per-env `.tf` is thin
-instantiation (the deliberate separation) — audit for *accidental* drift only.
+**Model B chosen + the terraform layer roll is DONE (offline).** Direction settled
+on **model B** (single source per layer + per-env tfvars; gate = separate instances).
+SPEC promoted to root as design SoT (§3 reconciled); CLAUDE delegates. All six layers
+migrated to `terraform/stack/aws/<layer>/` and `tofu validate` clean:
+10-network, 15-kms, 20-security, 30-iam, 40-ecr, 50-compute. Patterns proven:
+- driver-composed S3 backend (empty `backend "s3" {}`; bucket from account, key
+  `<env>/<layer>/terraform.tfstate`); the gitignored per-env `backend.hcl` is retired.
+- env-keyed `remote_state` (`key = "${var.env}/<lower>/terraform.tfstate"`).
+- per-env tfvars committed (gitignore exception for dev/prod.tfvars); secret ARNs →
+  gitignored `40-ecr/credentials.auto.tfvars` (+ committed `.example`).
+- intentional divergences expressed as inputs: 40-ecr toolbox (dev-only build),
+  50-compute placement (`public_nodes`) + capacity + the NLB (`enable_public_ingress`,
+  count-gated, dev off/prod on — flip to adopt).
+Old `environments/{dev,prod}` trees still present (untouched) until the driver works.
+
+**REMAINING for item 3 (next):**
+1. **Wire `platform.sh`** to the stack: `cd terraform/stack/aws/<layer>`, compose
+   `init -backend-config=...key=$ENV/<layer>/...` (bucket from account), pass
+   `-var-file=$ENV.tfvars`. Update `secrets()` to write
+   `stack/aws/40-ecr/credentials.auto.tfvars`. (Pre-approved by user; deferred to
+   "after the layers".) `00-conductor` is self-contained/dev-only — decide whether
+   it also moves to `stack/aws/00-conductor` (no env split) or stays.
+2. **Remove** old `environments/{dev,prod}` trees once the driver drives the stack.
+3. **Docs:** runbooks (BOOTSTRAP/RECOVERY/TEARDOWN/UPGRADE/ACCESS) + README + an ADR
+   for the env-layout + state-backend change (backend.hcl retirement).
+Full live validation batched to the one live-pass (greenfield — nothing deployed).
+
+**Later (separate, needs design):** the gitops `clusters/{dev,prod}` ApplicationSet
+divergence — reduce the hand-maintained surface WITHOUT losing independent promotion
+(git-native; relates ADR-0019 root-app). Not this pass.
+
+## Conductor reframing + multi-account direction — UNDER DISCUSSION 2026-06-15
+
+*(User corrected my "fold 00-conductor into stack/aws" default. Withdrawn — the
+conductor is NOT a per-env layer. Direction captured here for durability; SPEC/GUIDANCE
+revisions PROPOSED, pending agreement before any write.)*
+
+**The conductor's real role:** a self-contained **CI-runner-like deploy primitive** —
+it orchestrates the bootstrap/deploy of *an* environment, constrained only by the IAM
+perimeter, sitting where it can see both private-VPC and public network changes. Today
+it deploys dev+prod because they share ONE account. It is a SIBLING of
+`terraform/bootstrap` + `terraform/identity` (account/perimeter primitives), not a
+`stack/aws/<layer>`. → for finishing item 3, leave it at `environments/dev/00-conductor`
+untouched; its relocation/refactor is the NEXT major pass.
+
+**Goals for the next major pass (conductor/multi-account):**
+1. **n+1 accounts via the same conductor pattern** — deploy stack layers into multiple
+   accounts (AWS Org). Model B extends naturally: per-env tfvars gain target account +
+   assume-role; per-account state backends (the deferred multi-account state work).
+2. **Clean repo delivery + emit/pipe orchestration** — the S3 tree-ship is clunky;
+   replace with a scoped git clone (the carried PAT item). And running `platform.sh` as
+   a monolith on-box cuts against GUIDANCE §1.8 (emit a flattened stream piped to a bare
+   `/bin/bash`). Reconcile: repo is CLONED on the box (terraform/ansible are file-based —
+   pipe can't eliminate that); the ORCHESTRATION emits pipeable streams; CI path is
+   non-interactive (review moves to the plan/PR), laptop path stays interactive-gated.
+3. **Optional cross-account shared resources** — central secrets in one account +
+   central ECR images in one account, reachable by all/select env accounts. Selective,
+   least-priv resource policies + per-CMK cross-account grants. (ECR nuance: pull-through
+   CACHE is account-local — share a RESOLVED-image repo via repo policy, not the cache.)
+
+**Issues to weigh (my honest assessment — detail in chat):** shared-resource
+blast-radius/isolation tradeoff (not efficiency — security coupling); ECR cache-vs-repo;
+conductor topology hub-and-spoke (one box, cross-account assume-role) vs per-account;
+file-on-box vs pure-pipe; multi-account forces the state-model extension model B defers.
+
+**SEQUENCING (user-set):**
+1. (now) settle SPEC/GUIDANCE revisions for the above → durable.
+2. **FINISH item 3** so it's testable: wire `platform.sh` to `stack/aws` (compose
+   backend + `-var-file`), repoint `secrets()` → `40-ecr/credentials.auto.tfvars`,
+   remove old `environments/{dev,prod}` trees, runbooks + ADR.
+3. **LIVE TEST** the refactored codebase (billable, gated, saved-plan, per-step confirm)
+   + **teardown loose ends**: orphaned-resource handling in TEARDOWN, an end-to-end
+   AUTOMATED full-teardown sweep (currently missing), + small issues the test surfaces.
+4. **Re-assess** the refactoring plan, then run the conductor/multi-account major pass.
 
 ## Open considerations
 
