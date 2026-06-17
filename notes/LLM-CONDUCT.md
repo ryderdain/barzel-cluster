@@ -598,3 +598,36 @@ overridden, what was done by hand).
   (keep) vs accidental coupling/drift (fix)*; DRY lives in shared modules/templates,
   not in merging instances. Saved as a cross-session memory + flagged as an aroni
   cand-002 (env-coupling) refinement.
+
+## 2026-06-15→17 — Item 3 (env realignment → model B) built + conductor/multi-account design
+
+- **Used for:** Executing the env-layout refactor and designing the next pass, human
+  steering throughout. (a) **Model B built:** all six Terraform layers migrated to a
+  single-source `terraform/stack/aws/<layer>` + per-env `dev/prod.tfvars`, with the
+  env carried by the **driver-composed S3 backend object key** (one bucket + CMK; no
+  `backend.hcl`) and `-var-file`; intentional dev/prod differences (40-ecr toolbox,
+  50-compute placement + count-gated NLB) expressed as inputs, not forks. `platform.sh`
+  rewired; old `environments/{dev,prod}` trees removed (conductor kept). All offline-
+  validated (6/6 `tofu validate`, fmt + shellcheck clean) — **no AWS apply yet**
+  (greenfield; live test is the next session). (b) **Docs SoT restructured:** promoted
+  `SPEC.md` to root, CLAUDE.md delegates standing decisions to it (SSOT, cand-004),
+  fixed the drift it had bred; added ADR-0020.
+- **Two human corrections, both integrated (and aronized):** (1) *instances vs source
+  layout* — the promotion gate is separate instances, orthogonal to whether source is
+  duplicated; my "keep the duplication" defended the wrong thing. (2) *conductor is not
+  a per-env layer* — it's a temporary, per-account, single-purpose IaC distributor
+  (CI-runner-like), integral to the multi-account future; I'd defaulted to folding it
+  into the stack. Both are the **same error** (reading a thing's role from its current
+  location) → captured as aroni Episodes B + C (inbox), a candidate "don't infer essence
+  from structural placement" generalization.
+- **Design settled for the next pass (SPEC §9, directional, NOT built):** per-account
+  conductor; clone+pipe deploy delivery (vs S3 tree-ship + on-box monolith — squares
+  GUIDANCE §1.8); ONE fine-grained PAT (refines "scope to job" = no broader than needed,
+  not one-token-per-call); optional least-priv cross-account shared-services chosen at
+  bootstrap for a **unified vulnerability-scanning regime**; dual-mode ECR (pull-selective
+  default + push-for-hotfix via replication).
+- **Guardrails held:** zero billable/cluster-mutating commands run all session — every
+  change offline (validate/fmt/shellcheck/`-backend=false`). Git managed per the
+  delegation (small message-honest commits; no secrets staged — verified the rendered
+  ARN tfvars stay gitignored). Left a SCRATCHPAD **SESSION HANDOFF** pointing at the
+  live test as the resume point.

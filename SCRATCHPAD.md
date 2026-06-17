@@ -18,7 +18,48 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-06-14, opus — SESSION HANDOFF.)* aroni's machinery is complete through
+*(2026-06-17, opus — SESSION HANDOFF. User switched to another project; resume here.)*
+
+**▶ RESUME AT: the live test of the refactored stack** (item 3 is code+doc complete,
+offline-validated — nothing has been applied to AWS yet; this is greenfield). The live
+test is 💸 BILLABLE + cluster-mutating → **GUARDRAILS apply**: surface each command,
+saved-plan workflow, per-step confirm, scoped profile; the user drives every apply.
+
+**Item 3 (env realignment → model B) — DONE OFFLINE, committed:**
+- All six layers migrated to `terraform/stack/aws/<layer>/` (single source + per-env
+  `dev.tfvars`/`prod.tfvars`); 6/6 `tofu validate` clean, `tofu fmt` clean.
+- `platform.sh` wired to the stack: `_state_bucket` + `_set_backend_args` compose the
+  env-keyed S3 backend (`init -reconfigure`, key `<env>/<layer>/terraform.tfstate`,
+  bucket from account); phases pass `-var-file=<env>.tfvars`; `secrets()` →
+  `40-ecr/credentials.auto.tfvars`. shellcheck clean.
+- Old `environments/{dev,prod}` layer trees REMOVED (kept `dev/00-conductor` + its
+  backend.hcl). Docs swept (BOOTSTRAP/RECOVERY/UPGRADE/TEARDOWN/README/SECURITY/SECRETS)
+  + **ADR-0020** added (supersedes ADR-0019's per-env-dir layout). SPEC §3/§9 + GUIDANCE
+  already carry the design. Last commits: 0d4b171 (docs+ADR) ← ca892f1 (rm trees) ←
+  5368045 (driver) ← 9fd3911/fd02e4a/8293125/7488dec (layers).
+
+**THE LIVE-TEST PLAN (next session):**
+1. **Bring-up** from the conductor (or laptop apply-role): `ENV=dev bash
+   gitops/tools/platform.sh bootstrap` — exercises the composed backend + per-env tfvars
+   for the first time. Watch the **first-run-under-new-layout** risks: backend init
+   -reconfigure composing the right key; `credentials.auto.tfvars` auto-load in 40-ecr;
+   the 40-ecr toolbox build; 50-compute placement + (dev) NLB off. Then prod (`ENV=prod`).
+2. **Teardown loose ends** (the user named these): orphaned-resource handling in
+   TEARDOWN; build the **end-to-end AUTOMATED full-teardown sweep** (driver teardown →
+   leak sweep §4 → finishers §3a — today by hand); fix any small issues the test surfaces.
+3. Each fix/finding is an **aroni episode** (log to RETROSPECTIVE on user-verify; the
+   aroni inbox already holds Episodes A/B/C from the design phase).
+4. On green: write the RETROSPECTIVE entry (item 1 + item 3 graduate, user-verified).
+
+**THEN (separate, post-live-test): the conductor / multi-account major pass** — SPEC §9
+is the spec (per-account temporary conductor; clone+pipe delivery; one fine-grained PAT;
+optional least-priv cross-account shared-services for a central scan regime; dual-mode
+ECR pull-default/push-for-hotfix). Re-assess the plan with the user before running it.
+
+---
+*(earlier handoff, 2026-06-14 — aroni machinery + the two-session split; kept for context)*
+
+aroni's machinery is complete through
 the second order; the user is opening two new sessions: **(a) an aroni session**
 to keep open and tweak; **(b) a barzel session for a major refactor**, which aroni
 should help drive.
