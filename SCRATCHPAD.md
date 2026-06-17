@@ -117,16 +117,20 @@ migrated to `terraform/stack/aws/<layer>/` and `tofu validate` clean:
   count-gated, dev off/prod on — flip to adopt).
 Old `environments/{dev,prod}` trees still present (untouched) until the driver works.
 
-**REMAINING for item 3 (next):**
-1. **Wire `platform.sh`** to the stack: `cd terraform/stack/aws/<layer>`, compose
-   `init -backend-config=...key=$ENV/<layer>/...` (bucket from account), pass
-   `-var-file=$ENV.tfvars`. Update `secrets()` to write
-   `stack/aws/40-ecr/credentials.auto.tfvars`. (Pre-approved by user; deferred to
-   "after the layers".) `00-conductor` is self-contained/dev-only — decide whether
-   it also moves to `stack/aws/00-conductor` (no env split) or stays.
-2. **Remove** old `environments/{dev,prod}` trees once the driver drives the stack.
+**REMAINING for item 3:**
+1. ~~Wire `platform.sh` to the stack.~~ **DONE (5368045):** `_state_bucket` +
+   `_set_backend_args` compose the env-keyed S3 backend (bucket from account, key
+   `<env>/<layer>/terraform.tfstate`); `_tofu_layer`/`teardown` do `init -reconfigure`
+   + `-var-file=<env>.tfvars`; `secrets()` → `40-ecr/credentials.auto.tfvars`;
+   `cluster()` re-inits 50-compute per env; preflight reports the derived bucket;
+   conductor repointed to `conductor_dir` (legacy, untouched). kubeconfig_setup +
+   generate_inventory compute dir → stack/aws/50-compute. Offline-clean.
+2. **Remove** old `environments/{dev,prod}` LAYER trees (10/15/20/30/40/50) once
+   confirmed — **KEEP `environments/dev/00-conductor` + its backend.hcl** (conductor
+   is SPEC §9, not this pass).
 3. **Docs:** runbooks (BOOTSTRAP/RECOVERY/TEARDOWN/UPGRADE/ACCESS) + README + an ADR
    for the env-layout + state-backend change (backend.hcl retirement).
+Then → **live test** (billable, gated) + teardown loose ends.
 Full live validation batched to the one live-pass (greenfield — nothing deployed).
 
 **Later (separate, needs design):** the gitops `clusters/{dev,prod}` ApplicationSet
