@@ -13,7 +13,7 @@
 > **Delivery snapshot (historical):** v0.6 shipped 2026-06-10 — MVP + monitoring +
 > backups live, prod env built + validated, full DR restore proven. History in
 > [`notes/PLAN-HISTORICAL.md`](notes/PLAN-HISTORICAL.md) + the run reports under
-> `notes/`. Decisions §7; cost/lifecycle §8; differentiators §4; changelog §9.
+> `notes/`. Decisions §7; cost/lifecycle §8; differentiators §4; multi-account/org topology (future) §9; changelog §10.
 
 ---
 
@@ -60,17 +60,19 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **Compute:** **AWS Graviton / arm64** (`m6g.large` default). Forces arm64 across AMI, k3s, all images/Helm charts, ECR pull-through manifests.
 - **Terraform layering:** modular + layered by rate of change (`10-network`→`20-security`→`30-iam`→`40-ecr`→`50-compute`; `15-kms` the persistent foundation); reusable `modules/`. OpenTofu (`tofu`); HCL kept Terraform-compatible.
 - **Environment layout — single-source stack (model B, 2026-06-15).** ONE source per layer under `terraform/stack/aws/<layer>/`, applied per environment via a committed per-env `<env>.tfvars` (`-var-file`). The dev→prod **promotion gate is separate INSTANCES** — distinct state + independent apply per env — NOT duplicated source; per-env source directories are retired. Real per-env differences are explicit + input-driven and **favor parity** (a resource may exist dormant in an env rather than be conditionalized out, keeping the option to adopt it later). Replaces the former `environments/{dev,prod}/` duplicated trees. Rationale + rejected alternatives (workspaces; per-env dirs) in the design note (Third Lobe `202606151456`) and BACKLOG item 3.
-- **Terraform state backend — ONE bucket, ONE CMK, env split by S3 object key (2026-06-15).** A single S3 state bucket (`brzl-demo-tfstate-<account_id>`) + a single state CMK; environments are separated by the **S3 object key** (`<env>/<layer>/terraform.tfstate`), not by separate buckets/keys. The driver (`gitops/tools/platform.sh`) **composes the backend config at init** — bucket DERIVED from the caller's account, key from `<env>`+`<layer>` — so no account-bearing value or per-env path is committed or kept in a gitignored `backend.hcl` (that per-env file is **retired**). The `terraform_remote_state` data sources derive the bucket the same way and compose the lower-layer key from `var.env`, so a layer reads its own env's lower layers. S3 + DynamoDB lock. *(Later passes: local-first bootstrap → `init -migrate-state` lift into S3; AWS-Organization multi-account with the bootstrap state kept separate from the targets.)*
+- **Terraform state backend — ONE bucket, ONE CMK, env split by S3 object key (2026-06-15).** A single S3 state bucket (`brzl-demo-tfstate-<account_id>`) + a single state CMK; environments are separated by the **S3 object key** (`<env>/<layer>/terraform.tfstate`), not by separate buckets/keys. The driver (`gitops/tools/platform.sh`) **composes the backend config at init** — bucket DERIVED from the caller's account, key from `<env>`+`<layer>` — so no account-bearing value or per-env path is committed or kept in a gitignored `backend.hcl` (that per-env file is **retired**). The `terraform_remote_state` data sources derive the bucket the same way and compose the lower-layer key from `var.env`, so a layer reads its own env's lower layers. S3 + DynamoDB lock. **Multi-account form (decided 2026-06-17, built in §9's pass):** one state bucket + CMK **per account**, environments within an account still key-separated (`<env>/<layer>/…`, e.g. dev/stage/prod) — the conductor is *tied to its account's state*, composing the backend from its own caller identity. Single-account today is the degenerate case. *(Later passes: local-first bootstrap → `init -migrate-state` lift into S3; the bootstrap state stays separate from the targets.)*
 - **Registry:** ECR for images + OCI Helm charts + pull-through cache (Docker Hub, registry.k8s.io, quay.io, ghcr.io). **Harbor** = documented production recommendation.
 - **Storage:** EBS CSI + gp3 default StorageClass. `local-path` only as a documented descope lever. A standalone/DR path installs the CSI driver + gp3 itself (it bypasses the wave-0 GitOps storage app).
 - **Backups:** CNPG → S3 (Barman Cloud), authenticated by the **EC2 instance profile** — no second IAM user.
 - **GitOps:** a **single `ApplicationSet`** (account-id-free, ADR-0016 — NOT an app-of-apps root) with **sync waves** so operators land before the applications that need them; `clusters/{dev,prod}` + `clusters/local`.
 - **CI:** keep all pipeline/runner definitions **CI-system agnostic** (must work on GitHub Actions or GitLab CI).
 - **Node access:** **SSM Session Manager (SSH-over-SSM)** is the access path — no inbound `:22` (`20-security` `enable_ssh_ingress=false`), node role granted SSM (`30-iam` `enable_ssm=true`), Ansible tunnels via a ProxyCommand using the EC2 instance-id. IAM-gated + audited; the TF-generated key is break-glass only. *Chosen over the Ansible `aws_ssm` connection plugin specifically to avoid its S3 file-transfer bucket — SSH-over-SSM needs none.* Prod hardening (documented): private subnets, no public IP, VPC interface endpoints for `ssm`/`ssmmessages`/`ec2messages`.
-- **Operations run from the toolbox, not the laptop.** From pre-flight onward the standard execution locus for infra/cluster ops is the pinned `containers/toolbox/` image — in-cluster, or on a disposable arm64 `t4g` "conductor" reached via SSM (no inbound SSH). Three goals: identical toolchain across operators (reproducible/traceable errors), IAM-gateable operator entry, audited activity. Scripts are **dual-locus** — run with `AWS_PROFILE` on a laptop AND with instance-role creds on the conductor; **never hard-require `AWS_PROFILE`**. AWS envs run from the conductor via `platform.sh` (it rejects `local`); the laptop is only for the admin trust-anchor bootstrap, launching the conductor, and the local-dev (k3d) environment.
+- **Operations run from the toolbox, not the laptop.** From pre-flight onward the standard execution locus for infra/cluster ops is the pinned `containers/toolbox/` image — in-cluster, or on a "conductor" reached via SSM (no inbound SSH). Three goals: identical toolchain across operators (reproducible/traceable errors), IAM-gateable operator entry, audited activity. Scripts are **dual-locus** — run with `AWS_PROFILE` on a laptop AND with instance-role creds on the conductor; **never hard-require `AWS_PROFILE`**. AWS envs run from the conductor via `platform.sh` (it rejects `local`); the laptop is only for the admin trust-anchor bootstrap, launching the conductor, and the local-dev (k3d) environment.
+- **Conductor — temporary, per-account, single-purpose IaC distributor.** The conductor is a **disposable bootstrap/deploy engine** (CI-runner-like), **one per target account** — *not* hub-and-spoke, so its IAM perimeter stays inside a single account (minimal footprint, single-purpose, torn down after the deploy). It is a **sibling of `terraform/bootstrap` + `terraform/identity`** (account/perimeter primitives), **not** a per-env stack layer. From inside the perimeter it has line-of-sight to both private-VPC and public network changes, and it composes its account's state backend from its own caller identity. *(Current shape — `environments/dev/00-conductor`, repo shipped via S3 — is the take-home snapshot; the relocation + clean git-clone delivery + the multi-account form are §9, a future pass.)*
 - **Saved-plan workflow (every billable/mutating tofu change):** `tofu plan -out=FILE` → review → `tofu apply FILE`. **Never `-auto-approve`** (it re-plans fresh, can drift from what was reviewed). Plan files gitignored (`*tfplan*`).
 - **Encryption:** **customer-managed KMS keys only** (per-purpose: state / ECR / EBS) — never the AWS-managed default keys, for key-policy control, rotation, and grantability (HYOK posture). ~$1/mo per key.
 - **Secrets / account-bearing values:** account-id-bearing names are **DERIVED at runtime from the caller** (`aws sts get-caller-identity`) or persisted in a gitignored auto-loaded file — never a per-run `TF_VAR_*` the operator must remember (if it can be dropped between runs, it will be). Committed per-env `<env>.tfvars` hold only **non-secret** env definitions (CIDRs, flags); rendered secret/ARN tfvars use `*.auto.tfvars` and stay gitignored; otherwise only `.example` templates are committed. Inventory in [`docs/SECRETS.md`](docs/SECRETS.md).
+- **Conductor GitHub credential — one precisely-scoped token.** The conductor reaches GitHub with **one** dedicated fine-grained PAT scoped to exactly its jobs: `read:packages` (GHCR pull-through) **+** Contents:read + Metadata:read (repo clone). **Not** split per job — "scope credentials to their job" means *no broader than needed*, not *one token per call*; the earlier clone-403 was an **under-scoped** token (a `read:packages`-only PAT used to clone), not a multi-purpose one. (This replaces the S3 tree-ship repo delivery — §9.)
 - **Runbooks:** `docs/{BOOTSTRAP,ACCESS,UPGRADE,RECOVERY,TEARDOWN}.md` maintained as living team runbooks. Scaling + backups are automated and documented in the top-level `README.md` (no separate SCALING runbook). The **top-level `README.md` is the primary doc**; no per-directory READMEs.
 
 ---
@@ -261,7 +263,54 @@ The 2026-06-03 targeted-destroy stopgap is retired by this move.
 
 ---
 
-## 9. Changelog
+## 9. Multi-account / org topology — future, directional (NOT built)
+
+The intended trajectory for the conductor + multi-account work (BACKLOG; decided
+through the 2026-06-15/17 design discussion). Recorded so it survives compaction;
+**none of this is built yet** — today is single-account. It extends §3's model B
+rather than replacing it.
+
+- **Per-account conductor deploys that account's env layers.** The temporary,
+  single-purpose conductor (§3) is launched **per target account**; model B's per-env
+  `<env>.tfvars` gain the target account id + an assume-role for the env's account.
+  Several envs may share an account (dev/stage key-separated) or sit alone (prod) —
+  the conductor is tied to its account's state either way.
+- **State: per-account bucket + CMK, envs key-separated within** (§3). The bootstrap
+  state stays separate from the targets.
+- **Deploy delivery — clone + pipe, not ship + run-monolith.** The clunky S3 tree-ship
+  is replaced by a scoped **git clone** (the one fine-grained PAT, §3). Orchestration
+  **emits flattened, pipeable command streams** to the conductor's bare `/bin/bash`
+  (GUIDANCE §1.8) rather than running `platform.sh` as a resident on-box monolith. The
+  repo is still *cloned* (tofu/Ansible are file-based — piping can't make that go away);
+  what travels as a stream is the **command/orchestration layer**. The CI path is
+  **non-interactive** (review moves to the plan/PR artifact); the laptop/admin path
+  stays interactive-gated (saved-plan).
+- **Optional cross-account shared-services — least-privilege central repo/cache (now);
+  broader distribution (next pass).** A hub account may host central secrets + a central
+  ECR, consumed by **selected** env accounts. The **trust-direction (who-reads-whom) is
+  chosen at bootstrap** and recorded. **Rationale: a unified vulnerability-scanning
+  regime** — one scan gate (Inspector scan-on-push, fail-on-critical) over centrally
+  cached images — explicitly traded against blast radius (a central account is a single
+  point of compromise), mitigated by least-privilege cross-account resource policies,
+  per-purpose CMKs with explicit cross-account grants, and never flowing prod-sensitive
+  material into non-prod.
+- **ECR distribution — BOTH push and pull, by purpose (decided 2026-06-17).**
+  - **Pull (default, normal operation):** spokes pull selectively via a pull-through
+    cache pointed at the hub (a **custom-upstream** ECR cache, or each spoke's own cache)
+    — downstream projects stay selective about versions/cadence.
+  - **Push (security patches / hotfixes only):** the hub force-propagates a scanned
+    patch via **ECR registry replication** so no spoke lags on a vulnerability.
+  - Mechanism: a dedicated `hotfix`/`release` repo prefix is the **replication source**
+    (repo-prefix-filtered); normal images stay pull-through-only. **Honesty note:**
+    replication delivers the *artifact* fast (scanned, hub-provenanced, no cache-miss/
+    hub-availability dependence) — *adoption* still needs a GitOps version bump, since
+    the repos are immutable + digest-pinned. The scan gate is a **promote** step
+    (pull-through → scan → copy passed images into the replication-source repo).
+
+---
+
+## 10. Changelog
+- **v0.8 (2026-06-17):** Captured the **conductor + multi-account direction** (new §9, directional/not-built) from the 2026-06-15/17 design discussion, and sharpened §3: the conductor reclassified from a per-env layer to a **temporary, per-account, single-purpose IaC distributor** (sibling of bootstrap/identity, not hub-and-spoke); state-backend extended to the **per-account** form (bucket+CMK per account, envs key-separated within; conductor tied to its account's state); a **one-fine-grained-PAT** conductor GitHub credential decision (refines "scope to job" = no broader than needed, not one-token-per-call). §9 records: clone+pipe deploy delivery (vs S3 ship + on-box monolith), optional least-priv cross-account shared-services chosen at bootstrap (rationale: a unified vuln-scanning regime), and the **dual-mode ECR** (pull-selective by default + push-for-hotfix via replication). No code yet — the next major pass; gated behind finishing item 3 + a live test.
 - **v0.7 (2026-06-15):** Post-delivery refactor begins (BACKLOG items 1–4). **Promoted this SPEC from `notes/` to the repo root as the design source of truth**; CLAUDE.md now delegates standing decisions here (§3) instead of duplicating them — one home (cand-004 SSOT). New/updated §3 decisions: **environment layout model B** (single-source `terraform/stack/aws/<layer>` + per-env tfvars — the promotion gate is separate *instances*, not duplicated source); **state backend** simplified to ONE bucket + ONE CMK, env split by S3 object key, driver-composed at init (the gitignored per-env `backend.hcl` retired); folded the previously CLAUDE-only decisions (GitOps ApplicationSet, CI-agnostic, ops-from-toolbox, saved-plan, account-bearing-values-derived) into §3 and corrected the stale "app-of-apps" wording. Item-1 pass also landed: `operator()` installs EBS CSI+gp3 (was a doc-vs-body lie), driver backend-block preflight + resume-on-failure, standalone/DR path de-pinned from `brzl-dev-*`. `10-network` is the first migrated stack layer (prototype).
 - **v0.6 (2026-06-04, late):** Full live arc. AWS bring-up `10→50` + KMS migration + k3s HA (Ansible) + the **ApplicationSet** GitOps (ADR-0016, account-id-free) — all 6 apps Synced/Healthy; **CNPG 3/3 HA, failover drilled** (promote, 0 data loss); **monitoring** (kube-prometheus-stack + CNPG + custom app/DB overview dashboard); **demo-app evolved into a Sefaria search web app** (borrowed `chofesh` client; persists searches/results/api-calls; app-level Prometheus metrics + ServiceMonitor); **backup drilled** (CNPG→S3, CMK, instance-profile). Then a **full teardown as a DR test** (destroyed `10–50` incl. `40-ecr`, kept only `15-kms` backups+CMKs; restore = pending A2). Fixed the **state-bucket TF_VAR fragility** (now derived from caller identity). **Local-dev (k3d) built** (ADR-0015 → built: overlay + `k3d_up.sh`, upstream/imported images, local-path, AWS-free; verified first try). **Operator SSO gateway** (§4.1b) designed then re-targeted to build **local-first** on k3d with **Dex/GitHub**, trusted certs via **Let's Encrypt + FreeDNS DNS-01** over `*.sso.barzel.sh` — in progress.
 - **v0.5 (2026-06-04):** Resolved decision 12 (§7): app↔DB credential projection via **External Secrets Operator** (ADR-0014) — demo app moved to its own `demo` namespace; CNPG `pg-app` projected by a least-priv reader SA + `ClusterSecretStore` + `ExternalSecret`, DSN templated to the `pg-rw` FQDN. Built `apps/demo-app` (Go+pgx, arm64 distroless ~19MB, offline-verified end-to-end against PG17) + its GitOps bundle (wave 3). EBS-CMK → `15-kms` state migration **performed** (state rm/import; apply pending next bring-up — UPGRADE.md). Added `SECRETS.md` credential inventory. Resolved decision 13: **local-dev k3d parity — design accepted, build deferred** (ADR-0015) to protect the delivery buffer.

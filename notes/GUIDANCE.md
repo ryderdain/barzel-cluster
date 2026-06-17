@@ -121,6 +121,8 @@ But mind *what* travels down the pipe — and prefer, in this order:
 
 This is what makes Part 2's **toolbox-as-execution-locus** practical: the operator's machine stays where you *read and approve* the plan; the toolbox is where it *runs* — identical toolchain, IAM-gated, audited. The Bash discipline isn't just hygiene; it's the mechanism that lets execution cross the laptop↔toolbox boundary without rewriting anything.
 
+**The orchestrator is a stream too — not a resident monolith.** The same rule binds the *driver*, not only the leaf scripts: a bring-up/teardown should be expressible as a **flattened command stream piped to a bare `/bin/bash`** on the execution box, so the whole procedure is previewable and relocatable — *not* a big stateful program you copy onto the box and run in place (that's the thing this doctrine is meant to retire). **Honest caveat — repo, not fileless.** Terraform and Ansible are file-based: the modules, layers, playbooks, and manifests must be *present* on the execution host, so the box still needs the repo. Reconcile by separating the two concerns: **deliver the repo by a scoped `git clone`** (a single fine-grained, least-privilege token — never a clunky tree-ship through a side channel), and **drive the work as a piped stream**. The conductor that receives it is best kept **temporary, single-purpose, and per-account** (a disposable IaC distributor, minimal IAM perimeter) rather than a long-lived cross-account hub — smaller blast radius, and every run is reproducible from the same clone + stream.
+
 ### 1.9 Why bash here, not Ansible — collaboration and overhead
 
 Two more strands of the same Part-1 ↔ Part-2 connective tissue — the *organisational* case for this shape, not only the technical one:
@@ -163,7 +165,7 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 ### 2.4 Identity, secrets, access
 
 - **Authenticate with the instance profile** — e.g. CNPG/Barman → S3 via `inheritFromIAMRole`. Do **not** mint a second IAM user for what a role can do.
-- **Pull-through registry credentials live in Secrets Manager** (ECR requires it); **non-secret config goes in Parameter Store.** Don't conflate the two — and don't reuse a registry token (`read:packages`) as a repo-clone credential; scope credentials to their job.
+- **Pull-through registry credentials live in Secrets Manager** (ECR requires it); **non-secret config goes in Parameter Store.** Don't conflate the two. **Scope credentials to their job = no broader than needed — *not* one token per call.** A *single* fine-grained token scoped to exactly the jobs at hand is correct and preferable: e.g. one GitHub PAT carrying `read:packages` (GHCR pull-through) **and** Contents+Metadata read (repo clone) serves both the registry and the clone. The classic 403 (a `read:packages`-only token used to clone) was an **under-scoped** token, not a multi-purpose one — the fix is to scope it to *both* needs, not to split it into two.
 - **Node access via SSH-over-SSM** (instance-id target, ProxyCommand tunnel) — **no inbound `:22`, no public API exposure** beyond a tight admin `/32`.
 
 ### 2.5 Cost posture
@@ -193,6 +195,7 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 ### 2.8 Supply chain (noted, to build out)
 
 - **Scan stored images** (ECR enhanced scanning / Inspector, or Trivy in CI) with a documented **fail-on-critical** gate; Harbor's built-in Trivy scanning is the production-registry recommendation.
+- **Centralize the scanning regime, then distribute by purpose (multi-account).** The reason to centralize a registry/cache in one *hub* account is not storage efficiency — it's a **single vulnerability-scanning gate** over everything the fleet pulls. Make the cross-account sharing **opt-in and least-privilege** (selected consumer accounts, scoped resource policies, per-purpose CMKs with explicit cross-account grants, prod-sensitive material never flowing into non-prod) — the **trust direction (who reads whom) is a bootstrap-time decision**, recorded, because it trades blast radius (a central account is a single point of compromise) for the gate. Distribute with **both** ECR modes, split by purpose: **pull** (a pull-through cache pointed at the hub) for the normal course, so downstream stays selective about versions/cadence; **push** (ECR registry **replication** from a scanned `release`/`hotfix` repo prefix) for security patches only, so no spoke lags on a fix. Mind the honest limit: replication delivers the *artifact* (fast, scanned, hub-provenanced); *adoption* still needs a deploy bump when repos are immutable + digest-pinned.
 
 ---
 
@@ -263,7 +266,7 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 
 ## Appendix — the concrete moments these abstractions came from
 
-- **ghcr PAT 403 on clone** → "scope credentials to their job"; the registry token is `read:packages`, not a repo cred. Worked around by shipping the tree through the state bucket (no GitHub cred needed at all).
+- **ghcr PAT 403 on clone** → the token was **under-scoped** (`read:packages` only, used to clone), not "the wrong token" — the durable fix is **one fine-grained PAT scoped to *both* jobs** (packages + Contents/Metadata read), per §2.4. Worked around at the time by shipping the tree through the state bucket (no GitHub cred); that tree-ship is the clunky path now being replaced by the scoped `git clone` (§1.8).
 - **`helm --wait` false-negative on CRDs** → wait on `kubectl wait --for=condition=Available`, not the chart, when CRDs lack `observedGeneration`.
 - **Dex `$VAR` not expanded in `staticClients[].secret`** → know which fields your tool templates; `secretEnv:` vs `$VAR`.
 - **Broken multi-arch push (arm64 child 404s)** → build from source + import natively.
