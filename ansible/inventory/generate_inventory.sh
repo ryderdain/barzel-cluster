@@ -17,10 +17,13 @@ if (( BASH_VERSINFO[0] < 4 )); then
   exit 1
 fi
 
-# Default to the dev compute layer relative to this script's location, so it
-# works regardless of the caller's CWD; override by passing a path as $1.
+# Default to the single-source 50-compute stack layer (model B) relative to this
+# script's location, so it works regardless of the caller's CWD; override by passing a
+# path as $1. NOTE: that layer's dir is shared across envs and its state is env-keyed —
+# its .terraform must already be init'd to the target env's backend (platform.sh
+# cluster() does this) for `tofu output` to read the right env.
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-layer_dir="${1:-${script_dir}/../../terraform/environments/dev/50-compute}"
+layer_dir="${1:-${script_dir}/../../terraform/stack/aws/50-compute}"
 
 if ! command -v tofu >/dev/null 2>&1; then
   printf 'error: tofu not found on PATH\n' >&2

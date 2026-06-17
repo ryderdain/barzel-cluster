@@ -24,7 +24,7 @@
 #         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh write_arns_to_tfvars
 #         # persist it (backs up the existing file, still echoes to stdout):
 #         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh \
-#           write_arns_to_tfvars terraform/environments/dev/40-ecr/terraform.tfvars
+#           write_arns_to_tfvars terraform/stack/aws/40-ecr/credentials.auto.tfvars
 #
 # Default action (run directly, no args) = emit_create_secrets (preserves the
 # preview-then-pipe guardrail). The platform orchestrator calls both in turn.
@@ -94,7 +94,7 @@ emit_create_secrets() {
   printf '\n--- NEXT: populate the 40-ecr tfvars automatically ---------------------\n' >&2
   printf 'After piping the above to a shell, render the ARNs into the 40-ecr tfvars:\n' >&2
   printf '  %s \\\n' "gitops/bootstrap/create_pullthrough_secrets.sh" >&2
-  printf '    write_arns_to_tfvars terraform/environments/dev/40-ecr/terraform.tfvars\n' >&2
+  printf '    write_arns_to_tfvars terraform/stack/aws/40-ecr/credentials.auto.tfvars\n' >&2
   printf 'then plan + apply 40-ecr (saved-plan workflow).\n' >&2
   end_function 0 'emitted create-or-update for the exported upstream creds'
 }
