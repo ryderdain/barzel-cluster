@@ -36,8 +36,11 @@ operator IAM key the whole chain bootstraps from (and prod replaces that with SS
   secret, refreshed from source, rotatable without a redeploy.
 - **The account id never lands in git.** Manifests carry sentinels resolved at
   bootstrap; the GitOps ApplicationSet reads the real ECR host/bucket from an
-  in-cluster cluster-`Secret`'s annotations at render time (ADR-0016). `backend.hcl`
-  and all `*.tfvars` / `*.tfstate` / saved plans are gitignored.
+  in-cluster cluster-`Secret`'s annotations at render time (ADR-0016). `*.tfstate` /
+  saved plans are gitignored; `backend.hcl` exists only for the account-primitives
+  (identity/conductor) and is gitignored. `*.tfvars` are gitignored **except** the
+  committed non-secret per-env stack defs (`stack/aws/<layer>/{dev,prod}.tfvars` — CIDRs
+  + flags); rendered secret/ARN tfvars use `*.auto.tfvars` and stay gitignored (SPEC §3).
 - **Scripts carry references, not values.** Mutating scripts *emit* their commands
   for preview; a secret is referenced by env-var name (`$GHCR_TOKEN`) and expanded
   only by the downstream shell, so a dry run never prints it. The one secret with a

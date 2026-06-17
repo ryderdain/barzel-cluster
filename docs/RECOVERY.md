@@ -72,8 +72,10 @@ re-teardown.* The realized driver is **`platform.sh restore`** run from the cond
 (instance-role creds; from a laptop, `AWS_PROFILE=brzl-apply` works too — the scripts
 are dual-locus). The manual steps below are the per-phase reference. Every `tofu apply`
 is the saved-plan workflow (`plan -out=tfplan` → review → `apply tfplan`), per-layer
-(`cd <layer> && tofu init -backend-config=../backend.hcl`). `15-kms` stays up
-throughout — it holds the CMKs + the backup bucket the data lives in.
+against the single-source stack (`cd terraform/stack/aws/<layer>`, `tofu init
+-reconfigure` with the driver-composed backend + `-var-file=<env>.tfvars`; SPEC §3 —
+or just `platform.sh restore`). `15-kms` stays up throughout — it holds the CMKs +
+the backup bucket the data lives in.
 
 **Step 0 — Pre-flight (free):** confirm the foundation + the backup objects survived:
 
