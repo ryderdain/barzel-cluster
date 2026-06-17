@@ -13,7 +13,9 @@ behind these choices) and the operator runbooks.
 - **Encryption at rest under customer-managed KMS keys** — one CMK per purpose,
   each in a *persistent* Terraform layer so teardown never churns it (ADR-0006).
 - **Account id / account-bearing names stay out of git** — sentinels in committed
-  manifests, resolved from SSM at bootstrap; `backend.hcl` is gitignored (ADR-0013).
+  manifests, resolved from SSM at bootstrap; the stack composes its S3 backend from the
+  caller's account (no `backend.hcl`); the account-primitives' `backend.hcl`
+  (identity/conductor) is gitignored (ADR-0013).
 - **Secrets that need a git-managed shape are committed only as `.example`** — the
   real file is gitignored (deploy key, pull-through creds, tfvars).
 
@@ -99,8 +101,9 @@ Plain `String` parameters — **config, not secrets**. Listed here because they 
 
 From [`.gitignore`](../.gitignore):
 
-- `backend.hcl` — state backend config (account-bearing names)
-- `*.tfstate*`, `*.tfvars*`, `*tfplan*` — state, variable values, **saved plans (can embed resolved secrets)**
+- `backend.hcl` — account-primitives' state backend config (identity/conductor only; the stack composes its backend, no file)
+- `*.tfstate*`, `*tfplan*` — state + **saved plans (can embed resolved secrets)**
+- `*.tfvars*` — **except** the committed non-secret per-env stack defs (`stack/aws/<layer>/{dev,prod}.tfvars`); rendered secret/ARN tfvars use `*.auto.tfvars` and stay ignored
 - `ansible/.kube/` — fetched kubeconfig (embeds **cluster-admin** client cert/key)
 - `gitops/bootstrap/repo-deploy-key.yaml`, `*_deploy_key`, `*_deploy_key.pub` — the real deploy key
 - `~/.ssh/<node key>` — node break-glass private key (outside the repo tree)

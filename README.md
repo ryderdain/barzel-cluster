@@ -135,9 +135,11 @@ in its own path and carries its own pre-staging; skip any of them and the core s
    `terraform.tfvars`, then `tofu init && tofu plan -out=tfplan && tofu apply tfplan`
    — creates the S3 state bucket + DynamoDB lock + a customer-managed KMS key. The
    bucket name is a **convention, not a free choice**: it must be
-   `brzl-demo-tfstate-<account_id>`, because the layers and the identity policy
+   `brzl-demo-tfstate-<account_id>`, because the stack layers and the identity policy
    *derive* it from the caller's account id (so there's no `TF_VAR_state_bucket` to
-   drop or mistype). Copy that name into each `backend.hcl` (from `backend.hcl.example`).
+   drop or mistype). The stack layers need **no `backend.hcl`** — the driver composes
+   the backend (key `<env>/<layer>/terraform.tfstate`) at init (SPEC §3). (Only the
+   `identity` primitive + the conductor take a `backend.hcl`, from `.example`.)
 2. **Trust anchor:** apply [`terraform/identity/`](terraform/identity/) — the GitHub
    OIDC provider + scoped `tofu-plan` / `tofu-apply` roles. Everything after runs under
    an assumed least-privilege role, not static keys ([`docs/ACCESS.md`](docs/ACCESS.md)).
@@ -153,8 +155,8 @@ AWS_PROFILE=brzl-apply bash gitops/tools/ship_repo.sh
 aws ssm start-session --target <conductor-instance-id>   # printed by the conductor step
 
 # Conductor (instance-role creds, no profile):
-cp terraform/environments/dev/backend.hcl.example terraform/environments/dev/backend.hcl
-#   (set the real bucket; same for environments/prod when ENV=prod)
+#   stack layers need no backend.hcl — the driver composes the backend from the
+#   account + ENV. Just export the upstream tokens and run the driver:
 export GHCR_USERNAME=… GHCR_TOKEN=… DOCKERHUB_USERNAME=… DOCKERHUB_TOKEN=…
 ENV=dev bash gitops/tools/platform.sh bootstrap           # or ENV=prod
 ```
@@ -169,12 +171,13 @@ injected at render, so **no AWS account id is ever committed to git**
 AWS ops run from the conductor (audited, IAM-gated, identical toolchain); the laptop
 only does Phase 0 and launches the conductor.
 
-**The two environments differ by placement, not by code** — same modules, different
-inputs. `dev`: nodes in public subnets, /32-locked, API direct. `prod`
-([`terraform/environments/prod/`](terraform/environments/prod/)): nodes in **private
-subnets with no public IPs**, kube-API via SSM port-forward, and the **only public
-surface is a Terraform-owned NLB** fronting the demo-app UI (allowlisted to the
-operator /32 by default; `lb_ingress_cidr` opens it deliberately).
+**The two environments differ by inputs, not by code** — one single-source stack
+([`terraform/stack/aws/`](terraform/stack/aws/)), per-env `dev.tfvars`/`prod.tfvars`
+(model B; SPEC §3). `dev` (`public_nodes=true`): nodes in public subnets, /32-locked,
+API direct. `prod` (`public_nodes=false`): nodes in **private subnets with no public
+IPs**, kube-API via SSM port-forward, and the **only public surface is a
+Terraform-owned NLB** (`enable_public_ingress=true`) fronting the demo-app UI
+(allowlisted to the operator /32 by default; `lb_ingress_cidr` opens it deliberately).
 
 The conductor holds **no GitHub credential**: the laptop ships your approved working
 tree to the state bucket (`ship_repo.sh`) and the conductor pulls it via its instance

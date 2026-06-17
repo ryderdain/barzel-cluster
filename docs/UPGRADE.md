@@ -94,9 +94,10 @@ resources (e.g. anything forcing EC2/EBS recreation) before approving.
 The EBS CMK moved out of the churned compute layer into the persistent `15-kms`
 foundation. Migrate the **existing live key** into the new state with a state
 remove/import — **no key re-creation and no volume re-encryption**. The key
-id/arn are unchanged throughout. Run under the apply role; each layer derives the
-state bucket from its `../backend.hcl` (no `TF_VAR_state_bucket` — the bucket name
-is account-bearing and is never carried in a per-run env var, per CLAUDE.md).
+id/arn are unchanged throughout. Run under the apply role; the driver composes each
+stack layer's backend from the caller's account + `<env>/<layer>` key (no `backend.hcl`,
+no `TF_VAR_state_bucket` — the account-bearing bucket name is never a per-run env var,
+SPEC §3).
 
 > **Performed 2026-06-04** (key `4805a479-f62d-4835-a720-9eba7c0f5545`): `state rm`
 > from `50-compute` + `import` into `15-kms` (`module.kms_ebs`) both succeeded.
@@ -111,7 +112,10 @@ is account-bearing and is never carried in a per-run env var, per CLAUDE.md).
 > would plan to **destroy** the live key.
 
 ```sh
-cd terraform/environments/dev
+# Historical migration (performed 2026-06-04: EBS CMK 50-compute → 15-kms), recorded
+# for reference. Layers are now the single-source stack; per-layer dirs below are
+# under terraform/stack/aws/, each init'd with the §3 driver-composed backend.
+cd terraform/stack/aws
 
 # 0. Note the existing key id (from the layer that still owns it in state).
 ( cd 50-compute && tofu state show module.compute.aws_kms_key.ebs | grep -E 'key_id|arn' )
@@ -121,7 +125,11 @@ cd terraform/environments/dev
 ( cd 50-compute && tofu state rm module.compute.aws_kms_key.ebs module.compute.aws_kms_alias.ebs )
 
 # 2. Import the same live key + alias into 15-kms.
-( cd 15-kms && tofu init -backend-config=../backend.hcl \
+( cd 15-kms && tofu init -reconfigure \
+    -backend-config="bucket=brzl-demo-tfstate-<account>" \
+    -backend-config="key=dev/15-kms/terraform.tfstate" \
+    -backend-config="region=eu-central-1" -backend-config="dynamodb_table=brzl-demo-tflock" \
+    -backend-config="encrypt=true" \
   && tofu import module.kms_ebs.aws_kms_key.this   <key_id> \
   && tofu import module.kms_ebs.aws_kms_alias.this alias/brzl-dev-ebs )
 

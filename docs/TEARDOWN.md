@@ -20,7 +20,13 @@ per-hour meter is dominated by **compute** (`m6g.large` ≈ $0.231/hr combined;
   lives in the persistent `15-kms` layer now, so this destroy no longer touches it
   (no orphaned pending-deletion key, no targeted-destroy workaround — ADR-0006).
   ```sh
-  cd terraform/environments/dev/50-compute && tofu destroy
+  # compute-only (fast iteration), the single-source 50-compute stack layer, dev state:
+  acct="$(aws sts get-caller-identity --query Account --output text)"
+  cd terraform/stack/aws/50-compute
+  tofu init -reconfigure -backend-config="bucket=brzl-demo-tfstate-${acct}" \
+    -backend-config="key=dev/50-compute/terraform.tfstate" -backend-config="region=eu-central-1" \
+    -backend-config="dynamodb_table=brzl-demo-tflock" -backend-config="encrypt=true"
+  tofu destroy -var-file=dev.tfvars
   ```
   Re-bootstrap next session: re-apply `50-compute` → re-run the Ansible
   `kubernetes` role (k3s state does not survive compute teardown).
@@ -37,12 +43,23 @@ Services (frees ELBs), or let ArgoCD prune them. **Confirm** no `kubernetes.io`
 EBS volumes or ELBs remain before touching infra.
 
 ## 2. Infrastructure layers (reverse order) ✅ 💸
+The realized path is the **driver** (gated, saved-plan, reverse-order 50→10, keeps
+`15-kms`): `ENV=dev bash gitops/tools/platform.sh teardown` (or `ENV=prod`). Full
+retirement (incl. `15-kms` + identity + the state bucket) adds §3/§3a below.
+Manual reference — the single-source stack, composing each layer's env-keyed backend:
 ```sh
-cd terraform/environments/dev
+acct="$(aws sts get-caller-identity --query Account --output text)"
 for layer in 50-compute 40-ecr 30-iam 20-security 15-kms 10-network; do
-  ( cd "$layer" && tofu destroy )
+  ( cd "terraform/stack/aws/$layer" \
+      && tofu init -reconfigure -backend-config="bucket=brzl-demo-tfstate-${acct}" \
+           -backend-config="key=dev/$layer/terraform.tfstate" -backend-config="region=eu-central-1" \
+           -backend-config="dynamodb_table=brzl-demo-tflock" -backend-config="encrypt=true" \
+      && tofu destroy -var-file=dev.tfvars )
 done
 ```
+> **Next-pass (the live-test loose ends):** an **end-to-end automated full-teardown
+> sweep** (driver `teardown` → leak sweep §4 → finishers §3a) is still to be built;
+> today the §3/§3a/§4 steps are run by hand. Tracked in BACKLOG.
 
 `40-ecr` destroy **fails on any non-empty repository**
 (`RepositoryNotEmptyException` — the repos are deliberately not `force_delete`,
