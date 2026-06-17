@@ -147,25 +147,30 @@ it deploys dev+prod because they share ONE account. It is a SIBLING of
 `stack/aws/<layer>`. → for finishing item 3, leave it at `environments/dev/00-conductor`
 untouched; its relocation/refactor is the NEXT major pass.
 
-**Goals for the next major pass (conductor/multi-account):**
-1. **n+1 accounts via the same conductor pattern** — deploy stack layers into multiple
-   accounts (AWS Org). Model B extends naturally: per-env tfvars gain target account +
-   assume-role; per-account state backends (the deferred multi-account state work).
-2. **Clean repo delivery + emit/pipe orchestration** — the S3 tree-ship is clunky;
-   replace with a scoped git clone (the carried PAT item). And running `platform.sh` as
-   a monolith on-box cuts against GUIDANCE §1.8 (emit a flattened stream piped to a bare
-   `/bin/bash`). Reconcile: repo is CLONED on the box (terraform/ansible are file-based —
-   pipe can't eliminate that); the ORCHESTRATION emits pipeable streams; CI path is
-   non-interactive (review moves to the plan/PR), laptop path stays interactive-gated.
-3. **Optional cross-account shared resources** — central secrets in one account +
-   central ECR images in one account, reachable by all/select env accounts. Selective,
-   least-priv resource policies + per-CMK cross-account grants. (ECR nuance: pull-through
-   CACHE is account-local — share a RESOLVED-image repo via repo policy, not the cache.)
-
-**Issues to weigh (my honest assessment — detail in chat):** shared-resource
-blast-radius/isolation tradeoff (not efficiency — security coupling); ECR cache-vs-repo;
-conductor topology hub-and-spoke (one box, cross-account assume-role) vs per-account;
-file-on-box vs pure-pipe; multi-account forces the state-model extension model B defers.
+**Goals for the next major pass (conductor/multi-account) — forks now DECIDED (user 2026-06-17):**
+1. **n+1 accounts via the conductor pattern.** Conductor = **temporary, per-account,
+   single-purpose IaC distributor / bootstrap engine** (NOT hub-and-spoke — minimal IAM
+   footprint, disposable). Model B extends: per-env tfvars gain target account +
+   assume-role.
+2. **State: tie the conductor to its account's state.** Per-ACCOUNT state bucket (+CMK);
+   environments WITHIN an account separated by S3 object key (`<env>/<layer>/…`, e.g.
+   dev/stage/prod). Conductor composes the backend from its own caller identity. =
+   model B replicated per account (single-account today is the degenerate case).
+   Bootstrap state kept separate from targets.
+3. **Clean repo delivery + emit/pipe orchestration.** Replace the S3 tree-ship with a
+   scoped **git clone**. ONE dedicated GitHub fine-grained PAT carries ALL needed perms —
+   `read:packages` (GHCR pull-through) + Contents:read + Metadata:read (clone) — do NOT
+   split GHCR from repo (the earlier 403 was an *under-scoped* token, not a multi-purpose
+   one; refine GUIDANCE's "scope to job" lesson accordingly). Orchestration emits pipeable
+   streams to the conductor's bare bash; repo is CLONED (tofu/ansible are file-based — pipe
+   can't eliminate that); CI path non-interactive, laptop path interactive-gated.
+4. **Optional cross-account shared resources — least-priv central repo/cache NOW; broader
+   distribution next pass.** Rationale is a **unified vulnerability-scanning regime** (one
+   scan gate over centrally-cached images), not efficiency. **Trust-direction model
+   (who-reads-whom) chosen AT BOOTSTRAP**, recorded in SPEC. ECR distribution options
+   (next-pass detail): central pull-through + scan + **promote** + **registry replication**
+   to spokes (recommended — scan-gateable); or **cache-chaining** via a custom upstream
+   (spokes lazily mirror through the hub). Per-resource CMK cross-account grants.
 
 **SEQUENCING (user-set):**
 1. (now) settle SPEC/GUIDANCE revisions for the above → durable.
