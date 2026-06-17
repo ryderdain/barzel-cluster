@@ -22,7 +22,19 @@
       "Bash(aws sts get-caller-identity *)",
       "Bash(aws ec2 describe-*)",
       "Bash(aws ssm get-parameter *)",
-      "Bash(aws s3 ls *)"
+      "Bash(aws s3 ls *)",
+      "Bash(aws ssm get-* *)",
+      "Bash(aws ssm describe-* *)",
+      "Bash(aws ecr describe-* *)",
+      "Bash(aws kms describe-* *)",
+      "Bash(aws kms list-* *)",
+      "Bash(aws secretsmanager list-* *)",
+      "Bash(aws iam list-* *)",
+      "Bash(aws configure list-profiles)",
+      "Bash(tofu fmt -check *)",
+      "Bash(tofu output *)",
+      "Bash(tofu output)",
+      "Bash(tofu validate)"
     ]
   },
   "hooks": {
