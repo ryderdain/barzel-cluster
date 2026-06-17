@@ -40,7 +40,10 @@ env_name="${ENV:-dev}"
 context_name="${CONTEXT_NAME:-brzl-${env_name}}"
 src="${KUBECONFIG_SRC:-${repo_root}/ansible/.kube/config-dev.yaml}"
 dest="${KUBECONFIG_DEST:-${HOME}/.kube/config}"
-compute_dir="${repo_root}/terraform/environments/${env_name}/50-compute"
+# Single-source stack layer (model B); shared dir, env-keyed state. Its .terraform must
+# be init'd to THIS env's backend for `tofu output` to read the right state — platform.sh
+# cluster() does that before calling here. Endpoint read is best-effort (falls back).
+compute_dir="${repo_root}/terraform/stack/aws/50-compute"
 
 setup_kubeconfig() {
   local do_print=0 endpoint=""

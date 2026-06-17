@@ -88,11 +88,21 @@ case "$env_name" in
 esac
 
 name_prefix="brzl-${env_name}"
-env_dir="${repo_root}/terraform/environments/${env_name}"
+# Single-source stack (model B, SPEC §3): ONE source per layer under
+# terraform/stack/aws/<layer>, applied per env via <env>.tfvars. The env lives in the
+# tfvars + the S3 state OBJECT KEY (composed below), not in a per-env directory.
+stack_dir="${repo_root}/terraform/stack/aws"
+# Conductor is NOT migrated this pass (its own pass — SPEC §9); it stays a self-contained
+# layer at its legacy path with its own ../backend.hcl. dev-only.
+conductor_dir="${repo_root}/terraform/environments/${env_name}/00-conductor"
 ansible_dir="${repo_root}/ansible"
 backup_bucket_param="${BACKUP_BUCKET_PARAM:-/${name_prefix}/backup/bucket_name}"
+state_lock_table="${STATE_LOCK_TABLE:-brzl-demo-tflock}"
 cnpg_ns="${CNPG_NAMESPACE:-cnpg-demo}"
 cnpg_chart_version="${CNPG_CHART_VERSION:-0.28.2}"
+# State bucket, DERIVED from the caller's account (SPEC §3 — no backend.hcl, no env var
+# to remember). Cached on first resolve by _state_bucket. STATE_BUCKET overrides.
+state_bucket="${STATE_BUCKET:-}"
 
 # Propagate env-scoped SSM param paths + name prefix to the per-action scripts this
 # orchestrator sources (render_recovery_manifest, bootstrap_argocd, create_pullthrough)
@@ -112,6 +122,35 @@ _confirm() {
   printf '\n>>> %s [y/N] ' "$1" >&2
   read -r reply
   [[ "$reply" == [yY] || "$reply" == [yY][eE][sS] ]]
+}
+
+# _state_bucket — DERIVE the single state bucket from the caller's account, cached
+# (SPEC §3). brzl-demo-tfstate-<account_id>; STATE_BUCKET overrides. Prints to stdout.
+_state_bucket() {
+  if [[ -z "$state_bucket" ]]; then
+    local acct
+    acct="$(aws sts get-caller-identity --query Account --output text 2>/dev/null)" || return 1
+    [[ -n "$acct" && "$acct" != "None" ]] || return 1
+    state_bucket="brzl-demo-tfstate-${acct}"
+  fi
+  printf '%s' "$state_bucket"
+}
+
+# _set_backend_args <layer> — compose this env's S3 backend config for a stack layer
+# into the global array g_backend_args (model B: ONE bucket, env split by the OBJECT
+# KEY <env>/<layer>/terraform.tfstate; SPEC §3). No backend.hcl. Returns 1 if the
+# bucket can't be derived (no creds).
+g_backend_args=()
+_set_backend_args() {
+  local layer="$1" bucket
+  bucket="$(_state_bucket)" || { printf 'error: cannot derive state bucket (AWS creds/role set?)\n' >&2; return 1; }
+  g_backend_args=(
+    -backend-config="bucket=${bucket}"
+    -backend-config="key=${env_name}/${layer}/terraform.tfstate"
+    -backend-config="region=${region}"
+    -backend-config="dynamodb_table=${state_lock_table}"
+    -backend-config="encrypt=true"
+  )
 }
 
 # ---- Phase: preflight (FREE) -------------------------------------------------
@@ -161,7 +200,7 @@ preflight() {
 
   # Conductor (00-conductor) state — best-effort, read-only (needs an init'd state dir).
   local cond_id
-  cond_id="$(cd "${env_dir}/00-conductor" 2>/dev/null && tofu output -raw conductor_instance_id 2>/dev/null)"
+  cond_id="$(cd "${conductor_dir}" 2>/dev/null && tofu output -raw conductor_instance_id 2>/dev/null)"
   if [[ -n "$cond_id" ]]; then
     printf 'conductor : %s up — aws ssm start-session --target %s\n' "$cond_id" "$cond_id" >&2
   else
@@ -173,21 +212,24 @@ preflight() {
     --query "SecretList[?starts_with(Name,'ecr-pullthroughcache/')].Name" --output text 2>/dev/null >&2 \
     || printf '(none / error)\n' >&2
 
-  if [[ -r "${env_dir}/backend.hcl" ]]; then
-    printf 'backend   : %s present\n' "${env_dir}/backend.hcl" >&2
+  # State backend: DERIVED, not a backend.hcl (model B; SPEC §3). Report the bucket +
+  # this env's object-key prefix so the operator sees where state lives.
+  local sb
+  if sb="$(_state_bucket)"; then
+    printf 'state     : s3://%s  keys %s/<layer>/terraform.tfstate (composed per-layer)\n' "$sb" "$env_name" >&2
   else
-    printf 'WARN: %s missing — cp backend.hcl.example backend.hcl and set the real bucket\n' "${env_dir}/backend.hcl" >&2
+    printf 'WARN: could not derive the state bucket (AWS creds/role set?)\n' >&2
   fi
 
   # Backend-block guard: a layer missing its `backend "s3"` block silently applies
   # to LOCAL state (and a later run then can't find what it created). Assert every
-  # layer present declares one — cheap insurance against a dropped backend.tf, so
+  # stack layer declares one — cheap insurance against a dropped backend.tf, so
   # correctness never rests on the operator noticing (GUIDANCE §1.7, generalized).
-  local -a all_layers=(00-conductor 10-network 15-kms 20-security 30-iam 40-ecr 50-compute)
+  local -a all_layers=(10-network 15-kms 20-security 30-iam 40-ecr 50-compute)
   local l missing_backend=0
   for l in "${all_layers[@]}"; do
-    [[ -d "${env_dir}/${l}" ]] || continue
-    if ! grep -rqs 'backend "s3"' "${env_dir}/${l}"; then
+    [[ -d "${stack_dir}/${l}" ]] || continue
+    if ! grep -rqs 'backend "s3"' "${stack_dir}/${l}"; then
       # shellcheck disable=SC2016  # backticks are literal display text, not a subshell
       printf 'WARN: layer %s has NO `backend "s3"` block — tofu would use LOCAL state\n' "$l" >&2
       missing_backend=1
@@ -207,7 +249,9 @@ preflight() {
 #   platform.sh conductor destroy  # tear the box down
 conductor() {
   require_tools tofu || end_function "$?" 'tofu required'
-  local action="${1:-apply}" dir="${env_dir}/00-conductor"
+  # NOT migrated to the stack this pass (its own pass — SPEC §9): still the legacy
+  # self-contained layer with its own ../backend.hcl. dev-only.
+  local action="${1:-apply}" dir="${conductor_dir}"
   [[ -d "$dir" ]] || { printf 'error: no 00-conductor layer at %s\n' "$dir" >&2; end_function 1 'no conductor layer'; return 1; }
   printf 'note: 00-conductor is SELF-CONTAINED (own VPC/IAM, reads no other layer state)\n' >&2
   printf '      — it does NOT require 10-network or 15-kms; deploy/destroy in isolation.\n' >&2
@@ -278,24 +322,34 @@ secrets() {
   if _confirm "create/update the pull-through secrets in Secrets Manager?"; then
     set -o pipefail
     emit_create_secrets | bash || { end_function 1 'secret create run failed'; return 1; }
-    write_arns_to_tfvars "${env_dir}/40-ecr/terraform.tfvars" >/dev/null \
+    # Account-level ARNs, SHARED across envs → the gitignored, auto-loaded
+    # credentials.auto.tfvars in the single 40-ecr stack layer (model B; SPEC §3).
+    local creds_tfvars="${stack_dir}/40-ecr/credentials.auto.tfvars"
+    write_arns_to_tfvars "$creds_tfvars" >/dev/null \
       || { end_function 1 'write_arns_to_tfvars failed'; return 1; }
-    printf 'credential ARNs rendered → %s/40-ecr/terraform.tfvars\n' "$env_dir" >&2
+    printf 'credential ARNs rendered → %s\n' "$creds_tfvars" >&2
   fi
   end_function 0 'upstream secrets established'
 }
 
 # ---- Phase: layers (💸 saved-plan, gated, in order) --------------------------
-# _tofu_layer <layer-dir-name> — init + plan -out + review + confirm + apply tfplan.
-# Bucket is DERIVED from backend.hcl + caller identity (no TF_VAR_state_bucket).
+# _tofu_layer <layer-dir-name> — init + plan -out + review + confirm + apply tfplan,
+# against the SINGLE-SOURCE stack layer (model B). The env is carried by the composed
+# backend object key (_set_backend_args) + the -var-file; the layer dir is SHARED, so
+# `init -reconfigure` re-points the backend to THIS env each run (safe to switch envs
+# in one dir). Bucket DERIVED from caller identity (no backend.hcl, no TF_VAR).
 _tofu_layer() {
-  local layer="$1" dir="${env_dir}/$1" plan="tfplan"
+  local layer="$1" dir="${stack_dir}/$1" plan="tfplan"
   [[ -d "$dir" ]] || { printf 'error: no such layer: %s\n' "$dir" >&2; return 1; }
-  printf '\n=== layer %s ===\n' "$layer" >&2
+  _set_backend_args "$layer" || return 1
+  printf '\n=== layer %s (env %s, key %s/%s/terraform.tfstate) ===\n' \
+    "$layer" "$env_name" "$env_name" "$layer" >&2
   ( cd "$dir" \
-      && tofu init -backend-config=../backend.hcl -input=false >/dev/null \
-      && tofu plan -out="$plan" ) || { printf 'error: plan failed for %s\n' "$layer" >&2; return 1; }
-  if _confirm "apply the saved plan for ${layer}?"; then
+      && tofu init -reconfigure "${g_backend_args[@]}" -input=false >/dev/null \
+      && tofu plan -var-file="${env_name}.tfvars" -out="$plan" ) \
+    || { printf 'error: plan failed for %s\n' "$layer" >&2; return 1; }
+  if _confirm "apply the saved plan for ${layer} (${env_name})?"; then
+    # The saved plan embeds the var values, so apply takes no -var-file.
     ( cd "$dir" && tofu apply "$plan" ) || { printf 'error: apply failed for %s\n' "$layer" >&2; return 1; }
   else
     printf 'skipped apply for %s (plan saved at %s/%s)\n' "$layer" "$dir" "$plan" >&2
@@ -312,7 +366,8 @@ layers() {
   for layer in "${order[@]}"; do
     _tofu_layer "$layer" || { end_function 1 "stopped at ${layer}"; return 1; }
   done
-  ( cd "${env_dir}/50-compute" && tofu output ) >&2 2>/dev/null || true
+  # 50-compute outputs (its .terraform is left init'd to THIS env by the loop above).
+  ( cd "${stack_dir}/50-compute" && tofu output ) >&2 2>/dev/null || true
   end_function 0 'infra layers applied (or planned); 50-compute outputs above'
 }
 
@@ -331,10 +386,16 @@ images() {
 
 # ---- Phase: cluster (k3s via Ansible, gated; then kubeconfig) ----------------
 cluster() {
-  require_tools ansible-playbook kubectl || end_function "$?" 'need ansible + kubectl'
+  require_tools ansible-playbook kubectl tofu || end_function "$?" 'need ansible + kubectl + tofu'
+  # The 50-compute stack layer is shared across envs; re-point its backend to THIS
+  # env before reading outputs (generate_inventory + kubeconfig_setup both `tofu
+  # output` there), so a standalone `cluster` run isn't reading another env's state.
+  _set_backend_args 50-compute || { end_function 1 'cannot derive state backend (creds?)'; return 1; }
+  ( cd "${stack_dir}/50-compute" && tofu init -reconfigure "${g_backend_args[@]}" -input=false >/dev/null ) \
+    || { end_function 1 '50-compute init failed'; return 1; }
   printf 'rendering inventory from %s 50-compute outputs...\n' "$env_name" >&2
   ( cd "$ansible_dir" && bash inventory/generate_inventory.sh \
-      "${repo_root}/terraform/environments/${env_name}/50-compute" > "inventory/${env_name}.yml" ) \
+      "${stack_dir}/50-compute" > "inventory/${env_name}.yml" ) \
     || { end_function 1 'inventory generation failed'; return 1; }
   printf 'inventory : %s\n' "${ansible_dir}/inventory/${env_name}.yml" >&2
 
@@ -550,11 +611,14 @@ teardown() {
   local -a order=(50-compute 40-ecr 30-iam 20-security 10-network)
   local layer
   for layer in "${order[@]}"; do
-    local dir="${env_dir}/$layer"
-    printf '\n=== destroy %s ===\n' "$layer" >&2
-    ( cd "$dir" && tofu init -backend-config=../backend.hcl -input=false >/dev/null \
-        && tofu plan -destroy -out=tfplan ) || { end_function 1 "destroy-plan failed for $layer"; return 1; }
-    if _confirm "DESTROY ${layer}?"; then
+    local dir="${stack_dir}/$layer"
+    [[ -d "$dir" ]] || { printf 'skip %s (no such layer)\n' "$layer" >&2; continue; }
+    _set_backend_args "$layer" || { end_function 1 "cannot derive state backend for $layer (creds?)"; return 1; }
+    printf '\n=== destroy %s (env %s) ===\n' "$layer" "$env_name" >&2
+    ( cd "$dir" && tofu init -reconfigure "${g_backend_args[@]}" -input=false >/dev/null \
+        && tofu plan -destroy -var-file="${env_name}.tfvars" -out=tfplan ) \
+      || { end_function 1 "destroy-plan failed for $layer"; return 1; }
+    if _confirm "DESTROY ${layer} (${env_name})?"; then
       ( cd "$dir" && tofu apply tfplan ) || { end_function 1 "destroy failed for $layer"; return 1; }
     fi
   done
