@@ -45,8 +45,8 @@ turns bare VMs into Kubernetes nodes.
 
 ## 2. Framing: why these choices, not just any choices
 
-The assignment is written for someone who will **lead a team operating across
-the original vendor's substrate mix — bare metal, private clouds, and public clouds**,
+This platform is built for someone who will **lead a team operating across a
+mixed substrate — bare metal, private clouds, and public clouds**,
 much of it confidential-computing capable. So the design is biased toward choices
 that are **portable, reproducible, and operable by a small team**, over choices
 that are merely the fastest path on one provider. That single bias explains most
@@ -655,7 +655,7 @@ credential + `/etc/hosts` (see [LOCAL.md](LOCAL.md) `--with-sso`, [ACCESS.md](AC
 **Status:** Accepted · **Date:** 2026-06-10 · **Validated live 2026-06-10** · **Layout superseded in part by [ADR-0020]** — the *per-env-directory* form below (`terraform/environments/prod/`) is retired; the placement / NLB / tunnel *decisions* stand, now expressed as model-B inputs (`public_nodes=false`, `enable_public_ingress=true`) on the single-source stack. (7/7
 apps Synced/Healthy on private nodes, demo-app served through the NLB).
 **Context.** Dev placed nodes in public subnets (admin-/32-locked) for direct
-operability. The brief's environment separation wants prod to be the same modules
+operability. Environment separation wants prod to be the same modules
 with the production posture: no public node surface at all.
 **Decision.** `terraform/environments/prod/` composes the same modules with
 private-subnet placement: no public IPs (`associate_public_ip_address=false`),

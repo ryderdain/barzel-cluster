@@ -174,7 +174,7 @@ SANs. See [ACCESS.md](ACCESS.md).)
   > --parameters portNumber=%p' gitops/bootstrap/repo-deploy-key.yaml
   > ec2-user@<conductor-id>:/opt/brzl/brzl-demo/gitops/bootstrap/`. The keypair is
   > generated **once**; the public half stays registered on GitHub across conductor
-  > rebuilds, so only the private-half file needs re-placing. (Evaluators pointing
+  > rebuilds, so only the private-half file needs re-placing. (Pointing
   > ArgoCD at a fork: also update the `url:` in the Secret and the `ApplicationSet`'s repo.)
   >
   > **The symptom when it's missing** (it has bitten two live runs): the `gitops`
