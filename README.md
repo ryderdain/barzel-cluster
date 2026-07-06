@@ -17,21 +17,25 @@ text-search web app — that reads/writes it.
 > Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); reproduce via
 > [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md).
 
-## A Preliminary note on my use of Claude in this task
+## How this was built
 
-I made heavy use of AI tools in this project both due to the overall size of the
-deliverable, and also for myself to learn how to work with these tools more
-effectively. In my own estimation, the final product is _mostly_ sufficient, but
-if I'm being honest, I would have liked to spend more time on working with the
-model to get more consistent results. I lost several cycles fixing assumptions
-the agent made, occasionally having to loop back and address an issue that I
-thought already had been. For example, I'd instructed it to have
-`gitops/tools/seed_demo_data.sh` construct the tunnel to the demo application,
-it claimed it did, but I failed to follow up and re-check it before duplicating
-the environment for "prod".
+This platform was built with heavy use of AI tools (primarily Claude Code) —
+partly because of the size of the surface, and partly as deliberate practice in
+working with agentic tooling effectively. I drove the design decisions and
+supervised every billable or mutating step; the model accelerated the mechanical
+work. Where and how AI was used is logged session-by-session in
+[`notes/LLM-CONDUCT.md`](notes/LLM-CONDUCT.md) — kept as an engineering-hygiene
+record, not a disclaimer.
 
-Looking forward to your evaluation, and thanks for the task. It was a valuable
-learning experience, regardless of any other issues.
+The most useful lesson came from where it went wrong. I'd instructed the agent
+to have `gitops/tools/seed_demo_data.sh` build the tunnel to the demo app; it
+reported the work done, and I didn't re-verify the postcondition before cloning
+the environment for "prod" — so the gap propagated. The fix was cheap; the
+lesson was not: **an agent's claim that something is done is not evidence that it
+is** — treat agent postconditions the way you'd treat a `terraform plan`,
+inspected rather than trusted. That principle is now visible in how the operator
+scripts here work (emit-commands-then-pipe preview, explicit verification) and in
+the repo's own working discipline.
 
 ## Architecture at a glance
 
@@ -45,8 +49,8 @@ demo-app   ──>  Sefaria search web app, reads/writes Postgres, /metrics scra
 
 Full write-up + decision rationale: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-**Scope — core vs. optional.** The **core deliverable** is exactly the challenge
-brief: Terraform infra → Ansible k3s → ArgoCD GitOps → the **CloudNativePG operator**
+**Scope — core vs. optional.** The **core platform** is exactly what a stateful
+GitOps deployment needs: Terraform infra → Ansible k3s → ArgoCD GitOps → the **CloudNativePG operator**
 managing a production-shaped HA Postgres (failover, S3 backup/restore, monitoring,
 upgrades) → a demo app that uses it. The operator and its **lifecycle** are the
 centerpiece. Everything else is a clearly-labeled **optional differentiator** that
@@ -63,7 +67,8 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 | [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, monitoring values), `applications/`, `operators/postgres/`; `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + toolbox shell + `ui_forward.sh`) |
 | [`apps/demo-app/`](apps/demo-app/) | Demo app: a Sefaria search web UI (search logic borrowed from [chofesh](https://github.com/ryderdain/chofesh)) — persists queries/results + outbound-call logs to Postgres, exposes `/metrics` + a ServiceMonitor — and Dockerfile |
 | [`containers/`](containers/) | `toolbox/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the toolbox via podman/ECR) |
-| [`docs/`](docs/) | Architecture, operational lifecycle, security, leadership answers, LLM conduct |
+| [`docs/`](docs/) | Delivery-facing docs: architecture + ADR log, operational-lifecycle runbooks, security |
+| [`notes/`](notes/) | Historical working files from the initial build (the execution plan `PLAN-HISTORICAL.md`, the task brief, run reports, the LLM-conduct log, design guidance) — tracked as history |
 
 > **Maintenance note — toolbox aws-cli key.** The toolbox image GPG-verifies the
 > aws-cli installer against AWS's signing key, vendored at
@@ -92,7 +97,7 @@ in its own path and carries its own pre-staging; skip any of them and the core s
   [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)
 - Region defaults to `eu-central-1`
 
-> **Running this yourself (evaluation)?** A few inputs are deliberately **not in the
+> **Running this yourself?** A few inputs are deliberately **not in the
 > repo** — gitignored secrets or GitHub-side config you must **pre-stage**, or the
 > bring-up stalls. The conductor runs the *shipped* tree with gitignored files excluded,
 > so it won't have them either — stage them on whichever host runs the relevant phase:
@@ -184,8 +189,7 @@ tree to the state bucket (`ship_repo.sh`) and the conductor pulls it via its ins
 role (`brzl-fetch`), so it runs exactly the snapshot you push over the audited channel.
 The step-by-step, billing-annotated procedure (exact assume-role + per-phase commands)
 is the **[`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)** runbook. local-dev (k3d, no AWS) is
-a separate laptop-only path — [`docs/LOCAL.md`](docs/LOCAL.md). The actuals time
-table is [`TIMETABLE.md`](TIMETABLE.md).
+a separate laptop-only path — [`docs/LOCAL.md`](docs/LOCAL.md).
 
 **Accessing the cluster (kubectl).** Because the control plane is self-managed
 k3s, there's no managed `aws eks update-kubeconfig` to hand you credentials — the
@@ -314,9 +318,9 @@ and detailed in the documents below.
 - [`TEARDOWN.md`](docs/TEARDOWN.md) — decommission + the mandatory cost-leak sweep.
 - [`LOCAL.md`](docs/LOCAL.md) — run the CNPG + demo-app stack locally on **k3d**, no AWS (the portability proof); `--with-sso` adds the operator SSO gateway.
 
-**Governance**
-- [`LLM-CONDUCT.md`](LLM-CONDUCT.md) — LLM usage log (challenge requirement).
-- [`LEADERSHIP.md`](LEADERSHIP.md) — leadership answers: team organization,
-  multi-environment deployments, reliability, and security at team scale.
-- [`TIMETABLE.md`](TIMETABLE.md) — actuals time table per sub-task
-  (challenge requirement).
+**Historical**
+- [`notes/`](notes/) — the original working files from the initial build (the
+  execution plan `PLAN-HISTORICAL.md`, the task brief, run reports, the
+  [LLM-conduct log](notes/LLM-CONDUCT.md), and the design guidance), kept as
+  tracked history. A GitOps repo's past is a
+  feature, not clutter; nothing here is load-bearing for a fresh clone.

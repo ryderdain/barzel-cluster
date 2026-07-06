@@ -1,8 +1,9 @@
 # LLM Conduct Log
 
-Per the challenge requirement, this file records where and how an LLM (Claude
-Code) was used during this work, in the spirit of "use LLMs as you would in
-daily work, and document it."
+This file records where and how an LLM (Claude Code) was used during this work —
+kept as an engineering-hygiene log, in the spirit of "use LLMs as you would in
+daily work, and document it." It captures the who-said-what of development: what
+the model was used for, and where its output was corrected or overridden.
 
 How to read: one dated entry per working session — what the LLM was used for,
 and anything notable (decisions it surfaced, where its output was corrected or
@@ -631,3 +632,32 @@ overridden, what was done by hand).
   delegation (small message-honest commits; no secrets staged — verified the rendered
   ARN tfvars stay gitignored). Left a SCRATCHPAD **SESSION HANDOFF** pointing at the
   live test as the resume point.
+
+## 2026-07-06 — Portfolio reframe (Tier 1, T1): take-home voice → platform voice
+
+- **Context.** First session of the post-delivery *portfolio conversion* arc
+  (plan: Third Lobe `Planning/10-barzel-cluster-portfolio.md`, Tier 1). Single
+  task T1: make the repo read as a platform, not an assignment submission, to a
+  stranger reading README top-to-bottom.
+- **LLM used for:** locating every evaluator/assignment-framed passage across
+  README + `docs/` (grep sweep), drafting the replacement prose, and applying the
+  edits. Human picked the task, set scope, and will double-check wording.
+- **Changes (5 files):** README "Preliminary note on my use of Claude" →
+  **"How this was built"** (honesty + the `seed_demo_data` postcondition lesson
+  kept; evaluator address dropped; single link to this log retained). De-assignment
+  sweep: README `challenge brief`/`(evaluation)`, ARCHITECTURE `the assignment`/
+  `original vendor's substrate`/`the brief`, BOOTSTRAP `Evaluators`. Dropped the
+  README **Governance** doc-map block and the stray broken `TIMETABLE.md` inline
+  link; added a **Historical** `notes/` entry + a `notes/` repo-layout row; fixed
+  the `docs/` row (it wrongly claimed leadership/LLM-conduct, which live in `notes/`).
+- **Human directive banked in CLAUDE.md:** with LLM-CONDUCT no longer linked from
+  the README front door, the "append every session" obligation was re-anchored in
+  CLAUDE.md (re-injected each session, visible to subagents) so it can't fall out
+  of view post-compaction. Path corrected to `notes/LLM-CONDUCT.md`.
+- **Decisions:** `notes/LEADERSHIP.md` + `notes/TIMETABLE.md` kept as unlinked
+  history (not deleted) per the plan's keep-and-label recommendation. Company-name
+  check (`enclaive` et al.) clean; original brief text in `notes/TASK.md` left as
+  labeled history rather than rewritten.
+- **Verification:** grep across README + `docs/` clean of assignment framing; all
+  README `.md` links resolve. The "reads as engineering maturity" half is the
+  human's judgment (deferred, correctable later).

@@ -135,5 +135,15 @@ Always print the exact command and what it will create/change/cost first. Prefer
 - Show diffs and wait for approval; do not auto-accept infra changes.
 - Keep secrets out of git. No credentials in manifests, tfvars, or commits.
 
-## LLM-conduct logging (challenge requirement)
-At the end of each working session, append a short entry to `LLM-CONDUCT.md`: date, what the LLM was used for, and anything notable. The challenge requires documenting LLM use.
+## LLM-conduct logging (standing obligation — do not let this lapse)
+At the end of each working session, append a short entry to
+[`notes/LLM-CONDUCT.md`](notes/LLM-CONDUCT.md): date, what the LLM was used for,
+and anything notable (decisions surfaced, output corrected/overridden, what was
+done by hand). This is kept deliberately as an engineering-hygiene record of
+who-said-what in development — the calibrated self-assessment is a strength, not
+a compliance artifact. **This obligation is anchored here in CLAUDE.md on
+purpose:** the README only *references* the log descriptively (as history) — no
+front-door doc tells anyone to keep appending to it. That standing instruction
+lives here alone, re-injected every session and visible to subagents. Any session
+or subagent doing real work updates it; do not skip it because it isn't surfaced
+elsewhere.
