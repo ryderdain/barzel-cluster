@@ -77,3 +77,9 @@ terraform.rc
 # Optional: ignore plan files saved before destroying Terraform configuration
 # Uncomment the line below if you want to ignore planout files.
 # planout
+
+# Session-spanning working-memory files (agent/operator state, local-only —
+# stripped from history 2026-07-07; see CLAUDE.md "Memory files")
+/BACKLOG.md
+/SCRATCHPAD.md
+/RETROSPECTIVE.md

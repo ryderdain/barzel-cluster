@@ -3,7 +3,7 @@
 #   - repo-deploy-key.example.yaml: REPLACE_WITH_... placeholder, not a key
 #   - k3d_up.sh: `--for=condition=Available` kubectl wait flag, not a token
 #   - A2_BRINGUP.md: `region=eu-central-1` comment, not a key
-# Commit hashes are post-rewrite (the 2026-07-07 filter-repo pass) and stable.
-643df66506735737fff75fd899cdfb48bda50396:gitops/bootstrap/repo-deploy-key.example.yaml:private-key:27
-643df66506735737fff75fd899cdfb48bda50396:gitops/clusters/local/k3d_up.sh:generic-api-key:146
-643df66506735737fff75fd899cdfb48bda50396:notes/A2_BRINGUP.md:generic-api-key:113
+# Commit hashes are post-rewrite (the 2026-07-07 filter-repo passes) and stable.
+c95b0a779b16d6270bebe01c99bb3d4ba237cb8e:gitops/bootstrap/repo-deploy-key.example.yaml:private-key:27
+c95b0a779b16d6270bebe01c99bb3d4ba237cb8e:gitops/clusters/local/k3d_up.sh:generic-api-key:146
+c95b0a779b16d6270bebe01c99bb3d4ba237cb8e:notes/A2_BRINGUP.md:generic-api-key:113
