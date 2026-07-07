@@ -62,22 +62,21 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 
 | Path | Purpose |
 |------|---------|
-| [`terraform/`](terraform/) | Layered IaC: reusable `modules/` + per-env `environments/{dev,prod}` |
+| [`terraform/`](terraform/) | Layered IaC: reusable `modules/` + the single-source layer stack [`stack/aws/`](terraform/stack/aws/) applied per env via committed `dev.tfvars`/`prod.tfvars` (ADR-0020), plus `bootstrap/` + `identity/` account primitives and the dev-only `environments/dev/00-conductor` |
 | [`ansible/`](ansible/) | `roles/{base,security,kubernetes}` + `playbooks/` (node config + k3s bootstrap) |
 | [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, monitoring values), `applications/`, `operators/postgres/`; `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + toolbox shell + `ui_forward.sh`) |
 | [`apps/demo-app/`](apps/demo-app/) | Demo app: a Sefaria search web UI (search logic borrowed from [chofesh](https://github.com/ryderdain/chofesh)) — persists queries/results + outbound-call logs to Postgres, exposes `/metrics` + a ServiceMonitor — and Dockerfile |
 | [`containers/`](containers/) | `toolbox/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the toolbox via podman/ECR) |
 | [`docs/`](docs/) | Delivery-facing docs: architecture + ADR log, operational-lifecycle runbooks, security |
-| [`notes/`](notes/) | Historical working files from the initial build (the execution plan `PLAN-HISTORICAL.md`, the task brief, run reports, the LLM-conduct log, design guidance) — tracked as history |
+| [`notes/`](notes/) | Engineering-hygiene records kept public: the design guidance the tooling is held to ([`GUIDANCE.md`](notes/GUIDANCE.md)) and the LLM-conduct log ([`LLM-CONDUCT.md`](notes/LLM-CONDUCT.md)). Other working notes from the build stay local, out of the published tree |
 
 > **Maintenance note — toolbox aws-cli key.** The toolbox image GPG-verifies the
 > aws-cli installer against AWS's signing key, vendored at
 > [`containers/toolbox/awscli-public-key.asc`](containers/toolbox/awscli-public-key.asc).
-> That key **expires 2026-07-07**; after which a toolbox rebuild's `gpg --verify`
-> will fail until the key is refreshed (procedure in the colocated `.asc.example`,
-> or build with `--build-arg AWSCLI_VERIFY=false`). This is outside the delivery
-> window — the project's delivery date precedes the expiry — and is noted only so
-> a later rebuild isn't caught out.
+> That key **expires 2027-07-01** (refreshed 2026-07-07 — AWS extends the same
+> key, fingerprint unchanged). When it next expires, a toolbox rebuild's
+> `gpg --verify` will fail until the key is refreshed (procedure in the
+> colocated `.asc.example`, or build with `--build-arg AWSCLI_VERIFY=false`).
 
 ## Prerequisites
 
