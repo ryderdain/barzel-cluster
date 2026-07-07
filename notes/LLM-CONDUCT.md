@@ -709,3 +709,28 @@ overridden, what was done by hand).
   edit`; GraphQL schema introspection confirmed profile pinning has no API
   (manual step); the 3-sentence application blurb drafted into the planning
   note. T4 (demo script + recording) is the next Tier-1 item.
+
+## 2026-07-07 (evening) — T3.5/R1: GUIDANCE.md polish (the standard before the enforcement)
+
+- **Scope:** the doctrine doc itself, ahead of R2's script refactor (the vault
+  note's own sequencing: polish the standard before enforcing it).
+- **LLM used for:** the full editorial pass; human set the round and reviews
+  the diff. Changes: (1) header/provenance updated — no longer a single-session
+  personal draft; it's the published, load-bearing standard the tooling is held
+  to. (2) New §1.10 "a script's claims are part of its contract" (no trailing
+  `|| true` vouching for a run; phase claims must match bodies; drivers
+  preflight invariants + leave a resume trail) — doctrine distilled from the
+  June carried-bug fixes. (3) §1.7 generalised from account-bearing to
+  env-bearing derivation (the `brzl-dev-*` standalone-path leak). (4) §2.3
+  updated to model B (single-source layers, gate = separate instances,
+  pointer to SPEC §3/ADR-0020). (5) New §2.9 "a claim needs an instrument"
+  (today's ADR-0016 lesson: scope claims to instrumented surfaces; standing
+  claims get standing CI checks). (6) Part 3 CLAUDE.md seed re-synced — it had
+  drifted from Parts 1–2 (missing orchestrator-as-stream, the one-PAT nuance,
+  §2.8) — and now carries an explicit §2.9-style maintenance rule naming
+  itself a rendered copy. (7) Appendix extended with six new concrete moments
+  (the `|| true` mask, the operator() claim/body lie, the `if ! cmd` rc-capture
+  trap, the env-coupling leak, the account-id/ADR-0016 audit).
+- **aroni note:** §1.10 and §2.9 are the vault's cand-001 (masked failure),
+  cand-003 (doc rot), and cand-004 (SSOT) flowing INTO the standard — the
+  consolidation loop feeding doctrine, which R2 will now enforce in code.

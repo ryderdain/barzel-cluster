@@ -1,11 +1,12 @@
 ---
 title: Production Bash & Infrastructure Patterns — Doctrine Seed
 created: 2026-06-08
-source: brzl-demo (Lead Infrastructure Engineer take-home) working session
+source: brzl-demo build + DR drill (2026-06); extended by the post-delivery refactor arc (2026-06/07)
 purpose:
-  - Seed a publishable, opinionated guide to authoring Bash for production infrastructure in teams
+  - The standard this repo's tooling is held to (and refactored against)
+  - Seed a publishable, opinionated guide to authoring Bash for production infrastructure in teams (ryderdain/bash STYLE.md)
   - Seed a pre-staged CLAUDE.md for future projects
-status: draft / personal
+status: living standard — published in-repo; enforcement via the refactor arc + CI checks
 tags:
   - bash
   - infrastructure
@@ -19,7 +20,7 @@ aliases:
 
 # Production Bash & Infrastructure Patterns — Doctrine Seed
 
-> Distilled from a single intensive session standing up (and tearing down) a GitOps AWS platform — Terraform → Ansible → ArgoCD → CloudNativePG — and proving a full disaster-recovery restore driven from a disposable "conductor" box. Two intended uses: (1) the spine of a publishable opinionated guide to **Bash in production infra for teams**; (2) a pre-staged **`CLAUDE.md`** for future projects (see Part 3).
+> First distilled from an intensive session standing up (and tearing down) a GitOps AWS platform — Terraform → Ansible → ArgoCD → CloudNativePG — and proving a full disaster-recovery restore driven from a disposable "conductor" box; since extended by the post-delivery refactor arc (each addition traceable to a concrete failure — see the Appendix). Three uses: (1) **the standard this repo's own tooling is held to**; (2) the spine of a publishable opinionated guide to **Bash in production infra for teams**; (3) a pre-staged **`CLAUDE.md`** for future projects (see Part 3).
 
 The throughline of everything below: **the human operator's memory and keyboard are the least reliable part of the system.** Every pattern here moves state, secrets, and sequencing *out* of the operator's head and *into* the tooling — previewable, derivable, auditable, and identical across people.
 
@@ -103,9 +104,11 @@ Scripts must run unchanged in **both** credential contexts:
 
 So: **never hard-require `AWS_PROFILE`.** Let `aws` pick up ambient/instance-role creds; surface which is in use for the operator's benefit, but don't gate on it. (Watch the `set -u` interaction: `${AWS_PROFILE:-}` guards, and remember `sudo`/Ansible may strip the env — re-inject where a tunnel/ProxyCommand needs it.)
 
-### 1.7 Derive account-bearing values — never lean on shell memory
+### 1.7 Derive account- and environment-bearing values — never lean on shell memory or a literal copy
 
 Anything that embeds an account id (state-bucket name, registry host, role ARN) is **derived at runtime from the caller** (`aws sts get-caller-identity`) or **persisted in a gitignored file the tool auto-loads** — never carried in a per-run environment variable the operator has to remember. *If I can drop it between runs, so can any operator* (I did, once — `NoSuchBucket` on a destroy). This is a reproducibility and a correctness rule, not just hygiene.
+
+The same rule generalises to **environment-bearing values**. Shared code that any environment consumes must **derive** env-flavored values (name prefixes, registry paths, bucket names) from its single env input — never carry one environment's literal as "the" value. A hardcoded `-dev-` in shared code is invisible for as long as only dev exercises the path, and detonates the first time the *second* environment (usually the DR or prod path — the worst moment) reaches it. Storing a literal copy of a derivable value is the same defect in both cases: the copy and its source *will* diverge.
 
 ### 1.8 Why this shape *travels* — the bridge to Part 2
 
@@ -132,11 +135,35 @@ Two more strands of the same Part-1 ↔ Part-2 connective tissue — the *organi
 
 **The honest boundary.** Ansible (or any structured runner) earns its overhead when you need structured module transport instead of shell text, idempotency, secret injection that never touches `argv`, fact-gathering and inventory, or to assume *no* shell at all. The bash patterns own the large middle ground where **transparency, low overhead, and shell-portability** win — and where a human being able to *read the procedure before it runs* is worth more than the framework.
 
+### 1.10 A script's claims are part of its contract — no masked failures
+
+Everything a script *says* — its exit code, its log lines, its comments, its
+phase names — is a claim someone downstream will act on. Three rules keep the
+claims honest:
+
+- **Never let a trailing suppressor vouch for the whole run.** An emitted stream
+  that ends `… || true` makes the piped `bash` exit 0 over a *failed* bootstrap —
+  the single worst failure mode, because the driver then reports success. If a
+  step is genuinely optional, guard it explicitly (`if step; then …; fi`) *and
+  say so in the emitted text*; otherwise let it fail and take the stream down
+  with it (§1.2's `&&`-chaining exists for exactly this).
+- **A phase that says it does X must do X — or fail.** A comment or
+  `end_function` message claiming "installs the storage driver" over a body that
+  doesn't is worse than no claim: it *masks* the failure until the one path
+  (recovery, the second env) where it detonates. When a body changes, its
+  claims are part of the diff.
+- **Drivers preflight their invariants and leave a resume trail.** Assert the
+  cheap structural invariants before spending anything (every layer declares
+  `backend "s3"` — a missing block means silent *local* state); on any phase
+  failure, print **which phase stopped, the exact resume command, and what was
+  not reached**. The operator should never have to reconstruct "where was I?"
+  from scrollback.
+
 ---
 
 ## Part 2 — Infrastructure management: patterns & operating model
 
-These are the patterns I added/asserted while driving the A2 disaster-recovery exercise. They sit on top of the Bash doctrine — most are *enforced by* scripts shaped as above.
+These are the patterns first asserted while driving the A2 disaster-recovery exercise, extended since by the refactor arc (§2.3's environment model, §2.8's multi-account posture, §2.9). They sit on top of the Bash doctrine — most are *enforced by* scripts shaped as above.
 
 ### 2.1 Operations run from the toolbox, not the laptop (the standard)
 
@@ -157,7 +184,7 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 ### 2.3 Terraform / GitOps division of labor
 
 - **Terraform scaffolds infrastructure; ArgoCD configures Kubernetes; Ansible bootstraps app/host config.** Don't blur these.
-- **Layered Terraform** (per Lee Briggs), strict **dev/prod separation**, **remote state** in S3 + DynamoDB lock.
+- **Layered Terraform** (per Lee Briggs) with **single-source layers applied per environment** (one `stack/<cloud>/<layer>` tree + committed per-env tfvars; the driver composes the env-keyed remote-state backend at init). The dev→prod **promotion gate is separate *instances*** — distinct state, independent apply — **not duplicated source trees**: duplicated trees hand-drift, while per-env inputs keep real differences explicit. **Remote state** in S3 + DynamoDB lock. (Design detail + rationale: SPEC §3 / ADR-0020.)
 - **GitOps via a single `ApplicationSet`** (not an app-of-apps root), with **sync waves** so operators land before the applications that need them.
 - **Saved-plan workflow, always:** `tofu plan -out=FILE` → review → `tofu apply FILE`. **Never `-auto-approve`** (it re-plans fresh and can drift from what was reviewed).
 - **Always ask before billable/mutating actions, per step.** Approval in one context does not carry forward to the next.
@@ -197,11 +224,32 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 - **Scan stored images** (ECR enhanced scanning / Inspector, or Trivy in CI) with a documented **fail-on-critical** gate; Harbor's built-in Trivy scanning is the production-registry recommendation.
 - **Centralize the scanning regime, then distribute by purpose (multi-account).** The reason to centralize a registry/cache in one *hub* account is not storage efficiency — it's a **single vulnerability-scanning gate** over everything the fleet pulls. Make the cross-account sharing **opt-in and least-privilege** (selected consumer accounts, scoped resource policies, per-purpose CMKs with explicit cross-account grants, prod-sensitive material never flowing into non-prod) — the **trust direction (who reads whom) is a bootstrap-time decision**, recorded, because it trades blast radius (a central account is a single point of compromise) for the gate. Distribute with **both** ECR modes, split by purpose: **pull** (a pull-through cache pointed at the hub) for the normal course, so downstream stays selective about versions/cadence; **push** (ECR registry **replication** from a scanned `release`/`hotfix` repo prefix) for security patches only, so no spoke lags on a fix. Mind the honest limit: replication delivers the *artifact* (fast, scanned, hub-provenanced); *adoption* still needs a deploy bump when repos are immutable + digest-pinned.
 
+### 2.9 A claim needs an instrument — or it will rot
+
+A stated property of the system ("the account id never lands in git", "every
+layer uses remote state", "the manifests are schema-valid") is only as durable
+as **the check that enforces it** — and it holds only over **the surfaces the
+check actually covers**. The repo's own object lesson: the account-id-free
+claim was true for everything its mechanism instrumented (manifests, tfvars,
+rendered GitOps) and false for a channel nobody instrumented (terminal output
+pasted into working notes), where the id sat in every commit until an audit
+that *verified the claim instead of trusting it* caught it. Two rules follow:
+
+- **Scope claims to their instruments.** Write "no account id in manifests or
+  tfvars (enforced by X)", not "no account id in the repo" — or widen the
+  instrument until the broad claim is true.
+- **Give standing claims standing checks.** A one-time verification decays as
+  the repo grows; hygiene claims belong in CI (gitleaks, validate, lint) where
+  they re-verify on every change. Verify-don't-trust is the *audit* posture;
+  instrument-don't-re-audit is the *steady-state* posture.
+
 ---
 
 ## Part 3 — `CLAUDE.md` seed (paste-ready, condensed)
 
 > Drop into a new project's `CLAUDE.md`. Directive voice; trims the rationale above to rules an agent (or a new teammate) can follow.
+>
+> **Maintenance rule (this block is a rendered copy — §2.9 applies to it):** Part 3 condenses Parts 1–2; an edit to those sections is not done until this block is re-synced. It has drifted before.
 
 ```markdown
 ## Bash
@@ -223,7 +271,17 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 - **Piping & remote execution:** prefer piping DATA to a data-consumer (`render.sh | kubectl apply
   -f -`) over piping commands to a shell; if commands, pipe to a shell via STDIN (`gen.sh | ssh host
   bash` — parsed once), NEVER `ssh host "inline…"` (double-parse, argv leaks). Secrets resolve at the
-  execution locus.
+  execution locus. The ORCHESTRATOR is a stream too: a bring-up/teardown pipes a flattened command
+  stream to a bare shell on the execution box — not a resident stateful program. File-based tools
+  (tofu/ansible) still need the repo present: deliver it by a scoped `git clone` (one fine-grained
+  least-priv token), never a tree-ship through a side channel; keep the receiving box (conductor)
+  temporary, single-purpose, per-account.
+- **Claims match behavior — no masked failures:** never end an emitted stream with `|| true`
+  (a failed run must not exit 0 — if a step is optional, guard it explicitly AND say so);
+  a comment/log/phase-name claiming X over a body that doesn't do X masks the failure until
+  the worst path — claims are part of the diff. Drivers PREFLIGHT cheap invariants (e.g. every
+  layer declares `backend "s3"`) and on phase failure print the stopped phase + exact resume
+  command + phases not reached.
 - **Automation completeness (stdout-canonical, file-as-argument):** a script whose point
   is producing content DEFAULTS to stdout (pipeable to `kubectl apply -f -` / `tee`);
   accepts a target path as an arg and ONLY THEN also writes the file (backup first),
@@ -231,8 +289,11 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
   ARN→tfvars writers, and kubeconfig writers. No paste-back steps.
 - **Dual-locus creds:** scripts must run with `AWS_PROFILE` (laptop) AND with instance-role
   creds (no profile) — never hard-require `AWS_PROFILE`.
-- **Derive account-bearing values** at runtime from the caller, or persist them in a
-  gitignored auto-loaded file — never a per-run env var / shell memory.
+- **Derive account- AND environment-bearing values.** Account-bearing: at runtime from the
+  caller, or a gitignored auto-loaded file — never a per-run env var / shell memory.
+  Env-bearing: shared code derives prefixes/paths from its single env input — a hardcoded
+  `-dev-` literal in shared code detonates the first time the second env (DR, prod)
+  exercises the path. Never store a literal copy of a derivable value.
 - Bashisms over extra tools; enforce a minimum Bash version; snake_case files AND
   identifiers (unless a language-native convention governs).
 
@@ -244,12 +305,17 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 - **Self-contained disposable control layer** (e.g. `00-conductor`): owns its own
   VPC/IAM/etc., reads no other layer's state, deploy/destroyable in isolation. DRY relaxed.
 - **Terraform scaffolds infra; ArgoCD (single ApplicationSet + sync waves) configures k8s;
-  Ansible bootstraps host/app.** Layered TF, strict dev/prod split, remote state (S3+DDB lock).
+  Ansible bootstraps host/app.** Layered TF with SINGLE-SOURCE layers + committed per-env
+  tfvars (driver composes the env-keyed backend at init); the promotion gate is separate
+  INSTANCES (state + apply), never duplicated source trees. Remote state (S3+DDB lock).
 - **Saved-plan workflow always** (`plan -out` → review → `apply FILE`); never `-auto-approve`.
   Always ask before billable/mutating actions, per step.
 - **Instance-profile auth** (no second IAM user). Pull-through creds → Secrets Manager;
-  non-secret config → Parameter Store. Scope credentials to their job. Node access via
-  SSH-over-SSM (no inbound :22).
+  non-secret config → Parameter Store. **Scope credentials to their job = no broader than
+  needed, NOT one-token-per-call**: one fine-grained token covering exactly the jobs at
+  hand (e.g. one PAT: `read:packages` + Contents/Metadata read) beats splitting; the classic
+  403 is an UNDER-scoped token, not a multi-purpose one. Node access via SSH-over-SSM
+  (no inbound :22).
 - **Cost:** spot iterating / on-demand demo; managed NAT; destroy compute between sessions.
 - **DR:** recover the DB operator + restore STANDALONE before GitOps would initdb an empty
   DB; prove with an exact row-count target on a freshly-rebuilt stack; a standalone path
@@ -259,7 +325,15 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
   aren't force_delete (empty first); state bucket has prevent_destroy (flip + restore); KMS
   CMKs go to a 7-day pending-deletion window, not instant.
 - **Supply chain:** scan stored images (ECR scanning / Inspector / Trivy), fail-on-critical;
-  Harbor (built-in Trivy) as the prod registry recommendation.
+  Harbor (built-in Trivy) as the prod registry recommendation. Multi-account: centralize the
+  SCAN GATE in a hub registry/cache (that's the reason to centralize — not storage), share
+  least-priv/opt-in, trust direction decided + recorded at bootstrap; distribute via pull
+  (pull-through cache, downstream stays version-selective) for the normal course + push
+  (registry replication from a scanned release/hotfix prefix) for security fixes only.
+- **Claims need instruments:** scope any stated property ("no account id in git", "manifests
+  schema-valid") to the surfaces a CHECK actually covers, and give standing claims standing
+  CI checks — a one-time verification decays; verify-don't-trust when auditing,
+  instrument-don't-re-audit in steady state.
 ```
 
 ---
@@ -272,3 +346,8 @@ A control/ops resource (the "conductor") should be its **own Terraform layer** t
 - **Broken multi-arch push (arm64 child 404s)** → build from source + import natively.
 - **40-ecr `RepositoryNotEmpty` / bootstrap `prevent_destroy`** → teardown guards are real; plan for them.
 - **3 orphaned gp3 EBS volumes + ECR cache repos after `tofu destroy`** → the leak sweep is not optional.
+- **`gitops` phase reported success over a dead API tunnel** → the emitted stream ended `kubectl patch … || true`, so the piped `bash` exited 0 and the driver vouched for a failed bootstrap (§1.10's first rule, learned live).
+- **`operator()` claimed the EBS CSI + gp3 install its body never did** → an honest-looking comment + a hedged `end_function` message masked a DR-only failure: recovery-cluster PVCs would hang Pending. Fixed by making the phase *do* what it says (render the same committed values GitOps uses) and assert the StorageClass exists (§1.10's second rule).
+- **`if ! cmd; then rc=$?` captured `0` for a failing `cmd`** → the negation *is* the tested command, so `$?` holds the `!`-inverted status. Capture first (`cmd; rc=$?`), then branch — a BashPitfalls-class trap found in the driver's own resume logic.
+- **`brzl-dev-k8s` hardcoded in shared values; the standalone DR path consumed it** → prod recovery would have pulled images through the *dev* cache repos. Invisible until the second env exercised the path; fixed by deriving the prefix from the env input (§1.7's generalisation, verbatim).
+- **The account id sat in `notes/` for the repo's whole history while ADR-0016 said "never lands in git"** → the claim was true over the instrumented surfaces (manifests, tfvars) and false over an uninstrumented channel (pasted terminal output). Caught only by an audit that verified instead of trusted (§2.9, verbatim).
