@@ -689,3 +689,23 @@ overridden, what was done by hand).
 - **Verification:** gitleaks exits 0; all-blob grep for the id: 0; placeholder
   counts match the original occurrence map (4/5/1). All commit hashes changed —
   other clones must hard-reset, noted in SCRATCHPAD.
+
+## 2026-07-07 (later) — Memory files + working notes stripped from public history; T3 storefront
+
+- **Human directives:** (1) remove BACKLOG/SCRATCHPAD/RETROSPECTIVE from the
+  remote and its history (operator/agent working memory, not portfolio
+  material); (2) likewise ALL `notes/*.md` except GUIDANCE and LLM-CONDUCT;
+  keep everything locally. Human also disclosed the repo went public a few
+  hours before the T2 scrub finished — accepted as reputational-only exposure
+  (the GitHub-support gc option for orphaned pre-rewrite objects was noted and
+  left optional).
+- **LLM used for:** two further `git filter-repo --invert-paths` passes
+  (backups bundled first), gitignore patterns with whitelist exceptions,
+  restoring the local copies untracked, re-pinning `.gitleaksignore` after
+  each rewrite (fingerprints are commit-anchored), force-pushes, and
+  verification (zero tree entries for the removed paths across all commits;
+  gitleaks exit 0). Public history is now 27 commits of platform work only.
+- **T3 (green-lit):** description + the 8 planned topics set via `gh repo
+  edit`; GraphQL schema introspection confirmed profile pinning has no API
+  (manual step); the 3-sentence application blurb drafted into the planning
+  note. T4 (demo script + recording) is the next Tier-1 item.
