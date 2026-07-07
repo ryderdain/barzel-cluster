@@ -6,7 +6,7 @@
 # awscli-public-key.asc — it's public, with its fingerprint documented in-file
 # for independent verification. This .example exists to ROTATE that key.
 #
-# WHEN TO REFRESH: the vendored key expires (currently 2026-07-07), or AWS
+# WHEN TO REFRESH: the vendored key expires (currently 2027-07-01), or AWS
 # rotates it — after which `gpg --verify` warns/fails and the build breaks.
 #
 # TO REFRESH the vendored key:
