@@ -83,3 +83,9 @@ terraform.rc
 /BACKLOG.md
 /SCRATCHPAD.md
 /RETROSPECTIVE.md
+
+# Take-home working notes (local reference only, stripped from history
+# 2026-07-07); only the two whitelisted files below stay tracked
+/notes/*.md
+!/notes/GUIDANCE.md
+!/notes/LLM-CONDUCT.md
