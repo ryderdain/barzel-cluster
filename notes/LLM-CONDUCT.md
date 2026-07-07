@@ -661,3 +661,31 @@ overridden, what was done by hand).
 - **Verification:** grep across README + `docs/` clean of assignment framing; all
   README `.md` links resolve. The "reads as engineering maturity" half is the
   human's judgment (deferred, correctable later).
+
+## 2026-07-07 — Portfolio T2: secrets & history sweep → account-id leak found + history rewritten
+
+- **Session shape:** plan adoption (the Third Lobe portfolio note folded into
+  BACKLOG/SCRATCHPAD as Tier 1/Tier 2, reconciled against repo state) + the full
+  T2 sweep. Human set the pivot, answered the one remediation fork; LLM ran the
+  sweeps and edits.
+- **LLM used for:** refreshing the expired toolbox aws-cli GPG key (AWS extended
+  the same key to 2027-07-01; fetched from the AWS docs, fingerprint-verified with
+  `gpg --show-keys` before overwriting the vendored file); gitleaks (8.30.1) over
+  full history + added-files sweep + account-id/resource-id greps; triage; the
+  `git filter-repo --replace-text` rewrite; post-rewrite verification.
+- **The finding (the human's own rule paid off):** the plan said *verify
+  ADR-0016's account-id-free claim, don't trust it* — and the claim failed:
+  the live account id sat in three `notes/` files (pasted terminal output) in
+  every commit since the initial snapshot. Ledger row 15 + an ADR-0016 amendment
+  record it; the lesson is that a hygiene claim is scoped to the surfaces it
+  instruments.
+- **Human decision:** history rewrite (vs tree-only scrub / squash-republish) —
+  chosen while the repo is still private, explicitly weighing the standing
+  never-rewrite-published-history rule. LLM executed: backup bundle → filter-repo
+  (id → `123456789012`, dead take-home resource ids → docs-style placeholders,
+  distinctness preserved) → force-push → re-verified zero occurrences across all
+  blobs; `.gitleaksignore` pins the 3 triaged false positives so the future CI
+  gate (T5) runs clean.
+- **Verification:** gitleaks exits 0; all-blob grep for the id: 0; placeholder
+  counts match the original occurrence map (4/5/1). All commit hashes changed —
+  other clones must hard-reset, noted in SCRATCHPAD.
