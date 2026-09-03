@@ -661,3 +661,79 @@ overridden, what was done by hand).
 - **Verification:** grep across README + `docs/` clean of assignment framing; all
   README `.md` links resolve. The "reads as engineering maturity" half is the
   human's judgment (deferred, correctable later).
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+
+## 2026-07-07 — Portfolio T2: secrets & history sweep → account-id leak found + history rewritten
+
+- **Session shape:** plan adoption (the Third Lobe portfolio note folded into
+  BACKLOG/SCRATCHPAD as Tier 1/Tier 2, reconciled against repo state) + the full
+  T2 sweep. Human set the pivot, answered the one remediation fork; LLM ran the
+  sweeps and edits.
+- **LLM used for:** refreshing the expired toolbox aws-cli GPG key (AWS extended
+  the same key to 2027-07-01; fetched from the AWS docs, fingerprint-verified with
+  `gpg --show-keys` before overwriting the vendored file); gitleaks (8.30.1) over
+  full history + added-files sweep + account-id/resource-id greps; triage; the
+  `git filter-repo --replace-text` rewrite; post-rewrite verification.
+- **The finding (the human's own rule paid off):** the plan said *verify
+  ADR-0016's account-id-free claim, don't trust it* — and the claim failed:
+  the live account id sat in three `notes/` files (pasted terminal output) in
+  every commit since the initial snapshot. Ledger row 15 + an ADR-0016 amendment
+  record it; the lesson is that a hygiene claim is scoped to the surfaces it
+  instruments.
+- **Human decision:** history rewrite (vs tree-only scrub / squash-republish) —
+  chosen while the repo is still private, explicitly weighing the standing
+  never-rewrite-published-history rule. LLM executed: backup bundle → filter-repo
+  (id → `123456789012`, dead take-home resource ids → docs-style placeholders,
+  distinctness preserved) → force-push → re-verified zero occurrences across all
+  blobs; `.gitleaksignore` pins the 3 triaged false positives so the future CI
+  gate (T5) runs clean.
+- **Verification:** gitleaks exits 0; all-blob grep for the id: 0; placeholder
+  counts match the original occurrence map (4/5/1). All commit hashes changed —
+  other clones must hard-reset, noted in SCRATCHPAD.
+
+## 2026-07-07 (later) — Memory files + working notes stripped from public history; T3 storefront
+
+- **Human directives:** (1) remove BACKLOG/SCRATCHPAD/RETROSPECTIVE from the
+  remote and its history (operator/agent working memory, not portfolio
+  material); (2) likewise ALL `notes/*.md` except GUIDANCE and LLM-CONDUCT;
+  keep everything locally. Human also disclosed the repo went public a few
+  hours before the T2 scrub finished — accepted as reputational-only exposure
+  (the GitHub-support gc option for orphaned pre-rewrite objects was noted and
+  left optional).
+- **LLM used for:** two further `git filter-repo --invert-paths` passes
+  (backups bundled first), gitignore patterns with whitelist exceptions,
+  restoring the local copies untracked, re-pinning `.gitleaksignore` after
+  each rewrite (fingerprints are commit-anchored), force-pushes, and
+  verification (zero tree entries for the removed paths across all commits;
+  gitleaks exit 0). Public history is now 27 commits of platform work only.
+- **T3 (green-lit):** description + the 8 planned topics set via `gh repo
+  edit`; GraphQL schema introspection confirmed profile pinning has no API
+  (manual step); the 3-sentence application blurb drafted into the planning
+  note. T4 (demo script + recording) is the next Tier-1 item.
+
+## 2026-07-07 (evening) — T3.5/R1: GUIDANCE.md polish (the standard before the enforcement)
+
+- **Scope:** the doctrine doc itself, ahead of R2's script refactor (the vault
+  note's own sequencing: polish the standard before enforcing it).
+- **LLM used for:** the full editorial pass; human set the round and reviews
+  the diff. Changes: (1) header/provenance updated — no longer a single-session
+  personal draft; it's the published, load-bearing standard the tooling is held
+  to. (2) New §1.10 "a script's claims are part of its contract" (no trailing
+  `|| true` vouching for a run; phase claims must match bodies; drivers
+  preflight invariants + leave a resume trail) — doctrine distilled from the
+  June carried-bug fixes. (3) §1.7 generalised from account-bearing to
+  env-bearing derivation (the `brzl-dev-*` standalone-path leak). (4) §2.3
+  updated to model B (single-source layers, gate = separate instances,
+  pointer to SPEC §3/ADR-0020). (5) New §2.9 "a claim needs an instrument"
+  (today's ADR-0016 lesson: scope claims to instrumented surfaces; standing
+  claims get standing CI checks). (6) Part 3 CLAUDE.md seed re-synced — it had
+  drifted from Parts 1–2 (missing orchestrator-as-stream, the one-PAT nuance,
+  §2.8) — and now carries an explicit §2.9-style maintenance rule naming
+  itself a rendered copy. (7) Appendix extended with six new concrete moments
+  (the `|| true` mask, the operator() claim/body lie, the `if ! cmd` rc-capture
+  trap, the env-coupling leak, the account-id/ADR-0016 audit).
+- **aroni note:** §1.10 and §2.9 are the vault's cand-001 (masked failure),
+  cand-003 (doc rot), and cand-004 (SSOT) flowing INTO the standard — the
+  consolidation loop feeding doctrine, which R2 will now enforce in code.

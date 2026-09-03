@@ -542,6 +542,17 @@ the corrected ApplicationSet **pruned** it, the finalizer cascade-deleted ArgoCD
 config layer (`argocd-cm`, RBAC, ServiceAccounts) — recovered by re-running the
 idempotent `helm upgrade --install` and restarting the controllers for fresh SA tokens
 (see [RECOVERY](RECOVERY.md#argocd-control-plane-self-inflicted-prune-)).
+**Amendment (2026-07-07).** A pre-publication history audit (gitleaks + a
+targeted grep — verifying this ADR's claim rather than trusting it) found the
+account id **had** landed in git after all: not in manifests or tfvars (this
+ADR's scope, which held), but in three `notes/` run-report/bring-up working
+files, present since the repo's initial snapshot commit. Remediated before
+publication with a full-history rewrite (`git filter-repo --replace-text`)
+substituting documentation placeholders (`123456789012`, `i-0123456789abcdef*`)
+for the real account id and the destroyed take-home instance/VPC/SG ids; the
+rewrite was re-verified with gitleaks plus an all-blobs grep (zero occurrences).
+Lesson: a hygiene claim is scoped to the surfaces it instruments — captured
+terminal output in working notes was an uninstrumented channel.
 
 ### ADR-0017 — Observability: kube-prometheus-stack, trimmed, port-forward access
 **Status:** Accepted · **Date:** 2026-06-04
