@@ -661,9 +661,6 @@ overridden, what was done by hand).
 - **Verification:** grep across README + `docs/` clean of assignment framing; all
   README `.md` links resolve. The "reads as engineering maturity" half is the
   human's judgment (deferred, correctable later).
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 
 ## 2026-07-07 — Portfolio T2: secrets & history sweep → account-id leak found + history rewritten
 
