@@ -1,6 +1,6 @@
 # ADR-0007 — Operator/CI toolbox container + cloud-init bootstrap VM
 
-**Status:** Accepted · **Date:** 2026-06-01
+**Status:** Superseded by [ADR-0021](0021-kiesei-driver-and-conductor.md) (2026-10-07) · **Date:** 2026-06-01
 **Context.** Toolchain drift across a 3-person team + CI, and SSO/SSH session
 timeouts killing long-running applies/upgrades.
 **Decision.** A pinned, supply-chain-verified arm64 toolbox image is the unit of

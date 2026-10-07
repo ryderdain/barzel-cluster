@@ -17,8 +17,8 @@ change-of-image-source steps.
 0. **ADR migration.** Move ADR-0001..0020 verbatim from `docs/ARCHITECTURE.md`
    into `docs/adr/00NN-slug.md` (+ Status line); ARCHITECTURE keeps an index;
    update `CLAUDE.md` living-docs lines.
-1. **Doctrine + `&&` sources.** In `bash`: `emit_step` (one command per line +
-   named check), driver archetype, env-definition pattern, run-logs, approval
+1. **Doctrine + `&&` sources.** In `bash`: emitted `{ … }` groups as anonymous
+   functions (check only where a re-run harms), driver archetype, env-definition pattern, run-logs, approval
    rule, idempotent phases. `CLAUDE.md` bash section → refer to `ryderdain/bash`.
    Superseded banners on `notes/GUIDANCE.md` + the vault Doctrine Seed note.
    New ADRs 0021–0024 (kiesei driver/conductor; run-log driver; mimic-now
@@ -33,6 +33,21 @@ change-of-image-source steps.
 6. **Loki + Alloy + conductor log shipping.**
 7. **`promote` phase** (digest + env-definition values along the chain).
 8. *(AWS unfreezes)* AWS phases of `platform.sh` → the AWS adapter.
+
+Standing concerns (check in every pass, do not lose):
+
+- **Every phase must be safe to run again.** Resume depends on it
+  (`ryderdain/bash` STYLE.md §1.11, ADR-0022). Review each new phase script
+  for converging commands before it lands.
+- **Platform-layer portability** (SPEC §3, from Q45). The platform layer may
+  assume only conformant Kubernetes + adapter outputs, so EKS/GKE/DOKS can
+  later replace k3s inside one adapter. Known violation: the local SSO edge
+  uses Traefik `IngressRoute` CRDs (`gitops/clusters/local/sso/`) — move to
+  standard `Ingress`/Gateway API when the SSO edge is next touched.
+- **`notes/` history scrub** — decision pending with the user (rewrites
+  published history; see SCRATCHPAD).
+- **Port the seed's §1.10** ("a script's claims are part of its contract") to
+  `ryderdain/bash` STYLE.md (number reserved).
 
 ## Active — the major refactor (next barzel session) + aroni assists
 

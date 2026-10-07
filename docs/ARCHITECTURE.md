@@ -236,7 +236,7 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0004](adr/0004-node-access-via-ssm-ssh-over-ssm-no-inbound-22.md) | Node access via SSM SSH-over-SSM, no inbound :22 | Accepted |
 | [ADR-0005](adr/0005-constrained-identity-deployment-via-federated-oidc.md) | Constrained-identity deployment via federated OIDC | Accepted |
 | [ADR-0006](adr/0006-customer-managed-kms-keys-only.md) | Customer-managed KMS keys only | Accepted |
-| [ADR-0007](adr/0007-operator-ci-toolbox-container-cloud-init-bootstrap.md) | Operator/CI toolbox container + cloud-init bootstrap VM | Accepted |
+| [ADR-0007](adr/0007-operator-ci-toolbox-container-cloud-init-bootstrap.md) | Operator/CI toolbox container + cloud-init bootstrap VM | Superseded by ADR-0021 |
 | [ADR-0008](adr/0008-registry-ecr-pull-through-cache-harbor-for-prod.md) | Registry: ECR + pull-through cache; Harbor for prod | Accepted |
 | [ADR-0009](adr/0009-storage-ebs-csi-gp3-local-path-as-descope-lever.md) | Storage: EBS CSI + gp3; local-path as descope lever | Accepted |
 | [ADR-0010](adr/0010-cnpg-backups-via-the-ec2-instance-profile-no.md) | CNPG backups via the EC2 instance profile, no second IAM user | Accepted |
@@ -244,9 +244,13 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0012](adr/0012-managed-nat-gateway-spot-on-demand-capacity-toggle.md) | Managed NAT gateway; spot/on-demand capacity toggle | Accepted |
 | [ADR-0013](adr/0013-gitops-argocd-app-of-apps-with-sync-waves-self.md) | GitOps: ArgoCD app-of-apps with sync waves; self-managed | Accepted |
 | [ADR-0014](adr/0014-in-cluster-secret-projection-via-external-secrets.md) | In-cluster secret projection via External Secrets Operator | Accepted |
-| [ADR-0015](adr/0015-local-dev-parity-via-k3d-built.md) | Local-dev parity via k3d (built) | Accepted |
+| [ADR-0015](adr/0015-local-dev-parity-via-k3d-built.md) | Local-dev parity via k3d (built) | Superseded by ADR-0024 |
 | [ADR-0016](adr/0016-account-id-free-gitops-applicationset-host.md) | Account-id-free GitOps: ApplicationSet host injection at render | Accepted |
 | [ADR-0017](adr/0017-observability-kube-prometheus-stack-trimmed-port.md) | Observability: kube-prometheus-stack, trimmed, port-forward access | Accepted |
 | [ADR-0018](adr/0018-operator-sso-gateway-dex-github-local-first.md) | Operator SSO gateway (Dex→GitHub), local-first | Accepted |
 | [ADR-0019](adr/0019-prod-environment-private-subnet-placement-nlb-only.md) | Prod environment: private-subnet placement, NLB-only ingress | Accepted |
 | [ADR-0020](adr/0020-single-source-environment-stack-model-b-driver.md) | Single-source environment stack (model B) + driver-composed state backend | Accepted |
+| [ADR-0021](adr/0021-kiesei-driver-and-conductor.md) | Kiesei: one operator image, driver and conductor modes | Accepted |
+| [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs | Accepted |
+| [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Accepted |
+| [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted |

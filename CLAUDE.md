@@ -99,15 +99,18 @@ land any new design decision in SPEC first. (The saved-plan workflow and
 ask-before-billable rule are *also* hard guardrails below — they bind operationally
 every session, so they stay in this file too.)
 
-## Bash-specific design decisions
-- Only draft Bash scripts using the guidelines set out in <https://mywiki.wooledge.org/BashPitfalls>.
-- Only ever use `set -euo pipefail` if you can explain what it does — read the linked BashPitfalls (esp. <https://mywiki.wooledge.org/BashFAQ/105> on `set -e`'s unreliability). Do not paste it reflexively; prefer explicit return-code checks.
-- **Mutating/action** scripts (deploy, build, teardown) should print the commands they would run to /dev/stdout and execute by piping into a shell (`bash foo.sh | bash`), so the actions are previewable before they run. **Read-only check/generator** scripts instead run their queries directly and emit a report (or data) to stdout with a meaningful exit code — e.g. `ansible/inventory/generate_inventory.sh`, `gitops/tools/*_status.sh`. (When a mutating emit-commands script is piped into a downstream consumer such as a Terraform `local-exec`, wrap it `set -o pipefail; bash gen.sh | bash` so a generator failure isn't masked, and emit the commands `&&`-chained so the run fails fast.)
-- Prefer bashisms over additional tools for string modifications.
-- Prefer mandating a minimum Bash version and enforcing this with a general check over backwards-compatibility.
-- **Naming: snake_case** for script filenames AND for variable/identifier names across all code — unless a stronger, more widely recognised convention governs the language (e.g. Go's gofmt-enforced MixedCaps; Kubernetes manifest keys stay camelCase). Terraform and Ansible identifiers are already snake_case. (So `foo_bar.sh`, not `foo-bar.sh`.)
-- **Sourceable `main()` pattern** (per `ryderdain/bash/tests/destroy-tf-modules.sh`): structure action scripts so they can be **run directly OR `source`d** by an orchestrator. Detect with `(return 0 2>/dev/null) && is_sourced=true || is_sourced=false`; put logic in named functions; finish each with a shared `end_function $? 'msg'` that **logs and then `return`s when sourced but `exit`s when run directly** (so a sourced caller isn't killed by a callee's failure); end the file with a CLI-dispatch block that runs the default pipeline (or `"$@"` to call a named function) only `if [[ "$is_sourced" = false ]]`. This composes with — does not replace — the emit-commands convention: an emit-style action's function still *prints* the commands (the orchestrator pipes them, `bash x.sh | bash`); a generator's function prints data. The point is a clear, consistent calling surface so an orchestration script can sequence complex actions legibly for junior operators.
-- Read from and make use of ryderdain/bash as warranted.
+## Bash — the doctrine lives in `ryderdain/bash`
+
+All Bash rules come from **`ryderdain/bash`** (sibling checkout `../bash`).
+Before writing, editing, or reviewing any `.sh` file here — including as a
+subagent — load the `bash-doctrine` and `bash-ops` skills; without the Skill
+tool, Read them directly: `../bash/skills/bash-doctrine/SKILL.md` and
+`../bash/skills/bash-ops/SKILL.md` (same files as `~/.claude/skills/bash-*`).
+The reasoning is in `../bash/doctrine/STYLE.md` (§1.2 emitted groups, §1.11
+the driver, §1.12 environment definitions); helpers in
+`../bash/includes/runlib.sh`. This file does not
+restate the rules, so it cannot drift from them. A rule this repo needs that
+the doctrine lacks goes into `ryderdain/bash` first, then gets applied here.
 
 ## Design personalizations
 - Prioritize scaffolding and infrastructure with Terraform, delegate configuration of Kubernetes to ArgoCD, and employing Ansible primarily for application bootstrapping and configuration.

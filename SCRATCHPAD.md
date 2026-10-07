@@ -23,8 +23,12 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ NOW: pass 1 (doctrine + `&&` sources)** — awaiting user go-ahead. Pass 0
-(ADRs → `docs/adr/`) DONE, commit 8624a63.
+**▶ NOW: pass 1 written, AWAITING USER REVIEW before push.** barzel-cluster
+side committed locally (unpushed); `ryderdain/bash` side left UNCOMMITTED in its
+working tree (not git-delegated; mixed with the user's own lint edits). Then
+pass 2 (driver skeleton + k3d adapter). Open with user: `notes/` history scrub
+(feasible: 0 forks/PRs, ~18 SHA refs in memory files + 1 in aroni would break;
+needs git-filter-repo + force-push + a GitHub support purge — user must authorize).
 
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 
@@ -51,8 +55,10 @@ Settled design (Q1–Q45, user-confirmed 2026-10-07):
   value; ESO read boundary + per-store write adapters; bootstrap sources all
   arrive as env vars; Loki + Alloy on every substrate; disposable cluster;
   `fast_on`/`fast_off` toggle Argo auto-sync.
-- Doctrine: `ryderdain/bash` canonical; emitted streams = one command per line
-  with an `emit_step` check (no blanket `&&`, no `{ }` groups). `CLAUDE.md`
+- Doctrine: `ryderdain/bash` canonical; emitted streams
+  → REVISED 2026-10-08: `{ … }` groups as anonymous functions (reader first),
+  check only where re-running a block harms; `.ok` from a per-phase check is the
+  verdict, not the exit code (STYLE.md §1.2, §1.11). `CLAUDE.md`
   only refers to `ryderdain/bash`. Platform layer assumes only conformant
   Kubernetes + adapter outputs (Q45).
 

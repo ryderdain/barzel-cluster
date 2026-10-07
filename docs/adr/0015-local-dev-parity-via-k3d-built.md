@@ -1,6 +1,6 @@
 # ADR-0015 — Local-dev parity via k3d (built)
 
-**Status:** Accepted · **Built:** 2026-06-04 · **Date:** 2026-06-04
+**Status:** Superseded by [ADR-0024](0024-local-is-the-first-environment.md) (2026-10-07) · **Built:** 2026-06-04 · **Date:** 2026-06-04
 **Context.** A developer should be able to run the cluster + app stack on a laptop
 for fast inner-loop work without paying the AWS compute/NAT meter. This is
 uniquely cheap here: unlike EKS, **the same distribution runs locally** — k3d is
