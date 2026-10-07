@@ -23,9 +23,8 @@ This platform was built with heavy use of AI tools (primarily Claude Code) —
 partly because of the size of the surface, and partly as deliberate practice in
 working with agentic tooling effectively. I drove the design decisions and
 supervised every billable or mutating step; the model accelerated the mechanical
-work. Where and how AI was used is logged session-by-session in
-[`notes/LLM-CONDUCT.md`](notes/LLM-CONDUCT.md) — kept as an engineering-hygiene
-record, not a disclaimer.
+work. Where and how AI was used is logged session-by-session in a private
+engineering-hygiene record, not a disclaimer.
 
 The most useful lesson came from where it went wrong. I'd instructed the agent
 to have `gitops/tools/seed_demo_data.sh` build the tunnel to the demo app; it
@@ -68,7 +67,6 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 | [`apps/demo-app/`](apps/demo-app/) | Demo app: a Sefaria search web UI (search logic borrowed from [chofesh](https://github.com/ryderdain/chofesh)) — persists queries/results + outbound-call logs to Postgres, exposes `/metrics` + a ServiceMonitor — and Dockerfile |
 | [`containers/`](containers/) | `toolbox/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the toolbox via podman/ECR) |
 | [`docs/`](docs/) | Delivery-facing docs: architecture + ADRs (`docs/adr/`), operational-lifecycle runbooks, security |
-| [`notes/`](notes/) | Engineering-hygiene records kept public: the design guidance the tooling is held to ([`GUIDANCE.md`](notes/GUIDANCE.md)) and the LLM-conduct log ([`LLM-CONDUCT.md`](notes/LLM-CONDUCT.md)). Other working notes from the build stay local, out of the published tree |
 
 > **Maintenance note — toolbox aws-cli key.** The toolbox image GPG-verifies the
 > aws-cli installer against AWS's signing key, vendored at
@@ -316,10 +314,3 @@ and detailed in the documents below.
 - [`RECOVERY.md`](docs/RECOVERY.md) — backups, restore/PITR, failover, state recovery.
 - [`TEARDOWN.md`](docs/TEARDOWN.md) — decommission + the mandatory cost-leak sweep.
 - [`LOCAL.md`](docs/LOCAL.md) — run the CNPG + demo-app stack locally on **k3d**, no AWS (the portability proof); `--with-sso` adds the operator SSO gateway.
-
-**Historical**
-- [`notes/`](notes/) — the original working files from the initial build (the
-  execution plan `PLAN-HISTORICAL.md`, the task brief, run reports, the
-  [LLM-conduct log](notes/LLM-CONDUCT.md), and the design guidance), kept as
-  tracked history. A GitOps repo's past is a
-  feature, not clutter; nothing here is load-bearing for a fresh clone.

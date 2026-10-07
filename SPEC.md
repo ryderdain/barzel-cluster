@@ -5,15 +5,14 @@
 > **New design decisions land here first**, then promote to the delivery-facing
 > [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (curated prose + the ADR index; ADRs in `docs/adr/`).
 > [`CLAUDE.md`](CLAUDE.md) delegates design directives here rather than
-> duplicating them — one home, so they can't drift. Originated answering the
-> take-home [`notes/TASK.md`](notes/TASK.md); the take-home is delivered and **no
+> duplicating them — one home, so they can't drift. Originated answering a
+> take-home brief (kept private); the take-home is delivered and **no
 > longer the governing scope** — this doc now tracks the *ongoing* design (the
 > refactor in [`BACKLOG.md`](BACKLOG.md)).
 >
 > **Delivery snapshot (historical):** v0.6 shipped 2026-06-10 — MVP + monitoring +
-> backups live, prod env built + validated, full DR restore proven. History in
-> [`notes/PLAN-HISTORICAL.md`](notes/PLAN-HISTORICAL.md) + the run reports under
-> `notes/`. Decisions §7; cost/lifecycle §8; differentiators §4; multi-account/org topology (future) §9; changelog §10.
+> backups live, prod env built + validated, full DR restore proven. History is in
+> private working notes. Decisions §7; cost/lifecycle §8; differentiators §4; multi-account/org topology (future) §9; changelog §10.
 
 ---
 

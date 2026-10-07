@@ -89,3 +89,8 @@ terraform.rc
 /notes/*.md
 !/notes/GUIDANCE.md
 !/notes/LLM-CONDUCT.md
+
+# Private working notes (take-home history, run reports, GUIDANCE, LLM-conduct
+# log, research). They belong to the private project barzel derived from:
+# local-only, never published.
+notes/

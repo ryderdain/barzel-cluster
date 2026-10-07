@@ -10,8 +10,9 @@ design decisions land there first (then promote to an ADR in
 `docs/adr/`). This file does **not** restate them — it carries the
 *operational* contract (memory protocol, guardrails, workflow, git, aroni) and
 points at SPEC for the *what/why* of the design. The take-home working files
-(`notes/PLAN-HISTORICAL.md`, `notes/TASK.md`, the run reports) live under `notes/`,
-tracked, as reference; the delivery-facing design doc is `docs/ARCHITECTURE.md`
+(`notes/PLAN-HISTORICAL.md`, `notes/TASK.md`, the run reports, GUIDANCE, the
+LLM-conduct log) live under `notes/`, **local-only and gitignored — never
+published** (they belong to the private project barzel derived from); the delivery-facing design doc is `docs/ARCHITECTURE.md`
 (+ the ADRs in `docs/adr/`, one file each, indexed from ARCHITECTURE).
 
 ## Memory files — read these first, every session
