@@ -3,7 +3,7 @@
 > **The design source of truth.** This is the internal home for *what we are
 > building* and the **standing technical decisions** (§3) that govern it.
 > **New design decisions land here first**, then promote to the delivery-facing
-> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (curated prose + the ADR log).
+> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (curated prose + the ADR index; ADRs in `docs/adr/`).
 > [`CLAUDE.md`](CLAUDE.md) delegates design directives here rather than
 > duplicating them — one home, so they can't drift. Originated answering the
 > take-home [`notes/TASK.md`](notes/TASK.md); the take-home is delivered and **no

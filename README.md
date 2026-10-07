@@ -13,7 +13,7 @@ text-search web app — that reads/writes it.
 > acceptance-verified to exact row counts — [`docs/RECOVERY.md`](docs/RECOVERY.md)),
 > and the **prod environment validated live** (2026-06-10: private-subnet nodes,
 > NLB-only ingress, 7/7 apps —
-> [ADR-0019](docs/ARCHITECTURE.md#adr-0019--prod-environment-private-subnet-placement-nlb-only-ingress)).
+> [ADR-0019](docs/adr/0019-prod-environment-private-subnet-placement-nlb-only.md)).
 > Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md); reproduce via
 > [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md).
 
@@ -67,7 +67,7 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 | [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, monitoring values), `applications/`, `operators/postgres/`; `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + toolbox shell + `ui_forward.sh`) |
 | [`apps/demo-app/`](apps/demo-app/) | Demo app: a Sefaria search web UI (search logic borrowed from [chofesh](https://github.com/ryderdain/chofesh)) — persists queries/results + outbound-call logs to Postgres, exposes `/metrics` + a ServiceMonitor — and Dockerfile |
 | [`containers/`](containers/) | `toolbox/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the toolbox via podman/ECR) |
-| [`docs/`](docs/) | Delivery-facing docs: architecture + ADR log, operational-lifecycle runbooks, security |
+| [`docs/`](docs/) | Delivery-facing docs: architecture + ADRs (`docs/adr/`), operational-lifecycle runbooks, security |
 | [`notes/`](notes/) | Engineering-hygiene records kept public: the design guidance the tooling is held to ([`GUIDANCE.md`](notes/GUIDANCE.md)) and the LLM-conduct log ([`LLM-CONDUCT.md`](notes/LLM-CONDUCT.md)). Other working notes from the build stay local, out of the published tree |
 
 > **Maintenance note — toolbox aws-cli key.** The toolbox image GPG-verifies the
@@ -171,7 +171,7 @@ the Terraform layers (`10-network → 15-kms → 20-security → 30-iam → 40-e
 (EBS CSI/gp3 and the CloudNativePG + External Secrets operators ahead of the Postgres
 cluster and demo-app, by sync wave). The real ECR host is resolved at bootstrap and
 injected at render, so **no AWS account id is ever committed to git**
-([ADR-0016](docs/ARCHITECTURE.md#adr-0016--account-id-free-gitops-applicationset-host-injection-at-render)).
+([ADR-0016](docs/adr/0016-account-id-free-gitops-applicationset-host.md)).
 AWS ops run from the conductor (audited, IAM-gated, identical toolchain); the laptop
 only does Phase 0 and launches the conductor.
 
@@ -247,7 +247,7 @@ outbound-call latency next to transactions, connections, tuples, and rollbacks �
 app↔DB drift or errors stand out at a glance. Alertmanager is trimmed off (no receiver
 wired; a one-line re-enable). Prometheus/Grafana persist on small gp3 PVCs. Every
 image routes through ECR pull-through — including Grafana via the Docker Hub rule
-(rationale in [ADR-0017](docs/ARCHITECTURE.md#adr-0017--observability-kube-prometheus-stack-trimmed-port-forward-access)).
+(rationale in [ADR-0017](docs/adr/0017-observability-kube-prometheus-stack-trimmed-port.md)).
 
 The web UIs are reached with **zero extra cost** — no LoadBalancer/Ingress. One
 helper port-forwards them and prints each admin credential:
@@ -291,7 +291,7 @@ kube-API. Three role tiers (`users` → the demo app; `operators` → Grafana/Pr
 over the operator's own `*.sso.barzel.sh`, and `kubectl` by the same GitHub identity
 through `oidc-login`. Access to the app UI never grants the operational UIs. Stand it
 up with `k3d_up.sh --with-sso` — rationale in
-[ADR-0018](docs/ARCHITECTURE.md#adr-0018--operator-sso-gateway-dexgithub-local-first),
+[ADR-0018](docs/adr/0018-operator-sso-gateway-dex-github-local-first.md),
 onboarding + tiers in [`docs/ACCESS.md`](docs/ACCESS.md), steps in [`docs/LOCAL.md`](docs/LOCAL.md).
 
 ## Documentation map
@@ -303,7 +303,7 @@ and detailed in the documents below.
 **Design**
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the delivery-facing design doc:
   architecture, the rationale for each load-bearing choice (notably k3s over EKS),
-  and a running ADR log.
+  and the ADR index (one file per ADR in `docs/adr/`).
 - [`docs/SECRETS.md`](docs/SECRETS.md) — inventory of every credential, key, and
   secret: what it protects, where it's stored, and how it rotates.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — security considerations: secret

@@ -7,12 +7,12 @@ governing scope**; ongoing work is the refactor in `BACKLOG.md`.
 **Design directives live in [`SPEC.md`](SPEC.md) (root) — the design source of
 truth.** Standing technical decisions, the environment/state model, and new
 design decisions land there first (then promote to an ADR in
-`docs/ARCHITECTURE.md`). This file does **not** restate them — it carries the
+`docs/adr/`). This file does **not** restate them — it carries the
 *operational* contract (memory protocol, guardrails, workflow, git, aroni) and
 points at SPEC for the *what/why* of the design. The take-home working files
 (`notes/PLAN-HISTORICAL.md`, `notes/TASK.md`, the run reports) live under `notes/`,
 tracked, as reference; the delivery-facing design doc is `docs/ARCHITECTURE.md`
-(+ ADR log).
+(+ the ADRs in `docs/adr/`, one file each, indexed from ARCHITECTURE).
 
 ## Memory files — read these first, every session
 
@@ -61,7 +61,7 @@ A GitOps-driven infrastructure platform for a Lead Infrastructure Engineer take-
 - `ansible/` — `roles/{base,kubernetes,security}` + `playbooks/`
 - `gitops/` — `clusters/{dev,prod}`, `infrastructure/`, `applications/`, `operators/postgres/`
 - `apps/demo-app/` — REST API + Dockerfile
-- `docs/` — `ARCHITECTURE.md` (delivery-facing design + ADR log), `SECRETS.md` (credential/key/secret inventory), lifecycle, security, leadership answers
+- `docs/` — `ARCHITECTURE.md` (delivery-facing design + ADR index), `adr/` (one file per ADR, `NNNN-slug.md`), `SECRETS.md` (credential/key/secret inventory), lifecycle, security, leadership answers
 - `docs/` runbooks — `BOOTSTRAP.md`, `UPGRADE.md`, `RECOVERY.md`, `TEARDOWN.md` (living operator runbooks)
 - `terraform/identity/` — trust anchor: GitHub OIDC provider + scoped `tofu-plan`/`tofu-apply` roles (admin-run once, after `bootstrap/`)
 - `containers/` — `toolbox/` (arm64 tofu/ansible/kubectl/helm image) + `bootstrap-vm/` (cloud-init) *(planned, SPEC §4.2)*
@@ -70,7 +70,7 @@ A GitOps-driven infrastructure platform for a Lead Infrastructure Engineer take-
 ## Living docs — keep in sync (don't lose across compaction)
 These evolve together every iteration; when a design/decision changes, update **all** of the affected set, not just one:
 - **`SPEC.md`** (root, tracked) is the internal **design source of truth**: standing technical decisions (§3 — the one home), scope, differentiators (§4), resolved decisions (§7). **New design decisions land here first** (SPEC iterates), then promote to ARCHITECTURE.
-- **`docs/ARCHITECTURE.md`** is the **delivery-facing** design doc: the curated distillation of SPEC + a running ADR log (ARCHITECTURE curates). When a decision resolves in SPEC, promote it here — add/update the matching **ADR** and the affected prose. This is what a reviewer reads; keep its links valid (it's fine to link `SPEC.md` now that it's root+tracked; don't link the `notes/` take-home working files from the delivery-facing docs — they're reference).
+- **`docs/ARCHITECTURE.md`** is the **delivery-facing** design doc: the curated distillation of SPEC + the ADR index (ARCHITECTURE curates). When a decision resolves in SPEC, promote it here — add a new **ADR** file in `docs/adr/` (next number; mark any superseded ADR's Status, never delete it), add its index row, and update the affected prose. This is what a reviewer reads; keep its links valid (it's fine to link `SPEC.md` now that it's root+tracked; don't link the `notes/` take-home working files from the delivery-facing docs — they're reference).
 - **Runbooks** (`docs/BOOTSTRAP|UPGRADE|RECOVERY|TEARDOWN.md`) are the operator-facing realization. A change to identity, KMS, backups, or the toolbox must be reflected in the relevant runbook(s):
   - identity/OIDC + KMS + secrets-hygiene → `BOOTSTRAP.md` (phases 0–2) + `TEARDOWN.md` (KMS/state sweep)
   - operator/CI toolbox + session-timeout-safe long ops → `UPGRADE.md` (+ `BOOTSTRAP.md` long phases)
