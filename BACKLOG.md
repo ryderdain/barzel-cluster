@@ -5,6 +5,35 @@ land here when decided, move to [SCRATCHPAD.md](SCRATCHPAD.md) while being
 worked, and produce a [RETROSPECTIVE.md](RETROSPECTIVE.md) entry when done and
 user-verified.
 
+## Active — local-first refactor (designed 2026-10-07, grilling session)
+
+Design settled with the user (Q1–Q45); summary in [SCRATCHPAD.md](SCRATCHPAD.md),
+vocabulary in [GLOSSARY.md](GLOSSARY.md). Supersedes the ordering of items 1–4
+below (their intent folds in). AWS is frozen until pass 8. Each pass: rule in
+`ryderdain/bash` first where one is involved, then `SPEC.md` §3, then ADRs +
+runbooks. Runbooks must give from-zero, upgrade, re-image, and
+change-of-image-source steps.
+
+0. **ADR migration.** Move ADR-0001..0020 verbatim from `docs/ARCHITECTURE.md`
+   into `docs/adr/00NN-slug.md` (+ Status line); ARCHITECTURE keeps an index;
+   update `CLAUDE.md` living-docs lines.
+1. **Doctrine + `&&` sources.** In `bash`: `emit_step` (one command per line +
+   named check), driver archetype, env-definition pattern, run-logs, approval
+   rule, idempotent phases. `CLAUDE.md` bash section → refer to `ryderdain/bash`.
+   Superseded banners on `notes/GUIDANCE.md` + the vault Doctrine Seed note.
+   New ADRs 0021–0024 (kiesei driver/conductor; run-log driver; mimic-now
+   services; local as first env).
+2. **Driver skeleton + k3d adapter.** `local.env`, run-log mechanics,
+   `substrate_up`/`substrate_down`; replaces `k3d_up.sh`; rewrite
+   `docs/LOCAL.md`. Rename toolbox → kiesei.
+3. **External Zot + kiesei build/push + warm conductor.**
+4. **Argo on local (GitOps mode) + `fast_on`/`fast_off`.**
+5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
+   with a write-then-read smoke test in `up`.
+6. **Loki + Alloy + conductor log shipping.**
+7. **`promote` phase** (digest + env-definition values along the chain).
+8. *(AWS unfreezes)* AWS phases of `platform.sh` → the AWS adapter.
+
 ## Active — the major refactor (next barzel session) + aroni assists
 
 **The refactor is the next focus** (items 1–4 below: automation overhaul vs

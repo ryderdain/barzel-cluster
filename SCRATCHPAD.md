@@ -18,6 +18,46 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
+*(2026-10-07, opus — local-first refactor DESIGN SETTLED via a grilling
+session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
+[GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
+until the driver refactor + local are solid.)*
+
+**▶ NOW: pass 1 (doctrine + `&&` sources)** — awaiting user go-ahead. Pass 0
+(ADRs → `docs/adr/`) DONE, commit 8624a63.
+
+Settled design (Q1–Q45, user-confirmed 2026-10-07):
+
+- Local (sleipnir, k3d) = first env of local → dev → prod; harness for cluster-
+  structure iteration + future workloads (barzel container; demo-app = smoke).
+  k3s on every substrate for now (EKS/GKE/DOKS later, inside an adapter).
+- **kiesei** = the one image, two modes: **driver** (*kiesei nahag*, outside
+  the cluster: makes/removes clusters, sequences phases, collects outputs, owns
+  run-logs `var/run/<env>/<YYYYmmddHHMM>/`) and **conductor** (*kiesei bakar*,
+  warm pod in the cluster: runs run-logs detached, writes `.rc`, stdout → Loki,
+  idle self-stop). Substrate phases on the driver; cluster phases on the
+  conductor; a locus never removes/replaces itself. EC2 conductor retired.
+- `.rc` (Q44): the conductor's completion record of one phase; the driver
+  collects it into its run-log dir (the canonical copy). Lost with the pod if
+  not yet collected → the phase counts as "not done" and re-runs; so every
+  phase MUST be safe to run again (idempotent) — a doctrine rule.
+- Driver model: emit-style phase scripts + thin driver; emit → run-log → show
+  → approve → run; outputs between phases via files. One adapter per
+  substrate. Env definition = sourceable plain `VAR=value` list; exported value
+  wins + stderr warning; resolved values in the run-log; never flags.
+- Approval rule: required for any effect outside the driver, or billable.
+- Local substrate: Zot (outside k3d, persistent) = pull-through + push
+  registry; OpenBao dev mode (KV + transit), Vault CE fallback via one env
+  value; ESO read boundary + per-store write adapters; bootstrap sources all
+  arrive as env vars; Loki + Alloy on every substrate; disposable cluster;
+  `fast_on`/`fast_off` toggle Argo auto-sync.
+- Doctrine: `ryderdain/bash` canonical; emitted streams = one command per line
+  with an `emit_step` check (no blanket `&&`, no `{ }` groups). `CLAUDE.md`
+  only refers to `ryderdain/bash`. Platform layer assumes only conformant
+  Kubernetes + adapter outputs (Q45).
+
+Previous focus (2026-06-17), superseded for now:
+
 *(2026-06-17, opus — SESSION HANDOFF. User switched to another project; resume here.)*
 
 **▶ RESUME AT: the live test of the refactored stack** (item 3 is code+doc complete,
