@@ -2,9 +2,9 @@
 # Conductor cloud-init (00-conductor) — installs a PINNED arm64 operator toolchain
 # directly on the host so every operator drives infra with the identical toolset
 # (goal #1), reached only via SSM (goals #2/#3). Deliberately self-contained: it does
-# NOT pull the ECR toolbox image, so the conductor works even while 40-ecr is being
-# (re)built during A2. (Production refinement: converge onto the pinned ECR toolbox
-# image — containers/toolbox/ — or a Packer AMI; documented, not done here.)
+# NOT pull the ECR kiesei image, so the conductor works even while 40-ecr is being
+# (re)built during A2. (Production refinement: converge onto the pinned ECR kiesei
+# image — containers/kiesei/ — or a Packer AMI; documented, not done here.)
 #
 # Rendered by Terraform templatefile(): a doubled dollar-brace escapes a shell
 # expansion (templatefile leaves it alone); a single dollar-brace is a Terraform
@@ -19,8 +19,8 @@ packages:
   - python3-pip
   - docker
 
-# Pre-create the docker group + ssm-user IN it. The toolbox image build (40-ecr's
-# terraform_data.toolbox_image → docker build) runs on this box as the SSM session
+# Pre-create the docker group + ssm-user IN it. The kiesei image build (40-ecr's
+# terraform_data.kiesei_image → docker build) runs on this box as the SSM session
 # user, which is ssm-user. SSM creates ssm-user lazily on the FIRST session — too late
 # for a cloud-init `usermod` — so we create it up front as a docker member and let the
 # SSM agent reuse it (AWS: an existing ssm-user is used as-is). The docker group is
@@ -96,10 +96,10 @@ write_files:
       log "done: $(tofu version 2>/dev/null | head -1) / kubectl $(kubectl version --client -o yaml 2>/dev/null | grep -m1 gitVersion || true)"
 
   # brzl-fetch [dest] — fetch the operator's APPROVED working tree from the state
-  # bucket (shipped by gitops/tools/ship_repo.sh on the laptop) and extract it, using
+  # bucket (shipped by gitops/tools/ship-repo.sh on the laptop) and extract it, using
   # this box's INSTANCE ROLE. No GitHub credential, no clone: the conductor runs exactly
   # the snapshot the operator pushed over the audited channel (CLAUDE.md §1.8 — laptop
-  # reads/approves, the toolbox executes). The bucket name is derived from this box's
+  # reads/approves, the kiesei executes). The bucket name is derived from this box's
   # own account id; the tarball excludes gitignored files (the conductor makes its own
   # backend.hcl). Re-runnable (overwrites in place).
   - path: /usr/local/bin/brzl-fetch
@@ -125,7 +125,7 @@ write_files:
         printf 'brzl-fetch: extracted s3://%s/%s → %s\n' "$bucket" "$key" "$dest"
       else
         printf 'brzl-fetch: failed — ship the tree from the laptop first:\n' >&2
-        printf '  AWS_PROFILE=brzl-apply bash gitops/tools/ship_repo.sh | bash\n' >&2
+        printf '  AWS_PROFILE=brzl-apply bash gitops/tools/ship-repo.sh | bash\n' >&2
         exit 1
       fi
 
@@ -152,7 +152,7 @@ write_files:
                         docker / git / jq / k9s (watch the cluster: just run `k9s`)
       AWS creds        : this box's INSTANCE ROLE (no AWS_PROFILE needed here)
       To drive a bring-up or the DR restore (one orchestrator, platform.sh):
-        # (first, from the LAPTOP:  AWS_PROFILE=brzl-apply bash gitops/tools/ship_repo.sh | bash)
+        # (first, from the LAPTOP:  AWS_PROFILE=brzl-apply bash gitops/tools/ship-repo.sh | bash)
         brzl-fetch                                 # pull the approved tree from S3 (instance role; no GitHub cred)
         cd /opt/brzl/brzl-demo
         sed "s/<account_id>/$(aws sts get-caller-identity --query Account --output text)/" \

@@ -15,7 +15,7 @@
 #   __PULLTHROUGH_PREFIX__  — the env pull-through prefix (brzl-dev | brzl-prod), so the
 #                             postgres image routes through THIS env's -github cache repo
 # The canonical, env-aware path is the renderer (it derives all three; no dev default
-# leaks): `ENV=<env> bash gitops/operators/postgres/render_recovery_manifest.sh | kubectl apply -f -`.
+# leaks): `ENV=<env> bash gitops/operators/postgres/render-recovery-manifest.sh | kubectl apply -f -`.
 # Manual equivalent (note the third substitution — easy to forget by hand):
 #   host="$(aws ssm get-parameter --name /brzl-prod/ecr/registry_host --query Parameter.Value --output text)"
 #   bucket="$(aws ssm get-parameter --name /brzl-prod/backup/bucket_name --query Parameter.Value --output text)"

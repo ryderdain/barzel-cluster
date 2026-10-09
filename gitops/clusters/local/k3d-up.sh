@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# k3d_up.sh — EMIT the commands that stand up the local-dev (k3d) stack: a
+# k3d-up.sh — EMIT the commands that stand up the local-dev (k3d) stack: a
 # laptop k3s cluster running the CNPG + demo-app stack with NO AWS. Per the repo
 # convention this is a mutating/action script — it only PRINTS commands. Review:
 #
-#   bash gitops/clusters/local/k3d_up.sh            # preview (default: up)
-#   bash gitops/clusters/local/k3d_up.sh | bash     # run
-#   bash gitops/clusters/local/k3d_up.sh down | bash # tear the local cluster down
+#   bash gitops/clusters/local/k3d-up.sh            # preview (default: up)
+#   bash gitops/clusters/local/k3d-up.sh | bash     # run
+#   bash gitops/clusters/local/k3d-up.sh down | bash # tear the local cluster down
 #
-#   bash gitops/clusters/local/k3d_up.sh --with-sso         # preview the SSO build
-#   bash gitops/clusters/local/k3d_up.sh --with-sso | bash  # run it
+#   bash gitops/clusters/local/k3d-up.sh --with-sso         # preview the SSO build
+#   bash gitops/clusters/local/k3d-up.sh --with-sso | bash  # run it
 #
 # What plain `up` emits (&&-chained, fail-fast): create the k3d cluster (local-path
 # is the built-in default StorageClass) → build the demo-app image and import it
@@ -20,7 +20,7 @@
 # ports 443/80, the kube-API-server OIDC args, cert-manager + the FreeDNS DNS-01
 # webhook for a trusted *.sso.barzel.sh wildcard, Dex (GitHub IdP), three
 # per-host oauth2-proxies (operator/users tiers), and a lean Grafana+Prometheus.
-# It folds in gitops/bootstrap/create_sso_secrets.sh, so the same one-time exports
+# It folds in gitops/bootstrap/create-sso-secrets.sh, so the same one-time exports
 # that script needs (GITHUB_CLIENT_ID/SECRET, OAUTH2_PROXY_CLIENT_SECRET) plus the
 # FreeDNS cred (FREEDNS_USERNAME/PASSWORD) must be in the env. See docs/LOCAL.md.
 #
@@ -111,7 +111,7 @@ fi
 for v in GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET OAUTH2_PROXY_CLIENT_SECRET \
          FREEDNS_USERNAME FREEDNS_PASSWORD; do
   if [[ -z "${!v:-}" ]]; then
-    printf 'error: %s must be exported for --with-sso (see docs/LOCAL.md / create_sso_secrets.sh)\n' "$v" >&2
+    printf 'error: %s must be exported for --with-sso (see docs/LOCAL.md / create-sso-secrets.sh)\n' "$v" >&2
     exit 1
   fi
 done
@@ -169,7 +169,7 @@ kubectl -n cnpg-demo patch cluster pg --type merge \\
   -p '{\"spec\":{\"monitoring\":{\"enablePodMonitor\":true}}}' && \\
 kubectl apply -f ${sso}/monitoring-extras.yaml && \\
 kubectl apply -f ${sso}/namespace.yaml && \\
-bash ${repo_root}/gitops/bootstrap/create_sso_secrets.sh | bash && \\
+bash ${repo_root}/gitops/bootstrap/create-sso-secrets.sh | bash && \\
 sed 's|__ACME_EMAIL__|${acme_email}|g' ${sso}/cluster-issuer.yaml | kubectl apply -f - && \\
 sed 's|__ACME_ISSUER__|${acme_issuer}|g' ${sso}/certificate.yaml | kubectl apply -f - && \\
 kubectl apply -f ${sso}/dex.yaml && \\

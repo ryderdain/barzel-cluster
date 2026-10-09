@@ -14,7 +14,7 @@ variable "aws_region" {
 }
 
 variable "repositories" {
-  description = "ECR repos to create. dev adds \"toolbox\" (it publishes the operator image — toolbox.tf); prod omits it (intentional — the conductor carries its own toolchain)."
+  description = "ECR repos to create. dev adds \"kiesei\" (it publishes the operator image — kiesei.tf); prod omits it (intentional — the conductor carries its own toolchain)."
   type        = list(string)
   default     = ["demo-app", "helm-charts"]
 }

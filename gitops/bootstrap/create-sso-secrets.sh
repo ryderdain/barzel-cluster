@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# create_sso_secrets.sh — EMIT the commands that create the in-cluster Secrets the
+# create-sso-secrets.sh — EMIT the commands that create the in-cluster Secrets the
 # operator-SSO stack needs: Dex's GitHub OAuth client, and oauth2-proxy's OIDC
 # client + cookie. Per the repo convention this is a mutating/action script — it
 # only PRINTS commands (via the shared emit_k8s_secret helper); the tokens are
@@ -8,17 +8,17 @@
 #
 #   export GITHUB_CLIENT_ID=...        GITHUB_CLIENT_SECRET=...       # the GitHub OAuth App (Dex)
 #   export OAUTH2_PROXY_CLIENT_SECRET=...                              # Dex static client for oauth2-proxy
-#   bash gitops/bootstrap/create_sso_secrets.sh            # preview
-#   bash gitops/bootstrap/create_sso_secrets.sh | bash     # run
+#   bash gitops/bootstrap/create-sso-secrets.sh            # preview
+#   bash gitops/bootstrap/create-sso-secrets.sh | bash     # run
 #
 # The oauth2-proxy *cookie* secret is generated in the piped shell if not supplied
 # (32 random bytes via `openssl rand -hex 16`, AES-256). The FreeDNS (afraid.org)
 # credential for cert-manager's DNS-01 webhook is NOT here — it's passed to that
-# webhook's Helm install at bring-up (see k3d_up.sh --with-sso), so it never lands
+# webhook's Helm install at bring-up (see k3d-up.sh --with-sso), so it never lands
 # in a manifest either.
 #
 # Sibling secret-creators sharing this shape (sourceable main() + runlib emit_k8s_secret):
-#   create_pullthrough_secrets.sh (AWS Secrets Manager) · create_cluster_secrets.sh
+#   create-pullthrough-secrets.sh (AWS Secrets Manager) · create-cluster-secrets.sh
 #   (core in-cluster: grafana-admin). One consistent secrets surface.
 #
 # No `set -euo pipefail` (CLAUDE.md / BashPitfalls/105): the emit-time arg checks
@@ -61,7 +61,7 @@ emit_sso_secrets() {
   printf 'Secrets: %s/dex-github, %s/oauth2-proxy-oidc.\n' "$dex_ns" "$proxy_ns" >&2
   printf 'The FreeDNS cred for cert-manager DNS-01 is passed at bring-up:\n' >&2
   printf '  export FREEDNS_USERNAME=... FREEDNS_PASSWORD=...\n' >&2
-  printf '  bash gitops/clusters/local/k3d_up.sh --with-sso | bash\n' >&2
+  printf '  bash gitops/clusters/local/k3d-up.sh --with-sso | bash\n' >&2
   printf -- '----------------------------------------------------------------------\n' >&2
   end_function 0 'emitted SSO Secret create-or-update'
 }

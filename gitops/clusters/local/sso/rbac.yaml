@@ -1,4 +1,4 @@
-# kube-API OIDC RBAC. The API server is started (k3d_up.sh --with-sso) with
+# kube-API OIDC RBAC. The API server is started (k3d-up.sh --with-sso) with
 # --oidc-issuer-url=https://dex.sso.barzel.sh, --oidc-client-id=kubernetes,
 # --oidc-username-claim=email, --oidc-groups-claim=groups. So an oidc-login
 # (kubelogin) kubectl context authenticating through Dex→GitHub arrives as the
@@ -10,7 +10,7 @@
 # Dex's teams→groups mapping — the binding shape is identical, only kind/name change.
 #
 # This is the cluster-admin grant; layer narrower ClusterRoles (view + pods/exec on
-# the toolbox ns for an `operators` tier) the same way when an org provides groups.
+# the kiesei ns for an `operators` tier) the same way when an org provides groups.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

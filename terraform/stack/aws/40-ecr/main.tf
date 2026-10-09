@@ -1,9 +1,9 @@
 # Layer 40 — ECR. Image + OCI Helm chart registry, pull-through cache. Single source
 # for all AWS environments (model B); independent of compute (no remote_state).
 #
-# Per-env via <env>.tfvars: the repo set (dev also publishes the operator `toolbox`
-# image — see toolbox.tf; prod deliberately omits it, the conductor carries its own
-# toolchain) and the toolbox-build flag. The Secrets Manager credential ARNs are
+# Per-env via <env>.tfvars: the repo set (dev also publishes the operator `kiesei`
+# image — see kiesei.tf; prod deliberately omits it, the conductor carries its own
+# toolchain) and the kiesei-build flag. The Secrets Manager credential ARNs are
 # account-level and SHARED across dev/prod (one ghcr/Docker-Hub token each), so they
 # come from a gitignored `credentials.auto.tfvars` rendered by the secrets phase —
 # auto-loaded for whichever env applies (same ARNs either way).

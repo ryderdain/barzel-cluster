@@ -6,8 +6,8 @@ variable "aws_region" {
 
 variable "instance_type" {
   description = <<-EOT
-    Conductor instance type. MUST be arm64/Graviton (t4g.*) — the toolbox image and
-    the demo-app/toolbox builds this box drives are linux/arm64. t4g.small is enough
+    Conductor instance type. MUST be arm64/Graviton (t4g.*) — the kiesei image and
+    the demo-app/kiesei builds this box drives are linux/arm64. t4g.small is enough
     for tofu/ansible/kubectl/helm; bump to t4g.medium if local image builds (docker
     buildx) need the headroom.
   EOT
@@ -39,7 +39,7 @@ variable "root_volume_size" {
 }
 
 # The conductor holds NO repo credential. The operator's approved working tree is
-# shipped to the state bucket from the laptop (gitops/tools/ship_repo.sh) and pulled
+# shipped to the state bucket from the laptop (gitops/tools/ship-repo.sh) and pulled
 # by the conductor's `brzl-fetch` helper via its instance role — so the box runs
 # exactly the snapshot the operator pushed over the audited channel, with nothing to
 # authenticate to GitHub (CLAUDE.md §1.8). No git_repo_url / repo_read_secret_name var.

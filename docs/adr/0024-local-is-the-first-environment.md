@@ -22,7 +22,7 @@ it. It has two modes:
 The local cluster is disposable: each `up` starts from zero. k3s stays the
 Kubernetes distribution on each substrate.
 **Consequences.** Each substrate gets Argo CD. Thus a good local run also
-tests the delivery path. The k3d substrate adapter replaces `k3d_up.sh` and
+tests the delivery path. The k3d substrate adapter replaces `k3d-up.sh` and
 the local overlay. You cannot test changes to cloud Terraform locally. You can
 test the platform layer above Kubernetes, and that layer is the same on each
 substrate.

@@ -65,16 +65,16 @@ A GitOps-driven infrastructure platform for a Lead Infrastructure Engineer take-
 - `docs/` — `ARCHITECTURE.md` (delivery-facing design + ADR index), `adr/` (one file per ADR, `NNNN-slug.md`), `SECRETS.md` (credential/key/secret inventory), lifecycle, security, leadership answers
 - `docs/` runbooks — `BOOTSTRAP.md`, `UPGRADE.md`, `RECOVERY.md`, `TEARDOWN.md` (living operator runbooks)
 - `terraform/identity/` — trust anchor: GitHub OIDC provider + scoped `tofu-plan`/`tofu-apply` roles (admin-run once, after `bootstrap/`)
-- `containers/` — `toolbox/` (arm64 tofu/ansible/kubectl/helm image) + `bootstrap-vm/` (cloud-init) *(planned, SPEC §4.2)*
+- `containers/` — `kiesei/` (arm64 tofu/ansible/kubectl/helm image) + `bootstrap-vm/` (cloud-init) *(planned, SPEC §4.2)*
 - `SPEC.md` (root) — the **design source of truth** (standing decisions §3, scope, resolved decisions) · `docs/ARCHITECTURE.md` — delivery-facing design + ADRs · `BACKLOG.md` — the live plan-of-record · `notes/PLAN-HISTORICAL.md` + `notes/TASK.md` — take-home history · `LLM-CONDUCT.md` — log of LLM use
 
 ## Living docs — keep in sync (don't lose across compaction)
 These evolve together every iteration; when a design/decision changes, update **all** of the affected set, not just one:
 - **`SPEC.md`** (root, tracked) is the internal **design source of truth**: standing technical decisions (§3 — the one home), scope, differentiators (§4), resolved decisions (§7). **New design decisions land here first** (SPEC iterates), then promote to ARCHITECTURE.
 - **`docs/ARCHITECTURE.md`** is the **delivery-facing** design doc: the curated distillation of SPEC + the ADR index (ARCHITECTURE curates). When a decision resolves in SPEC, promote it here — add a new **ADR** file in `docs/adr/` (next number; mark any superseded ADR's Status, never delete it), add its index row, and update the affected prose. This is what a reviewer reads; keep its links valid (it's fine to link `SPEC.md` now that it's root+tracked; don't link the `notes/` take-home working files from the delivery-facing docs — they're reference).
-- **Runbooks** (`docs/BOOTSTRAP|UPGRADE|RECOVERY|TEARDOWN.md`) are the operator-facing realization. A change to identity, KMS, backups, or the toolbox must be reflected in the relevant runbook(s):
+- **Runbooks** (`docs/BOOTSTRAP|UPGRADE|RECOVERY|TEARDOWN.md`) are the operator-facing realization. A change to identity, KMS, backups, or the kiesei must be reflected in the relevant runbook(s):
   - identity/OIDC + KMS + secrets-hygiene → `BOOTSTRAP.md` (phases 0–2) + `TEARDOWN.md` (KMS/state sweep)
-  - operator/CI toolbox + session-timeout-safe long ops → `UPGRADE.md` (+ `BOOTSTRAP.md` long phases)
+  - operator/CI kiesei + session-timeout-safe long ops → `UPGRADE.md` (+ `BOOTSTRAP.md` long phases)
   - CNPG backup/restore + instance-profile auth + state recovery → `RECOVERY.md`
 - **`docs/SECRETS.md`** is the credential/key/secret inventory (delivery-facing). Any change that adds, moves, or retires a credential, KMS key, Secrets-Manager/SSM entry, in-cluster Secret, or gitignored secret-bearing file must update the matching `SECRETS.md` row (+ the ADR if the decision is new).
 - **`BACKLOG.md`** is the live plan-of-record (schedules the work); **`LLM-CONDUCT.md`** logs LLM use each session.
@@ -90,7 +90,7 @@ The standing technical decisions — Kubernetes, compute, **Terraform layering +
 the environment/state model** (single-source `terraform/stack/aws/<layer>` +
 per-env tfvars; one state bucket + CMK, env split by S3 object key, backend
 composed by the driver), registry, storage, backups, GitOps (single
-ApplicationSet), CI-agnostic, node access (SSM), **operations-run-from-the-toolbox**
+ApplicationSet), CI-agnostic, node access (SSM), **operations-run-from-the-kiesei**
 (dual-locus scripts; AWS envs from the conductor, laptop only for the admin
 bootstrap + conductor launch + local-dev), encryption, secrets/account-bearing
 values (derived, never an env var to remember), runbooks — **live in

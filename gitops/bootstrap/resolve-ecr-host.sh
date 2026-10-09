@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# resolve_ecr_host.sh — print THIS account's ECR registry host, derived live from
+# resolve-ecr-host.sh — print THIS account's ECR registry host, derived live from
 # `aws sts get-caller-identity`. A bootstrap shim: the account id is fetched at
 # bring-up and injected into the ArgoCD install via `helm --set`, so it is never
 # committed to git and never depends on the SSM param 40-ecr publishes.
 #
-#   host="$(AWS_PROFILE=brzl-apply bash gitops/bootstrap/resolve_ecr_host.sh)"
+#   host="$(AWS_PROFILE=brzl-apply bash gitops/bootstrap/resolve-ecr-host.sh)"
 #   # -> <account-id>.dkr.ecr.<region>.amazonaws.com
 #
 # Read-only generator (per the repo bash convention): it runs one STS call and

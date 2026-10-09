@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# create_pullthrough_secrets.sh — create the AWS Secrets Manager secrets ECR
+# create-pullthrough-secrets.sh — create the AWS Secrets Manager secrets ECR
 # pull-through needs (quay.io + ghcr.io + Docker Hub), then write the resulting
 # credential ARNs into the 40-ecr tfvars so no operator has to copy-paste them.
 # ECR REQUIRES Secrets Manager here (credential_arn can't be Parameter Store) and
@@ -13,17 +13,17 @@
 #         export GHCR_USERNAME=... GHCR_TOKEN=...        # GitHub user + read:packages PAT
 #         export DOCKERHUB_USERNAME=... DOCKERHUB_TOKEN=...
 #         export QUAY_USERNAME=... QUAY_TOKEN=...         # only if your quay cache needs auth
-#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh        # preview
-#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh | bash # run
+#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create-pullthrough-secrets.sh        # preview
+#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create-pullthrough-secrets.sh | bash # run
 #   • write_arns_to_tfvars [path] — READ-ONLY against AWS (describe-secret); resolves
 #       the credential ARNs and renders the merged 40-ecr tfvars. Per §1.5 (stdout is
 #       canonical, the file is an argument): with NO path it prints the merged tfvars
 #       to stdout; given a path it ALSO writes that file (backup first) and still prints.
 #       ARNs are not secret. Removes the manual paste-back step:
 #         # preview the merged tfvars:
-#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh write_arns_to_tfvars
+#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create-pullthrough-secrets.sh write_arns_to_tfvars
 #         # persist it (backs up the existing file, still echoes to stdout):
-#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh \
+#         AWS_PROFILE=brzl-apply bash gitops/bootstrap/create-pullthrough-secrets.sh \
 #           write_arns_to_tfvars terraform/stack/aws/40-ecr/credentials.auto.tfvars
 #
 # Default action (run directly, no args) = emit_create_secrets (preserves the
@@ -93,7 +93,7 @@ emit_create_secrets() {
   fi
   printf '\n--- NEXT: populate the 40-ecr tfvars automatically ---------------------\n' >&2
   printf 'After piping the above to a shell, render the ARNs into the 40-ecr tfvars:\n' >&2
-  printf '  %s \\\n' "gitops/bootstrap/create_pullthrough_secrets.sh" >&2
+  printf '  %s \\\n' "gitops/bootstrap/create-pullthrough-secrets.sh" >&2
   printf '    write_arns_to_tfvars terraform/stack/aws/40-ecr/credentials.auto.tfvars\n' >&2
   printf 'then plan + apply 40-ecr (saved-plan workflow).\n' >&2
   end_function 0 'emitted create-or-update for the exported upstream creds'
@@ -142,7 +142,7 @@ write_arns_to_tfvars() {
   if [[ -f "$base" ]]; then
     content="$(<"$base")"
   else
-    content="# 40-ecr credential ARNs (gitignored). Rendered by create_pullthrough_secrets.sh."
+    content="# 40-ecr credential ARNs (gitignored). Rendered by create-pullthrough-secrets.sh."
   fi
 
   # Map each upstream secret to its 40-ecr variable. quay is credential-free in this

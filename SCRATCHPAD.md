@@ -142,7 +142,7 @@ offline-validated (bash -n + shellcheck clean; `_run_phases` resume hint tested 
 BOTH direct-run and sourced modes incl. the `if ! cmd; rc=$?` negation-capture bug,
 now fixed):
 
-1. **`operator()` no longer lies.** New `gitops/bootstrap/install_ebs_csi.sh`
+1. **`operator()` no longer lies.** New `gitops/bootstrap/install-ebs-csi.sh`
    (emit-style, sourceable) renders the SAME committed `ebs-csi/values.yaml` the
    ApplicationSet wave 0 uses → the standalone DR path can't drift from GitOps.
    `operator()` previews→confirms→pipes it, then asserts the `gp3` class exists.
@@ -150,7 +150,7 @@ now fixed):
    (missing = silent LOCAL state).
 3. **`_run_phases`** — on any phase failure prints the stopped phase + exact resume
    command + phases not reached. Dual-mode (EXIT trap direct / return-catch sourced).
-4. **`generate-inventory.sh` → `generate_inventory.sh`** (snake_case); live callers
+4. **`generate-inventory.sh` → `generate-inventory.sh`** (snake_case); live callers
    updated, `notes/` history untouched.
 
 **Not yet RETROSPECTIVE** — needs a live `platform.sh restore` (or at least
@@ -180,8 +180,8 @@ ApplicationSet's `imageParams` already swap `brzl-dev-*`→`brzl-prod-*` per env
 the `brzl-dev-*` in shared `gitops/infrastructure/*/values.yaml` is a dead GitOps
 sentinel (overridden) — NOT a live bug there. It WAS a live latent bug for the two
 **standalone** consumers that read the committed files directly (no imageParams):
-- `install_ebs_csi.sh` (pass-1 new) now sed-swaps `brzl-dev-k8s`→`${NAME_PREFIX}-k8s`.
-- `render_recovery_manifest.sh` + `cluster-recovery.yaml` now carry a third sentinel
+- `install-ebs-csi.sh` (pass-1 new) now sed-swaps `brzl-dev-k8s`→`${NAME_PREFIX}-k8s`.
+- `render-recovery-manifest.sh` + `cluster-recovery.yaml` now carry a third sentinel
   `__PULLTHROUGH_PREFIX__` (→ `$NAME_PREFIX`), so a PROD DR drill pulls the postgres
   image from `brzl-prod-github`, not dev. Verified both prod + dev-default renders.
 GitOps `values.yaml` files left **pristine** (avoid GitOps churn under deferred

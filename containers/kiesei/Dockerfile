@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# brzl-demo operator/CI toolbox (SPEC §4.2).
+# brzl-demo operator/CI kiesei (SPEC §4.2).
 # One pinned arm64/Graviton image carrying the whole deploy toolchain so the
 # 3-person team and CI run the exact same versions, and long ops (bootstrap,
 # upgrades) survive an operator's SSO/SSH session timing out. Runs three ways
@@ -19,8 +19,8 @@
 # but the official python image gives us the 3.14 control node deliberately.
 #
 # Build (native on a Graviton/Apple-silicon host, or via buildx):
-#   docker buildx build --platform linux/arm64 -t brzl-dev/toolbox:<tag> \
-#     containers/toolbox
+#   docker buildx build --platform linux/arm64 -t brzl-dev/kiesei:<tag> \
+#     containers/kiesei
 #
 # Every third-party binary is verified at build time — checksums for
 # tofu/kubectl/helm/kustomize/argocd/kubectl-cnpg/trivy/tflint/yq (publishers

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# ssm_status.sh — are all dev nodes reachable over SSM yet? This is the
+# ssm-status.sh — are all dev nodes reachable over SSM yet? This is the
 # precondition for any ansible run (ansible tunnels via the SSH-over-SSM
 # ProxyCommand). Read-only: prints a per-node ping report to stdout and exits
 # non-zero unless every running node is "Online".
 #
-#   AWS_PROFILE=brzl-apply bash gitops/tools/ssm_status.sh
-#   AWS_PROFILE=brzl-apply bash gitops/tools/ssm_status.sh 'brzl-prod-node-*'
+#   AWS_PROFILE=brzl-apply bash gitops/tools/ssm-status.sh
+#   AWS_PROFILE=brzl-apply bash gitops/tools/ssm-status.sh 'brzl-prod-node-*'
 #
 # We hit this every bring-up: the SSM agent takes a minute to register after an
 # instance boots, and a not-yet-Online node makes ansible fail confusingly. Gate

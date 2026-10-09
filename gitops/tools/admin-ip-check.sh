@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# admin_ip_check.sh — does my current public IP still match the cluster SG's
+# admin-ip-check.sh — does my current public IP still match the cluster SG's
 # admin /32 for the Kubernetes API (6443)? If it drifted (new network, VPN,
 # DHCP lease), kubectl over the public IP silently hangs/refuses — SSM node
 # access is unaffected. Read-only: prints the comparison and, on mismatch, the
 # exact fix.
 #
-#   AWS_PROFILE=brzl-apply bash gitops/tools/admin_ip_check.sh
-#   AWS_PROFILE=brzl-apply bash gitops/tools/admin_ip_check.sh brzl-prod-cluster
+#   AWS_PROFILE=brzl-apply bash gitops/tools/admin-ip-check.sh
+#   AWS_PROFILE=brzl-apply bash gitops/tools/admin-ip-check.sh brzl-prod-cluster
 #
 # No `set -euo pipefail` (CLAUDE.md / BashPitfalls/105): each read is checked
 # explicitly.

@@ -1,6 +1,6 @@
 ---
-# k3s HA control plane (3 servers, embedded etcd). Pinned to track the toolbox
-# kubectl (1.31.x, see containers/toolbox/Dockerfile) so client/server skew
+# k3s HA control plane (3 servers, embedded etcd). Pinned to track the kiesei
+# kubectl (1.31.x, see containers/kiesei/Dockerfile) so client/server skew
 # stays within one minor. (Role vars use the kubernetes_ prefix per the repo
 # convention; the inventory keeps its own k3s_servers / k3s_primary vocabulary.)
 kubernetes_version: "v1.31.5+k3s1"
@@ -10,14 +10,14 @@ kubernetes_version: "v1.31.5+k3s1"
 # INSTALL_K3S_SKIP_DOWNLOAD=true: the role downloads + verifies the k3s binary
 # itself (below), so the script never fetches a binary or trusts a checksum it
 # pulled at run time — it only lays down the systemd unit, symlinks, and helper
-# scripts around the binary we vetted. This mirrors the toolbox's supply-chain
+# scripts around the binary we vetted. This mirrors the kiesei's supply-chain
 # stance (vendor the artifact, verify before use).
 kubernetes_install_script_url: "https://get.k3s.io"
 
 # k3s release binary: downloaded straight from the GitHub release and verified
 # against a VENDORED sha256 (below) — not a checksum fetched at run time. k3s
 # publishes no GPG signatures for its binaries, so a pinned checksum is the
-# supply-chain control here, the analogue of the GPG keys the toolbox vendors for
+# supply-chain control here, the analogue of the GPG keys the kiesei vendors for
 # upstreams that sign (aws-cli, session-manager-plugin).
 kubernetes_k3s_release_base: "https://github.com/k3s-io/k3s/releases/download"
 

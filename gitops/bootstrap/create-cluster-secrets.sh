@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# create_cluster_secrets.sh — EMIT the commands that create the CORE in-cluster
+# create-cluster-secrets.sh — EMIT the commands that create the CORE in-cluster
 # bootstrap Secrets the platform needs before its GitOps apps go healthy. Today
 # that's `grafana-admin` (the monitoring stack reads its admin login from this
 # Secret via admin.existingSecret, so the password never lands in git and stays
 # stable across chart renders). Per the repo convention this is a mutating/action
 # script — it only PRINTS commands (via the shared emit_k8s_secret helper):
 #
-#   bash gitops/bootstrap/create_cluster_secrets.sh             # preview
-#   bash gitops/bootstrap/create_cluster_secrets.sh | bash      # run
+#   bash gitops/bootstrap/create-cluster-secrets.sh             # preview
+#   bash gitops/bootstrap/create-cluster-secrets.sh | bash      # run
 #
 #   # supply a fixed password instead of generating one:
-#   GRAFANA_ADMIN_PASSWORD=… bash gitops/bootstrap/create_cluster_secrets.sh | bash
+#   GRAFANA_ADMIN_PASSWORD=… bash gitops/bootstrap/create-cluster-secrets.sh | bash
 #
 # This replaces the hand-typed `kubectl create secret generic grafana-admin …`
 # step the bootstrap runbook used to carry (the §1.5 paste-back anti-pattern).
-# `gitops/tools/ui_forward.sh` reads the Secret back to print the Grafana login.
+# `gitops/tools/ui-forward.sh` reads the Secret back to print the Grafana login.
 #
 # Sibling secret-creators sharing this shape (sourceable main() + runlib emit_k8s_secret):
-#   create_pullthrough_secrets.sh (AWS Secrets Manager) · create_sso_secrets.sh (SSO).
+#   create-pullthrough-secrets.sh (AWS Secrets Manager) · create-sso-secrets.sh (SSO).
 # The ArgoCD repo deploy key is intentionally NOT here — it stays the gitignored
-# `repo-deploy-key.yaml` (committed `.example`), applied by bootstrap_argocd.sh, so
+# `repo-deploy-key.yaml` (committed `.example`), applied by bootstrap-argocd.sh, so
 # the SSH private key is never assembled on a command line.
 #
 # No `set -euo pipefail` (CLAUDE.md / BashPitfalls/105): the emit-time checks are

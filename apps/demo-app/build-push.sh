@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# build_push.sh — EMIT the commands that build the arm64 demo-app image and push
+# build-push.sh — EMIT the commands that build the arm64 demo-app image and push
 # it to ECR. Per the repo convention this is a mutating/action script: it only
-# PRINTS commands to stdout; review them with `bash build_push.sh`, then execute
+# PRINTS commands to stdout; review them with `bash build-push.sh`, then execute
 # by piping into a shell:
 #
-#   AWS_PROFILE=brzl-apply bash apps/demo-app/build_push.sh | bash
+#   AWS_PROFILE=brzl-apply bash apps/demo-app/build-push.sh | bash
 #
 # The emitted commands are &&-chained so the run fails fast; wrap with
 # `set -o pipefail` when piping so a generator failure here isn't masked.

@@ -4,7 +4,7 @@
 # only to attach the selector label + the two annotations the generator needs.
 #
 # The annotations carry the account-bearing values and are NOT committed — the
-# bootstrap shim writes them at bring-up (resolve_ecr_host.sh for the host; SSM
+# bootstrap shim writes them at bring-up (resolve-ecr-host.sh for the host; SSM
 # for the bucket), so the account id / bucket name never live in git:
 #   brzl.dev/ecr-host      <account>.dkr.ecr.<region>.amazonaws.com
 #   brzl.dev/backup-bucket brzl-dev-cnpg-backups-<account>

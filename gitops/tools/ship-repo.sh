@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ship_repo.sh — EMIT the command that ships the operator's CURRENT working tree to
+# ship-repo.sh — EMIT the command that ships the operator's CURRENT working tree to
 # the Terraform state bucket, where the conductor fetches it via its instance role
 # (`brzl-fetch`). This is how code reaches the conductor: the laptop is the source of
 # truth where you read/review/approve; the conductor executes exactly the snapshot you
@@ -8,8 +8,8 @@
 #
 # Per the repo convention this is a mutating/action script: it only PRINTS the command
 # (a read-only STS call resolves the bucket). Preview, then pipe:
-#   AWS_PROFILE=brzl-apply bash gitops/tools/ship_repo.sh        # preview
-#   AWS_PROFILE=brzl-apply bash gitops/tools/ship_repo.sh | bash # run (uploads to S3)
+#   AWS_PROFILE=brzl-apply bash gitops/tools/ship-repo.sh        # preview
+#   AWS_PROFILE=brzl-apply bash gitops/tools/ship-repo.sh | bash # run (uploads to S3)
 #
 # The tarball is the WORKING tree — tracked files (current on-disk content, including
 # uncommitted edits) PLUS new untracked files — and EXCLUDES gitignored paths

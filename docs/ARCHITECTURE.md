@@ -23,7 +23,7 @@ cloud account from nothing to a running stateful service:
                  └───────┬────────┘
                          │ assume scoped role (OIDC, no static creds)
         ┌────────────────▼─────────────────┐
-        │  TOOLBOX CONTAINER / bootstrap VM │  tofu · ansible · kubectl · helm · git
+        │  KIESEI CONTAINER / bootstrap VM │  tofu · ansible · kubectl · helm · git
         └───────┬───────────────┬───────────┘
         tofu apply (layers)     ansible (base → security → k3s HA)
                 │               │
@@ -173,7 +173,7 @@ this is the at-a-glance summary.
 - **Customer-managed KMS keys only.** Per-purpose CMKs (state / ECR / EBS), never
   the AWS-managed defaults — for key-policy control, rotation, and grantability
   (a HYOK-friendly posture). ~$1/mo per key.
-- **Operator/CI toolbox container + bootstrap VM.** A pinned, supply-chain-verified
+- **Operator/CI kiesei container + bootstrap VM.** A pinned, supply-chain-verified
   arm64 image (tofu, ansible, kubectl, helm, aws-cli, session-manager-plugin, …)
   is the unit of execution for long ops — it kills toolchain drift across the team
   and decouples long-running applies from an operator's SSO/SSH session timeout.

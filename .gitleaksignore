@@ -1,7 +1,7 @@
 # gitleaks false positives, pinned by fingerprint (commit:file:rule:line).
 # Triaged 2026-07-07 (portfolio T2 secrets sweep):
 #   - repo-deploy-key.example.yaml: REPLACE_WITH_... placeholder, not a key
-#   - k3d_up.sh: `--for=condition=Available` kubectl wait flag, not a token
+#   - k3d-up.sh: `--for=condition=Available` kubectl wait flag, not a token
 # Commit hashes are post-rewrite (the 2026-07-07 filter-repo passes) and stable.
 3129b016faa705a12591b8f236de6e13d3c0d49d:gitops/bootstrap/repo-deploy-key.example.yaml:private-key:27
-3129b016faa705a12591b8f236de6e13d3c0d49d:gitops/clusters/local/k3d_up.sh:generic-api-key:146
+3129b016faa705a12591b8f236de6e13d3c0d49d:gitops/clusters/local/k3d-up.sh:generic-api-key:146

@@ -11,7 +11,7 @@
 # `orgs:`/`teams:` and the tiers become group claims — documented in ACCESS.md.
 #
 # Secret injection (Secrets dex-github + oauth2-proxy-oidc, created by
-# gitops/bootstrap/create_sso_secrets.sh) — never written into this manifest or git:
+# gitops/bootstrap/create-sso-secrets.sh) — never written into this manifest or git:
 #   - the GitHub CONNECTOR config supports `$VAR` env references ($GITHUB_CLIENT_ID/
 #     $GITHUB_CLIENT_SECRET), which Dex expands;
 #   - staticClients do NOT expand `$VAR` in `secret:` — Dex's `secret: $FOO` is taken

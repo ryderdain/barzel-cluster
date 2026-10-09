@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# ui_forward.sh — open the cluster's web UIs locally via `kubectl port-forward`,
+# ui-forward.sh — open the cluster's web UIs locally via `kubectl port-forward`,
 # and print each one's URL + admin credentials. The zero-cost alternative to a
 # LoadBalancer/Ingress (none of these UIs are exposed publicly — deliberately):
 # everything is reached through the API server you already have access to.
 #
-#   bash gitops/tools/ui_forward.sh            # all three (grafana, prometheus, argocd)
-#   bash gitops/tools/ui_forward.sh grafana    # just one (grafana|prometheus|argocd)
+#   bash gitops/tools/ui-forward.sh            # all three (grafana, prometheus, argocd)
+#   bash gitops/tools/ui-forward.sh grafana    # just one (grafana|prometheus|argocd)
 #
 # Running this ON THE CONDUCTOR? The forwards bind to the conductor's localhost, which
 # your laptop browser can't reach directly. This script detects it's on EC2 (IMDS) and
@@ -32,7 +32,7 @@ if ! command -v kubectl >/dev/null 2>&1; then
 fi
 if ! kubectl version -o json >/dev/null 2>&1 && ! kubectl cluster-info >/dev/null 2>&1; then
   printf 'error: cannot reach the cluster (kubeconfig/context?)\n' >&2
-  printf '       try: bash gitops/tools/kubeconfig_setup.sh\n' >&2
+  printf '       try: bash gitops/tools/kubeconfig-setup.sh\n' >&2
   exit 1
 fi
 

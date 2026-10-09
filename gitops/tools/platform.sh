@@ -7,7 +7,7 @@
 #
 # ENVIRONMENT — `ENV=dev` (default) or `ENV=prod`. AWS environments only; everything
 # (state dir, SSM params, name prefix) is scoped to `brzl-<env>`. local-dev (k3d) is
-# a LAPTOP concern run via gitops/clusters/local/k3d_up.sh and is rejected here.
+# a LAPTOP concern run via gitops/clusters/local/k3d-up.sh and is rejected here.
 #
 # EXECUTION LOCUS — run this FROM THE CONDUCTOR (instance-role creds, no AWS_PROFILE)
 # for AWS dev/prod ops; that's the audited, IAM-gated, identical-toolchain box
@@ -71,13 +71,13 @@ region="${AWS_REGION:-eu-central-1}"
 
 # Target environment (AWS only): ENV=dev | prod. This orchestrator drives the AWS
 # environments and is meant to run FROM THE CONDUCTOR. local-dev (k3d) is a LAPTOP
-# concern driven by gitops/clusters/local/k3d_up.sh — reject it here so the
+# concern driven by gitops/clusters/local/k3d-up.sh — reject it here so the
 # environment + execution-locus boundary can't be crossed by accident.
 env_name="${ENV:-dev}"
 case "$env_name" in
   dev|prod) ;;
   local|local-dev)
-    printf 'error: local-dev runs on the laptop via gitops/clusters/local/k3d_up.sh,\n' >&2
+    printf 'error: local-dev runs on the laptop via gitops/clusters/local/k3d-up.sh,\n' >&2
     printf '       not platform.sh (which drives the AWS dev/prod environments).\n' >&2
     # shellcheck disable=SC2317
     { return 2 2>/dev/null || exit 2; } ;;
@@ -156,11 +156,11 @@ _set_backend_args() {
 # ---- Phase: preflight (FREE) -------------------------------------------------
 # Every kubectl-using phase calls this first: when the active context is the
 # tunnel topology (server = https://127.0.0.1:6443, i.e. prod's private nodes),
-# it starts/reuses the background SSM port-forward via api_tunnel.sh — so API
+# it starts/reuses the background SSM port-forward via api-tunnel.sh — so API
 # reachability is the driver's job, never operator memory. Dev/local: no-op.
 _kube_ready() {
   # shellcheck disable=SC1091
-  source "${repo_root}/gitops/tools/api_tunnel.sh"   # defines ensure_api_tunnel
+  source "${repo_root}/gitops/tools/api-tunnel.sh"   # defines ensure_api_tunnel
   ensure_api_tunnel
 }
 
@@ -179,7 +179,7 @@ preflight() {
   # role before anything billable (only identity/perms changes run as the admin user).
   case "$who" in
     *assumed-role/brzl-tofu-apply/*)   printf 'role      : brzl-tofu-apply ✓ (apply-capable)\n' >&2 ;;
-    *assumed-role/brzl-dev-conductor/*) printf 'role      : conductor instance role ✓ (on the toolbox)\n' >&2 ;;
+    *assumed-role/brzl-dev-conductor/*) printf 'role      : conductor instance role ✓ (on the kiesei)\n' >&2 ;;
     *:user/*) printf 'WARN: raw IAM user — assume brzl-tofu-apply before any 💸 step\n' >&2 ;;
     *)        printf 'role      : %s (confirm it can apply brzl-*)\n' "$who" >&2 ;;
   esac
@@ -243,7 +243,7 @@ preflight() {
 # ---- Phase: conductor (💸 launch/destroy the disposable SSM ops box) ----------
 # 00-conductor is SELF-CONTAINED: its own VPC/subnet/IGW/SG/IAM, reads no other
 # layer's state — so it has NO 10-network/15-kms prerequisite and can be applied or
-# destroyed in isolation. Run from a laptop (AWS_PROFILE) to stand up the toolbox,
+# destroyed in isolation. Run from a laptop (AWS_PROFILE) to stand up the kiesei,
 # then SSM onto it and drive the rest with instance-role creds.
 #   platform.sh conductor          # apply (default)
 #   platform.sh conductor destroy  # tear the box down
@@ -256,7 +256,7 @@ conductor() {
   printf 'note: 00-conductor is SELF-CONTAINED (own VPC/IAM, reads no other layer state)\n' >&2
   printf '      — it does NOT require 10-network or 15-kms; deploy/destroy in isolation.\n' >&2
   printf '      The box holds NO repo credential — after it is up, ship the working tree\n' >&2
-  printf '      from the laptop (gitops/tools/ship_repo.sh), then run brzl-fetch on it.\n' >&2
+  printf '      from the laptop (gitops/tools/ship-repo.sh), then run brzl-fetch on it.\n' >&2
 
   # Early identity check: with a role-assuming profile (brzl-apply) this fails fast
   # and CLEARLY if the trust anchor isn't up yet — the from-zero ordering trap (the
@@ -293,7 +293,7 @@ conductor() {
     printf '\n--- conductor up ---------------------------------------------------\n' >&2
     ( cd "$dir" && tofu output ssm_session_command ) >&2 2>/dev/null || true
     printf 'Next: ship the tree from the laptop, then SSM in and fetch it:\n' >&2
-    printf '  AWS_PROFILE=brzl-apply bash gitops/tools/ship_repo.sh | bash\n' >&2
+    printf '  AWS_PROFILE=brzl-apply bash gitops/tools/ship-repo.sh | bash\n' >&2
     printf '  aws ssm start-session … ; then on the box:  brzl-fetch\n' >&2
     printf 'Then drive THIS script there (instance-role creds, no AWS_PROFILE).\n' >&2
   else
@@ -310,7 +310,7 @@ conductor() {
 secrets() {
   require_tools aws || end_function "$?" 'aws required'
   # shellcheck disable=SC1091
-  source "${repo_root}/gitops/bootstrap/create_pullthrough_secrets.sh"  # defines emit_create_secrets + write_arns_to_tfvars
+  source "${repo_root}/gitops/bootstrap/create-pullthrough-secrets.sh"  # defines emit_create_secrets + write_arns_to_tfvars
   if [[ -z "${GHCR_TOKEN:-}" && -z "${DOCKERHUB_TOKEN:-}" && -z "${QUAY_TOKEN:-}" ]]; then
     printf 'error: export the upstream tokens first, e.g.:\n' >&2
     printf '  export GHCR_USERNAME=... GHCR_TOKEN=...            # read:packages PAT (CNPG/ESO)\n' >&2
@@ -374,7 +374,7 @@ layers() {
 # ---- Phase: images (💸 push demo-app) ----------------------------------------
 images() {
   # shellcheck disable=SC1091
-  source "${repo_root}/apps/demo-app/build_push.sh"   # sourced → defines emit_build_push, no auto-run
+  source "${repo_root}/apps/demo-app/build-push.sh"   # sourced → defines emit_build_push, no auto-run
   printf -- '--- preview: demo-app build/push ---\n' >&2
   emit_build_push >/dev/null || { end_function 1 'build_push emit failed'; return 1; }
   if _confirm "run the demo-app build+push?"; then
@@ -394,7 +394,7 @@ cluster() {
   ( cd "${stack_dir}/50-compute" && tofu init -reconfigure "${g_backend_args[@]}" -input=false >/dev/null ) \
     || { end_function 1 '50-compute init failed'; return 1; }
   printf 'rendering inventory from %s 50-compute outputs...\n' "$env_name" >&2
-  ( cd "$ansible_dir" && bash inventory/generate_inventory.sh \
+  ( cd "$ansible_dir" && bash inventory/generate-inventory.sh \
       "${stack_dir}/50-compute" > "inventory/${env_name}.yml" ) \
     || { end_function 1 'inventory generation failed'; return 1; }
   printf 'inventory : %s\n' "${ansible_dir}/inventory/${env_name}.yml" >&2
@@ -409,10 +409,10 @@ cluster() {
   fi
 
   # Install the kubectl context. ENV drives the context name and which compute
-  # layer the helper resolves the endpoint from (see kubeconfig_setup.sh).
+  # layer the helper resolves the endpoint from (see kubeconfig-setup.sh).
   export ENV="$env_name" CONTEXT_NAME="brzl-${env_name}"
   # shellcheck disable=SC1091
-  source "${repo_root}/gitops/tools/kubeconfig_setup.sh"   # defines setup_kubeconfig
+  source "${repo_root}/gitops/tools/kubeconfig-setup.sh"   # defines setup_kubeconfig
   if [[ "$env_name" == "prod" ]]; then
     # Private nodes: no public endpoint exists. Install the context against
     # 127.0.0.1 (always in k3s's TLS SANs); the API is reached through a
@@ -453,7 +453,7 @@ gitops() {
     fi
   fi
   # shellcheck disable=SC1091
-  source "${repo_root}/gitops/bootstrap/bootstrap_argocd.sh"  # defines emit_bootstrap_argocd
+  source "${repo_root}/gitops/bootstrap/bootstrap-argocd.sh"  # defines emit_bootstrap_argocd
   printf -- '--- preview: ArgoCD + ApplicationSet bootstrap ---\n' >&2
   emit_bootstrap_argocd >/dev/null || { end_function 1 'argocd bootstrap emit failed'; return 1; }
   if _confirm "bootstrap ArgoCD + apply the ApplicationSet (hands the cluster to GitOps)?"; then
@@ -472,7 +472,7 @@ gitops() {
   # GRAFANA_ADMIN_PASSWORD to pin a password; otherwise one is generated. The value
   # stays out of the preview — emit_k8s_secret emits the @expr verbatim, CLAUDE.md §1.3.)
   # shellcheck disable=SC1091
-  source "${repo_root}/gitops/bootstrap/create_cluster_secrets.sh"  # defines emit_grafana_admin
+  source "${repo_root}/gitops/bootstrap/create-cluster-secrets.sh"  # defines emit_grafana_admin
   printf -- '--- preview: grafana-admin Secret (monitoring-wave prereq) ---\n' >&2
   emit_grafana_admin >/dev/null || { end_function 1 'grafana-admin emit failed'; return 1; }
   if _confirm "create the grafana-admin Secret (the monitoring wave needs it)?"; then
@@ -508,8 +508,8 @@ roundtrip() {
   printf -- '--- demo-app pods ---\n' >&2
   kubectl -n demo get pods -l app=demo-app >&2 2>/dev/null || true
   printf 'round-trip: seed the app end-to-end (self-contained port-forward, torn down after):\n' >&2
-  printf '            bash gitops/tools/seed_demo_data.sh pf\n' >&2
-  printf '            (or target a reachable URL: ... seed_demo_data.sh http://HOST | bash)\n' >&2
+  printf '            bash gitops/tools/seed-demo-data.sh pf\n' >&2
+  printf '            (or target a reachable URL: ... seed-demo-data.sh http://HOST | bash)\n' >&2
   end_function 0 'bring-up checks printed (CNPG + ESO + demo-app)'
 }
 
@@ -519,14 +519,14 @@ roundtrip() {
 # StorageClass the recovered CNPG cluster's gp3 PVCs hang Pending (a standalone path
 # inherits GitOps's setup responsibilities — GUIDANCE §2.6, the A2 lesson). The
 # install is the SAME chart/version/values the ApplicationSet wave 0 uses, via
-# gitops/bootstrap/install_ebs_csi.sh (so the two paths can't drift).
+# gitops/bootstrap/install-ebs-csi.sh (so the two paths can't drift).
 operator() {
   require_tools helm kubectl aws || end_function "$?" 'need helm + kubectl + aws'
   _kube_ready || { end_function 1 'kube API unreachable (tunnel failed)'; return 1; }
 
   # 1) EBS CSI driver + default gp3 StorageClass — the wave-0 prereq, standalone.
   # shellcheck disable=SC1091
-  source "${repo_root}/gitops/bootstrap/install_ebs_csi.sh"   # defines emit_install_ebs_csi
+  source "${repo_root}/gitops/bootstrap/install-ebs-csi.sh"   # defines emit_install_ebs_csi
   printf -- '--- preview: EBS CSI + gp3 standalone install ---\n' >&2
   emit_install_ebs_csi >/dev/null || { end_function 1 'ebs-csi emit failed'; return 1; }
   if _confirm "install EBS CSI driver + default gp3 StorageClass (the DR storage prereq)?"; then
@@ -557,7 +557,7 @@ recover() {
   require_tools kubectl || end_function "$?" 'kubectl required'
   _kube_ready || { end_function 1 'kube API unreachable (tunnel failed)'; return 1; }
   # shellcheck disable=SC1091
-  source "${repo_root}/gitops/operators/postgres/render_recovery_manifest.sh"  # defines render_recovery_manifest
+  source "${repo_root}/gitops/operators/postgres/render-recovery-manifest.sh"  # defines render_recovery_manifest
   printf -- '--- preview: rendered recovery manifest ---\n' >&2
   render_recovery_manifest >/dev/null || { end_function 1 'render failed (SSM sentinels?)'; return 1; }
   if _confirm "apply the recovery Cluster (bootstrap.recovery from S3) into ${cnpg_ns}?"; then

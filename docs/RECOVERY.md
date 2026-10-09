@@ -85,35 +85,35 @@ aws secretsmanager list-secrets --query "SecretList[?starts_with(Name,'ecr-pullt
 ```
 
 If the three `ecr-pullthroughcache/brzl-dev-{quay,github,dockerhub}` secrets are gone,
-recreate them: `bash gitops/bootstrap/create_pullthrough_secrets.sh | bash` (they feed
+recreate them: `bash gitops/bootstrap/create-pullthrough-secrets.sh | bash` (they feed
 `40-ecr`'s `*_credential_arn` tfvars). They are script-created, not `40-ecr`-managed, so
 they normally **survive** a `40-ecr` destroy.
 
 **Step 1 — Infra `10`→`50` 💸** (saved-plan, gated, in order): `10-network` →
-`20-security` → `30-iam` → `40-ecr` → `50-compute`. `40-ecr`'s `toolbox.tf`
-**re-publishes the toolbox image** as part of its apply (needs docker/buildx on the apply
-host; `toolbox_build_enabled=false` to skip).
+`20-security` → `30-iam` → `40-ecr` → `50-compute`. `40-ecr`'s `kiesei.tf`
+**re-publishes the kiesei image** as part of its apply (needs docker/buildx on the apply
+host; `kiesei_build_enabled=false` to skip).
 
-**Step 2 — Re-push demo-app:** `AWS_PROFILE=brzl-apply bash apps/demo-app/build_push.sh | bash`
-(ECR login → build arm64 → push → verify). Toolbox already pushed in step 1.
+**Step 2 — Re-push demo-app:** `AWS_PROFILE=brzl-apply bash apps/demo-app/build-push.sh | bash`
+(ECR login → build arm64 → push → verify). Kiesei already pushed in step 1.
 
 **Step 3 — k3s + kubeconfig:** `ansible-playbook` the `kubernetes` role against the new
-nodes (gated — real hosts), then `AWS_PROFILE=brzl-apply bash gitops/tools/kubeconfig_setup.sh`.
+nodes (gated — real hosts), then `AWS_PROFILE=brzl-apply bash gitops/tools/kubeconfig-setup.sh`.
 
 **Step 4 — storage + CNPG operator** (standalone for the drill, so the DB is recovered
 *before* the ApplicationSet would initdb an empty `pg`). The standalone path bypasses
 the wave-0 GitOps storage app, so it must install **EBS CSI + the gp3 default
 StorageClass first** — the 2026-06-08 drill confirmed the recovery PVCs hang Pending
 without it. The **`operator` phase now does this itself** ([`platform.sh`](../gitops/tools/platform.sh)
-sources [`install_ebs_csi.sh`](../gitops/bootstrap/install_ebs_csi.sh) before the CNPG
+sources [`install-ebs-csi.sh`](../gitops/bootstrap/install-ebs-csi.sh) before the CNPG
 operator), so the storage prerequisite can't be forgotten. The standalone EBS CSI
 install renders the **same committed values** the ApplicationSet wave 0 uses (chart
 2.37.0, `gitops/infrastructure/ebs-csi/values.yaml`, sidecars via the `brzl-dev-k8s`
 pull-through), so the two paths can't drift. Manual reference:
 
 ```sh
-bash gitops/bootstrap/install_ebs_csi.sh        # PREVIEW the EBS CSI + gp3 install
-bash gitops/bootstrap/install_ebs_csi.sh | bash # run it (gp3 becomes the default class)
+bash gitops/bootstrap/install-ebs-csi.sh        # PREVIEW the EBS CSI + gp3 install
+bash gitops/bootstrap/install-ebs-csi.sh | bash # run it (gp3 becomes the default class)
 helm upgrade --install cnpg-operator cnpg/cloudnative-pg \
   --version 0.28.2 -n cnpg-system --create-namespace
 kubectl -n cnpg-system wait --for=condition=Available deploy --all --timeout=300s
@@ -126,8 +126,8 @@ from serverName `pg`, archives its own WAL under `pg-restore`, so the originals 
 pristine + the drill is repeatable). Resolve both sentinels at apply:
 
 ```sh
-bash gitops/operators/postgres/render_recovery_manifest.sh                 # PREVIEW
-bash gitops/operators/postgres/render_recovery_manifest.sh | kubectl apply -f -
+bash gitops/operators/postgres/render-recovery-manifest.sh                 # PREVIEW
+bash gitops/operators/postgres/render-recovery-manifest.sh | kubectl apply -f -
 kubectl -n cnpg-demo wait --for=jsonpath='{.status.phase}'='Cluster in healthy state' cluster/pg --timeout=600s
 ```
 

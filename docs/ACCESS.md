@@ -39,7 +39,7 @@ default branch — no secrets in CI) and **named operator ARNs** in
    # export the returned AccessKeyId / SecretAccessKey / SessionToken, then run tofu.
    ```
 4. Grant least privilege: most engineers get **plan** only; **apply** is for
-   maintainers. Use the toolbox container / bootstrap VM for long ops so a
+   maintainers. Use the kiesei container / bootstrap VM for long ops so a
    session expiry can't orphan a half-finished apply ([UPGRADE.md](UPGRADE.md)).
 
 ## Onboard a CI pipeline ✅
@@ -76,7 +76,7 @@ Why this over an open SSH port / bastion:
   authenticates *over the tunnel*, but is useless without SSM/IAM rights too.
 
 Prerequisites: assume `brzl-tofu-apply` (so `AWS_PROFILE` + region are set), and
-have the **`session-manager-plugin`** (bundled in the toolbox image, or install
+have the **`session-manager-plugin`** (bundled in the kiesei image, or install
 locally). The node's SSM agent is enabled by the Ansible `base` role (Noble
 preinstalls it).
 
@@ -88,7 +88,7 @@ aws ssm start-session --target i-0123456789abcdef0
 **Ansible** needs no extra steps — `ansible.cfg` carries an SSH-over-SSM
 `ProxyCommand` and the generated inventory uses the instance-id as `ansible_host`:
 ```sh
-AWS_PROFILE=brzl-apply bash inventory/generate_inventory.sh > inventory/dev.yml
+AWS_PROFILE=brzl-apply bash inventory/generate-inventory.sh > inventory/dev.yml
 AWS_PROFILE=brzl-apply ansible-playbook playbooks/bootstrap.yml
 ```
 
@@ -96,12 +96,12 @@ AWS_PROFILE=brzl-apply ansible-playbook playbooks/bootstrap.yml
 `/32`, so kubectl is direct. In prod (private nodes — ADR-0019, **built and
 validated 2026-06-10**) the API is reached through an SSM port-forward that
 **the driver manages itself**: every kubectl-using `platform.sh` phase calls
-`gitops/tools/api_tunnel.sh`, which detects the tunnel topology (kubeconfig
+`gitops/tools/api-tunnel.sh`, which detects the tunnel topology (kubeconfig
 server = `https://127.0.0.1:6443`, in k3s's default TLS SANs), backgrounds the
 forward to the primary node, and waits for the port. Nothing for the operator
 to remember; drop it with:
 ```sh
-bash gitops/tools/api_tunnel.sh stop_api_tunnel
+bash gitops/tools/api-tunnel.sh stop_api_tunnel
 ```
 
 **Break-glass** (SSM agent down on a node): set `enable_ssh_ingress = true` in
@@ -131,7 +131,7 @@ prerequisite, [BOOTSTRAP.md](BOOTSTRAP.md) phase 1). Once enabled:
 
 One GitHub-backed sign-on in front of the operator web UIs **and** the kube-API,
 with role tiers — built on the local k3d cluster (no billing meter) and portable to
-AWS (ADR-0018). Stand it up with [`k3d_up.sh --with-sso`](LOCAL.md#up-with-the-operator-sso-gateway---with-sso);
+AWS (ADR-0018). Stand it up with [`k3d-up.sh --with-sso`](LOCAL.md#up-with-the-operator-sso-gateway---with-sso);
 the manifests live in [`gitops/clusters/local/sso/`](../gitops/clusters/local/sso).
 
 **The three tiers** (web UIs are gated by per-host `oauth2-proxy`, identity issued by
@@ -188,11 +188,11 @@ AWS API call. The Ansible k3s role fetches a copy to `ansible/.kube/config-dev.y
 `127.0.0.1` to the node's reachable endpoint. To use it as a normal context:
 
 ```sh
-AWS_PROFILE=brzl-apply bash gitops/tools/kubeconfig_setup.sh
+AWS_PROFILE=brzl-apply bash gitops/tools/kubeconfig-setup.sh
 kubectl get nodes
 ```
 
-`kubeconfig_setup.sh` reuses those fetched admin creds, **re-resolves the current
+`kubeconfig-setup.sh` reuses those fetched admin creds, **re-resolves the current
 primary endpoint** from the `50-compute` Terraform outputs (node IPs change when
 compute is recreated between sessions — see [poc cost posture](ARCHITECTURE.md#5-cost--lifecycle-posture)),
 renames the generic `default` context to **`brzl-dev`**, and merges it into
@@ -205,10 +205,10 @@ writes your **local** kubeconfig, never a cloud/cluster resource.
   cluster security group — the `20-security` layer auto-detects the applying host's
   public IP (an `http` data source), so it tracks whichever host (conductor or
   laptop) brought the layer up. If your public IP drifts (new network/VPN/DHCP),
-  kubectl hangs — `bash gitops/tools/admin_ip_check.sh` prints the exact
+  kubectl hangs — `bash gitops/tools/admin-ip-check.sh` prints the exact
   `20-security` re-apply (auto-detect, no export) to fix it. For a no-public-IP (prod)
   posture, reach the API via the SSM **port-forward** shown above and run
-  `kubeconfig_setup.sh --endpoint 127.0.0.1` (or point the kubeconfig at
+  `kubeconfig-setup.sh --endpoint 127.0.0.1` (or point the kubeconfig at
   `https://localhost:6443`).
 - ArgoCD is the deploy path into the cluster — humans change git, not live
   objects ([UPGRADE.md](UPGRADE.md) golden rule). ArgoCD RBAC (reader vs

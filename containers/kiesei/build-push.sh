@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# build_push.sh — EMIT the commands that build the arm64 operator toolbox image
+# build-push.sh — EMIT the commands that build the arm64 operator kiesei image
 # and push it to ECR. Per the repo convention this is a mutating/action script:
-# it only PRINTS commands to stdout; review them with `bash build_push.sh`, then
+# it only PRINTS commands to stdout; review them with `bash build-push.sh`, then
 # execute by piping into a shell:
 #
-#   AWS_PROFILE=brzl-apply bash containers/toolbox/build_push.sh | bash
+#   AWS_PROFILE=brzl-apply bash containers/kiesei/build-push.sh | bash
 #
 # This is also invoked by the 40-ecr layer's local-exec so a `tofu apply` builds
-# + publishes + verifies the toolbox as an implicit end-to-end check. The emitted
+# + publishes + verifies the kiesei as an implicit end-to-end check. The emitted
 # commands are &&-chained so the run fails fast; wrap with `set -o pipefail` when
 # piping (the 40-ecr local-exec does) so a failure here isn't masked downstream.
 #
@@ -15,7 +15,7 @@
 # conductor) — the dual-locus rule (CLAUDE.md).
 #
 # Sourceable (CLAUDE.md): `source` it and call emit_build_push, or run it directly.
-# Same shape as apps/demo-app/build_push.sh. No `set -euo pipefail` in this generator
+# Same shape as apps/demo-app/build-push.sh. No `set -euo pipefail` in this generator
 # (BashPitfalls/105): the only emit-time command whose failure matters (resolving the
 # account) is checked explicitly; the emitted stream does its own &&-chained fail-fast.
 
@@ -28,8 +28,8 @@ repo_root="$(cd -- "${script_dir}/../.." && pwd -P)"
 source "${repo_root}/gitops/tools/lib/runlib.sh"
 
 region="${AWS_REGION:-eu-central-1}"
-repo="${TOOLBOX_REPO:-brzl-dev/toolbox}"
-tag="${TOOLBOX_TAG:-latest}"
+repo="${KIESEI_REPO:-brzl-dev/kiesei}"
+tag="${KIESEI_TAG:-latest}"
 
 emit_build_push() {
   require_tools aws docker || end_function "$?" 'need aws + docker on PATH'
@@ -55,7 +55,7 @@ docker build --platform=linux/arm64 -t ${image} ${context} && \\
 docker push ${image} && \\
 aws ecr describe-images --region ${region} --repository-name ${repo} \
 --image-ids imageTag=${tag} --query 'imageDetails[0].imageDigest' --output text >/dev/null && \\
-echo 'toolbox published: ${image}'"
+echo 'kiesei published: ${image}'"
   end_function 0 "emitted build/push for ${image}"
 }
 

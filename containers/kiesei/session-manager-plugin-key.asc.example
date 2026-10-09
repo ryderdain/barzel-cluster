@@ -1,6 +1,6 @@
 # session-manager-plugin GPG public key — REFRESH TEMPLATE
 #
-# The toolbox Dockerfile GPG-verifies AWS's session-manager-plugin .deb against
+# The kiesei Dockerfile GPG-verifies AWS's session-manager-plugin .deb against
 # AWS's plugin signing key (AWS publishes a detached .deb.sig alongside the
 # package). This is a DIFFERENT key than the aws-cli one. The current key IS
 # vendored in this repo as the colocated session-manager-plugin-key.asc — it's
@@ -15,7 +15,7 @@
 #   1. Open the AWS docs page "Verify the signature of the Session Manager
 #      plugin" (Systems Manager User Guide, install-plugin-verify).
 #   2. Copy the GPG PUBLIC KEY BLOCK shown there.
-#   3. Overwrite  containers/toolbox/session-manager-plugin-key.asc  with it
+#   3. Overwrite  containers/kiesei/session-manager-plugin-key.asc  with it
 #      (keep a short comment header documenting the new fingerprint + expiry).
 #   4. Confirm  gpg --show-keys session-manager-plugin-key.asc  matches the
 #      fingerprint AWS lists, then rebuild.

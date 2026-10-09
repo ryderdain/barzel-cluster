@@ -4,7 +4,7 @@
 # host being internet-reachable. The FreeDNS account credential is provided to the
 # *webhook's* Helm release at bring-up — not here.
 #
-# __ACME_EMAIL__ is substituted at apply (k3d_up.sh --with-sso, from $ACME_EMAIL).
+# __ACME_EMAIL__ is substituted at apply (k3d-up.sh --with-sso, from $ACME_EMAIL).
 # Use the STAGING issuer while iterating (lenient rate limits); switch the
 # Certificate's issuerRef to prod once the chain validates.
 apiVersion: cert-manager.io/v1

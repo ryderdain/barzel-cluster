@@ -12,8 +12,8 @@ It's the same workload manifests as the cloud cluster, applied through a thin
 
 ## Up
 ```sh
-bash gitops/clusters/local/k3d_up.sh            # preview the commands
-bash gitops/clusters/local/k3d_up.sh | bash     # run it
+bash gitops/clusters/local/k3d-up.sh            # preview the commands
+bash gitops/clusters/local/k3d-up.sh | bash     # run it
 ```
 This creates a 1-server k3d cluster, **builds the demo-app and imports it**
 (`k3d image import` — no registry, no ECR auth), helm-installs the **CloudNativePG**
@@ -52,8 +52,8 @@ export ACME_EMAIL=you@example.com         # default ryder.dain@gmail.com
 export OPERATOR_EMAIL=you@example.com      # MUST equal your GitHub primary email (gates Grafana/Prometheus + kube-admin)
 # Optional: ACME_ISSUER=letsencrypt-prod   # default letsencrypt-staging while validating DNS-01
 
-bash gitops/clusters/local/k3d_up.sh --with-sso          # preview (creds stay as $VAR literals)
-bash gitops/clusters/local/k3d_up.sh --with-sso | bash   # run it
+bash gitops/clusters/local/k3d-up.sh --with-sso          # preview (creds stay as $VAR literals)
+bash gitops/clusters/local/k3d-up.sh --with-sso | bash   # run it
 ```
 The cert issuer is config, not a manual step: `ACME_ISSUER` (default
 `letsencrypt-staging`) substitutes the `__ACME_ISSUER__` sentinel in
@@ -81,7 +81,7 @@ are in [ACCESS.md](ACCESS.md).
 
 ## Down
 ```sh
-bash gitops/clusters/local/k3d_up.sh down | bash    # k3d cluster delete (same for either up path)
+bash gitops/clusters/local/k3d-up.sh down | bash    # k3d cluster delete (same for either up path)
 ```
 
 ## What differs from the AWS cluster (and why)

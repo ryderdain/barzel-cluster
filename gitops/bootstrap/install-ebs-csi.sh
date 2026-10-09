@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# install_ebs_csi.sh — EMIT the commands that install the aws-ebs-csi-driver Helm
+# install-ebs-csi.sh — EMIT the commands that install the aws-ebs-csi-driver Helm
 # chart + the default gp3 StorageClass, for the STANDALONE (non-GitOps) path. Per
 # the repo convention this is a mutating/action script: it only PRINTS commands to
 # stdout. Review them first:
 #
-#   bash gitops/bootstrap/install_ebs_csi.sh
+#   bash gitops/bootstrap/install-ebs-csi.sh
 #
 # then execute by piping into a shell:
 #
-#   bash gitops/bootstrap/install_ebs_csi.sh | bash
+#   bash gitops/bootstrap/install-ebs-csi.sh | bash
 #
 # WHY this exists: the GitOps bring-up installs EBS CSI + gp3 as ApplicationSet
 # wave 0 (gitops/infrastructure/ebs-csi). The DR restore path (platform.sh
@@ -26,10 +26,10 @@
 #      file (same chart/version/ns the ApplicationSet pins);
 #   3. waits for the controller + node rollout;
 #   4. strips k3s local-path's default-StorageClass annotation so the chart's gp3
-#      class is the single default (mirrors bootstrap_argocd.sh; tolerant || true).
+#      class is the single default (mirrors bootstrap-argocd.sh; tolerant || true).
 #
 # Credentials: AWS_PROFILE if set (laptop), else ambient/instance-role creds (the
-# conductor) — the dual-locus rule (CLAUDE.md). resolve_ecr_host.sh derives the
+# conductor) — the dual-locus rule (CLAUDE.md). resolve-ecr-host.sh derives the
 # account-bearing host at run time; nothing leans on shell memory (GUIDANCE §1.7).
 #
 # Sourceable (CLAUDE.md): `source` it and call emit_install_ebs_csi, or run it
@@ -64,19 +64,19 @@ emit_install_ebs_csi() {
   fi
 
   # Resolve the ECR registry host live from the caller's account via the shim
-  # (resolve_ecr_host.sh → `aws sts get-caller-identity`), substituted into the
+  # (resolve-ecr-host.sh → `aws sts get-caller-identity`), substituted into the
   # rendered values below — never committed to git (same approach as ArgoCD's
   # imageParams render; here a plain sed on the shared values file).
   local registry
-  if ! registry="$(bash "${repo_root}/gitops/bootstrap/resolve_ecr_host.sh")"; then
-    printf 'error: resolve_ecr_host.sh failed (creds/role set?)\n' >&2
+  if ! registry="$(bash "${repo_root}/gitops/bootstrap/resolve-ecr-host.sh")"; then
+    printf 'error: resolve-ecr-host.sh failed (creds/role set?)\n' >&2
     end_function 1 'no ECR host'
     return 1
   fi
 
   # Render to a per-run temp file in the emitted stream (mktemp on the EXECUTING
   # host), so the piped shell does the substitution at run time. The host is not a
-  # secret (bootstrap_argocd.sh likewise emits it verbatim via --set).
+  # secret (bootstrap-argocd.sh likewise emits it verbatim via --set).
   printf '%s\n' "\
 rendered_values=\"\$(mktemp -t brzl-ebs-csi-values.XXXXXX.yaml)\" && \\
 sed -e 's|__ECR_REGISTRY_HOST__|${registry}|g' -e 's|brzl-dev-k8s|${name_prefix}-k8s|g' \\

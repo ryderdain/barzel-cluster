@@ -27,7 +27,7 @@ work. Where and how AI was used is logged session-by-session in a private
 engineering-hygiene record, not a disclaimer.
 
 The most useful lesson came from where it went wrong. I'd instructed the agent
-to have `gitops/tools/seed_demo_data.sh` build the tunnel to the demo app; it
+to have `gitops/tools/seed-demo-data.sh` build the tunnel to the demo app; it
 reported the work done, and I didn't re-verify the postcondition before cloning
 the environment for "prod" — so the gap propagated. The fix was cheap; the
 lesson was not: **an agent's claim that something is done is not evidence that it
@@ -54,7 +54,7 @@ managing a production-shaped HA Postgres (failover, S3 backup/restore, monitorin
 upgrades) → a demo app that uses it. The operator and its **lifecycle** are the
 centerpiece. Everything else is a clearly-labeled **optional differentiator** that
 the core neither needs nor depends on — notably the [operator SSO gateway](#operator-sso-gateway--optional-differentiator-local-)
-(local, opt-in) and the operator/CI **toolbox** image. Each optional piece is isolated
+(local, opt-in) and the operator/CI **kiesei** image. Each optional piece is isolated
 in its own path and carries its own pre-staging; skip any of them and the core stands.
 
 ## Repository layout
@@ -63,16 +63,16 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 |------|---------|
 | [`terraform/`](terraform/) | Layered IaC: reusable `modules/` + the single-source layer stack [`stack/aws/`](terraform/stack/aws/) applied per env via committed `dev.tfvars`/`prod.tfvars` (ADR-0020), plus `bootstrap/` + `identity/` account primitives and the dev-only `environments/dev/00-conductor` |
 | [`ansible/`](ansible/) | `roles/{base,security,kubernetes}` + `playbooks/` (node config + k3s bootstrap) |
-| [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, monitoring values), `applications/`, `operators/postgres/`; `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + toolbox shell + `ui_forward.sh`) |
+| [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, monitoring values), `applications/`, `operators/postgres/`; `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + kiesei shell + `ui-forward.sh`) |
 | [`apps/demo-app/`](apps/demo-app/) | Demo app: a Sefaria search web UI (search logic borrowed from [chofesh](https://github.com/ryderdain/chofesh)) — persists queries/results + outbound-call logs to Postgres, exposes `/metrics` + a ServiceMonitor — and Dockerfile |
-| [`containers/`](containers/) | `toolbox/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the toolbox via podman/ECR) |
+| [`containers/`](containers/) | `kiesei/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the kiesei via podman/ECR) |
 | [`docs/`](docs/) | Delivery-facing docs: architecture + ADRs (`docs/adr/`), operational-lifecycle runbooks, security |
 
-> **Maintenance note — toolbox aws-cli key.** The toolbox image GPG-verifies the
+> **Maintenance note — kiesei aws-cli key.** The kiesei image GPG-verifies the
 > aws-cli installer against AWS's signing key, vendored at
-> [`containers/toolbox/awscli-public-key.asc`](containers/toolbox/awscli-public-key.asc).
+> [`containers/kiesei/awscli-public-key.asc`](containers/kiesei/awscli-public-key.asc).
 > That key **expires 2027-07-01** (refreshed 2026-07-07 — AWS extends the same
-> key, fingerprint unchanged). When it next expires, a toolbox rebuild's
+> key, fingerprint unchanged). When it next expires, a kiesei rebuild's
 > `gpg --verify` will fail until the key is refreshed (procedure in the
 > colocated `.asc.example`, or build with `--build-arg AWSCLI_VERIFY=false`).
 
@@ -153,7 +153,7 @@ The concrete sequence:
 ```sh
 # Laptop (apply role): launch the disposable conductor, ship the COMMITTED tree
 AWS_PROFILE=brzl-apply bash gitops/tools/platform.sh conductor
-AWS_PROFILE=brzl-apply bash gitops/tools/ship_repo.sh
+AWS_PROFILE=brzl-apply bash gitops/tools/ship-repo.sh
 aws ssm start-session --target <conductor-instance-id>   # printed by the conductor step
 
 # Conductor (instance-role creds, no profile):
@@ -182,7 +182,7 @@ Terraform-owned NLB** (`enable_public_ingress=true`) fronting the demo-app UI
 (allowlisted to the operator /32 by default; `lb_ingress_cidr` opens it deliberately).
 
 The conductor holds **no GitHub credential**: the laptop ships your approved working
-tree to the state bucket (`ship_repo.sh`) and the conductor pulls it via its instance
+tree to the state bucket (`ship-repo.sh`) and the conductor pulls it via its instance
 role (`brzl-fetch`), so it runs exactly the snapshot you push over the audited channel.
 The step-by-step, billing-annotated procedure (exact assume-role + per-phase commands)
 is the **[`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)** runbook. local-dev (k3d, no AWS) is
@@ -191,7 +191,7 @@ a separate laptop-only path — [`docs/LOCAL.md`](docs/LOCAL.md).
 **Accessing the cluster (kubectl).** Because the control plane is self-managed
 k3s, there's no managed `aws eks update-kubeconfig` to hand you credentials — the
 admin kubeconfig is generated on a control-plane node. The Ansible k3s role drops
-a copy locally, and [`gitops/tools/kubeconfig_setup.sh`](gitops/tools/kubeconfig_setup.sh)
+a copy locally, and [`gitops/tools/kubeconfig-setup.sh`](gitops/tools/kubeconfig-setup.sh)
 installs it as an `brzl-dev` context in your `~/.kube/config`, re-resolving the
 API endpoint to the node's current address (node IPs change when compute is
 recreated). Details in [`docs/ACCESS.md`](docs/ACCESS.md). *(This self-managed
@@ -251,8 +251,8 @@ The web UIs are reached with **zero extra cost** — no LoadBalancer/Ingress. On
 helper port-forwards them and prints each admin credential:
 
 ```bash
-bash gitops/tools/ui_forward.sh          # Grafana + Prometheus + the ArgoCD panel
-bash gitops/tools/ui_forward.sh grafana  # or just one
+bash gitops/tools/ui-forward.sh          # Grafana + Prometheus + the ArgoCD panel
+bash gitops/tools/ui-forward.sh grafana  # or just one
 ```
 
 → Grafana `localhost:3000`, Prometheus `localhost:9090`, ArgoCD `localhost:8080`.
@@ -274,7 +274,7 @@ ServiceMonitor above.
 > core platform (Terraform → Ansible k3s → ArgoCD → CloudNativePG → demo-app, on AWS)
 > stands up and is operated **without it**. SSO is a self-contained extra that lives
 > only under [`gitops/clusters/local/sso/`](gitops/clusters/local/sso) and is brought
-> up on the **local k3d** cluster with a single opt-in flag (`k3d_up.sh --with-sso`).
+> up on the **local k3d** cluster with a single opt-in flag (`k3d-up.sh --with-sso`).
 > It carries its **own** one-time pre-staging — a **GitHub OAuth App** + a **FreeDNS**
 > credential — entirely separate from the core's image-supply-chain creds (the
 > quay/ghcr/Docker-Hub ECR pull-through tokens, which the core needs regardless). Skip
@@ -288,7 +288,7 @@ kube-API. Three role tiers (`users` → the demo app; `operators` → Grafana/Pr
 `admins` → org-team only), real **Let's Encrypt** certs via **cert-manager + DNS-01**
 over the operator's own `*.sso.barzel.sh`, and `kubectl` by the same GitHub identity
 through `oidc-login`. Access to the app UI never grants the operational UIs. Stand it
-up with `k3d_up.sh --with-sso` — rationale in
+up with `k3d-up.sh --with-sso` — rationale in
 [ADR-0018](docs/adr/0018-operator-sso-gateway-dex-github-local-first.md),
 onboarding + tiers in [`docs/ACCESS.md`](docs/ACCESS.md), steps in [`docs/LOCAL.md`](docs/LOCAL.md).
 

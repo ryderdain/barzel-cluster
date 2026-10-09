@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# render_recovery_manifest.sh — GENERATOR: resolve the two account-bearing sentinels
+# render-recovery-manifest.sh — GENERATOR: resolve the two account-bearing sentinels
 # in cluster-recovery.yaml from SSM and PRINT the ready-to-apply CNPG recovery Cluster
 # to stdout. Replaces the hand-rolled `sed -e ... | kubectl apply` in the A2 runbook
 # with a single previewable, consistent `bash x.sh | <exec>` step (CLAUDE.md guardrail).
 #
 #   # preview the rendered manifest (no cluster contact):
-#   bash gitops/operators/postgres/render_recovery_manifest.sh
+#   bash gitops/operators/postgres/render-recovery-manifest.sh
 #   # apply it:
-#   bash gitops/operators/postgres/render_recovery_manifest.sh | kubectl apply -f -
+#   bash gitops/operators/postgres/render-recovery-manifest.sh | kubectl apply -f -
 #
 # Credentials: uses AWS_PROFILE if set (laptop), else ambient/instance-role creds
 # (the conductor) — the dual-locus rule (CLAUDE.md). Read-only: two `aws ssm

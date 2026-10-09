@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# bootstrap_argocd.sh — EMIT the one-time commands that install ArgoCD and hand
+# bootstrap-argocd.sh — EMIT the one-time commands that install ArgoCD and hand
 # the cluster over to GitOps. Per the repo convention this is a mutating/action
 # script: it only PRINTS commands to stdout. Review them first:
 #
-#   AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap_argocd.sh
+#   AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap-argocd.sh
 #
 # then execute by piping into a shell:
 #
-#   AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap_argocd.sh | bash
+#   AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap-argocd.sh | bash
 #
 # What the emitted sequence does (&&-chained, fail-fast):
 #   1. helm-installs the argo-cd chart into the argocd namespace, with the ArgoCD
@@ -60,12 +60,12 @@ emit_bootstrap_argocd() {
   local deploy_key="${repo_root}/gitops/bootstrap/repo-deploy-key.yaml"
 
   # Resolve the ECR registry host live from the caller's account via the shim
-  # (resolve_ecr_host.sh → `aws sts get-caller-identity`). Injected into the install
+  # (resolve-ecr-host.sh → `aws sts get-caller-identity`). Injected into the install
   # via `helm --set` below; the self-managed apps get it from the in-cluster Secret
   # annotations (ADR-0016) — never committed to git.
   local registry argocd_image
-  if ! registry="$(bash "${repo_root}/gitops/bootstrap/resolve_ecr_host.sh")"; then
-    printf 'error: resolve_ecr_host.sh failed (creds/role set?)\n' >&2
+  if ! registry="$(bash "${repo_root}/gitops/bootstrap/resolve-ecr-host.sh")"; then
+    printf 'error: resolve-ecr-host.sh failed (creds/role set?)\n' >&2
     end_function 1 'no ECR host'
     return 1
   fi
@@ -120,7 +120,7 @@ kubectl patch storageclass local-path \\
   # Operator NOTE (stderr, not part of the piped command stream).
   printf '\n--- NOTE ---------------------------------------------------------------\n' >&2
   printf 'Account-id hygiene (ADR-0016): the host is NOT in git. The ArgoCD install\n' >&2
-  printf 'gets it live from resolve_ecr_host.sh via --set; the self-managed apps get it\n' >&2
+  printf 'gets it live from resolve-ecr-host.sh via --set; the self-managed apps get it\n' >&2
   printf 'from the in-cluster Secret annotations set above (brzl.dev/ecr-host = %s,\n' "$registry" >&2
   printf 'brzl.dev/backup-bucket = %s), which the ApplicationSet clusters generator\n' "${backup_bucket:-<unset: apply 15-kms>}" >&2
   printf 'reads and injects at render (Helm parameters / kustomize images+patches).\n' >&2

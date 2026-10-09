@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# kubeconfig_setup.sh — make plain `kubectl` work against the dev cluster. Takes the
+# kubeconfig-setup.sh — make plain `kubectl` work against the dev cluster. Takes the
 # admin kubeconfig the kubernetes role fetched (ansible/.kube/config-dev.yaml),
 # renames its generic `default` cluster/user/context to `brzl-dev`, re-resolves the
 # CURRENT primary node endpoint (node IPs drift when compute is recreated between
 # sessions), and installs it.
 #
 #   # merge into ~/.kube/config (backs it up) + switch to the context (default):
-#   AWS_PROFILE=brzl-apply bash gitops/tools/kubeconfig_setup.sh
+#   AWS_PROFILE=brzl-apply bash gitops/tools/kubeconfig-setup.sh
 #   kubectl get nodes
 #
 #   # just print the rewritten kubeconfig to stdout, change nothing:
-#   bash gitops/tools/kubeconfig_setup.sh --print > ~/.kube/brzl-dev.yaml
+#   bash gitops/tools/kubeconfig-setup.sh --print > ~/.kube/brzl-dev.yaml
 #
 #   # force a specific API endpoint (skip the tofu lookup):
-#   bash gitops/tools/kubeconfig_setup.sh --endpoint 1.2.3.4
+#   bash gitops/tools/kubeconfig-setup.sh --endpoint 1.2.3.4
 #
 # This is the ONE tool here that writes a file: it edits your LOCAL kubeconfig (the
 # whole point), never any cloud/cluster resource, and backs up the dest first.
@@ -143,8 +143,8 @@ setup_kubeconfig() {
 
   printf 'API endpoint     : %s\n' "$server" >&2
   printf 'current context  : %s\n' "$context_name" >&2
-  printf 'verify           : kubectl get nodes   (or bash gitops/tools/cluster_status.sh)\n' >&2
-  printf 'if it hangs      : bash gitops/tools/admin_ip_check.sh   (public IP vs SG /32)\n' >&2
+  printf 'verify           : kubectl get nodes   (or bash gitops/tools/cluster-status.sh)\n' >&2
+  printf 'if it hangs      : bash gitops/tools/admin-ip-check.sh   (public IP vs SG /32)\n' >&2
   end_function 0 "installed context ${context_name} -> ${server}"
 }
 

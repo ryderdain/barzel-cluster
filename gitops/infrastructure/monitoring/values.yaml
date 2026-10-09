@@ -77,7 +77,7 @@ grafana:
   # same posture as the repo deploy-key / pull-through creds — see BOOTSTRAP.md).
   # This is deterministic: the chart's own `adminPassword` default is a
   # `randAlphaNum` that regenerates on every render, so the Secret would drift from
-  # Grafana's DB → 401. gitops/tools/ui_forward.sh reads this Secret to print the
+  # Grafana's DB → 401. gitops/tools/ui-forward.sh reads this Secret to print the
   # password. Create it once: kubectl -n monitoring create secret generic
   # grafana-admin --from-literal=admin-user=admin --from-literal=admin-password=...
   admin:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# seed_demo_data.sh — populate the demo-app's database with a slew of Sefaria searches
+# seed-demo-data.sh — populate the demo-app's database with a slew of Sefaria searches
 # (+ a few items) by driving the app's OWN endpoints (POST /search, POST /items) — so
 # every row travels the real app→Sefaria→Postgres path (searches, search_results,
 # api_calls) exactly as a human clicking the UI would. Nothing touches Postgres directly.
@@ -9,16 +9,16 @@
 #   1) EMIT (the previewable primitive — repo convention: print, review, pipe to bash).
 #      Target ANY base URL reached directly (NOT the SSO-gated host — curl has no GitHub
 #      session): a port-forward, in-cluster service DNS, a public URL, whatever.
-#        bash gitops/tools/seed_demo_data.sh                          # preview (default target)
-#        bash gitops/tools/seed_demo_data.sh http://localhost:8088 | bash
-#        # in-cluster (from a toolbox pod): … seed_demo_data.sh http://demo-app.demo.svc.cluster.local | bash
+#        bash gitops/tools/seed-demo-data.sh                          # preview (default target)
+#        bash gitops/tools/seed-demo-data.sh http://localhost:8088 | bash
+#        # in-cluster (from a kiesei pod): … seed-demo-data.sh http://demo-app.demo.svc.cluster.local | bash
 #
 #   2) PF (self-contained convenience): establish the demo-app port-forward itself —
 #      BACKGROUNDED, waited-for, and TORN DOWN on exit — then run the seeds against it.
 #      No second terminal, no dangling forward. This is the one-liner for a cluster you
 #      reach over a port-forward (local k3d, or AWS via the conductor/SSM).
-#        bash gitops/tools/seed_demo_data.sh pf            # forward :8088 → svc/demo-app:80, seed, clean up
-#        bash gitops/tools/seed_demo_data.sh pf 18088      # pick a different local port
+#        bash gitops/tools/seed-demo-data.sh pf            # forward :8088 → svc/demo-app:80, seed, clean up
+#        bash gitops/tools/seed-demo-data.sh pf 18088      # pick a different local port
 #      Override the target with SEED_NAMESPACE / SEED_SVC if they differ from demo/demo-app.
 #
 # The app needs egress to www.sefaria.org (NAT on AWS; Docker on k3d) for each search.

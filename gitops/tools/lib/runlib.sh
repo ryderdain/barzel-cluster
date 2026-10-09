@@ -84,8 +84,8 @@ aws_profile_note() {
 }
 
 # emit_k8s_secret <ns> <name> <key=SRC ...> — the SHARED in-cluster-Secret emitter
-# for the bootstrap secret-creator scripts (create_cluster_secrets.sh,
-# create_sso_secrets.sh). PRINTS a namespaced create-or-update for one Secret; never
+# for the bootstrap secret-creator scripts (create-cluster-secrets.sh,
+# create-sso-secrets.sh). PRINTS a namespaced create-or-update for one Secret; never
 # touches the cluster itself (emit-commands convention). SRC is either:
 #   - an ENV-VAR NAME  → emitted as "$VAR", so its value expands only in the PIPED
 #                        shell, from that shell's inherited env (never in the preview);

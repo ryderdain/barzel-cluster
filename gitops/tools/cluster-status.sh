@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# cluster_status.sh — is the k3s HA cluster healthy via the fetched kubeconfig?
+# cluster-status.sh — is the k3s HA cluster healthy via the fetched kubeconfig?
 # Read-only: prints `kubectl get nodes` plus a Ready tally and exits non-zero
 # unless at least <expected> nodes are Ready.
 #
-#   bash gitops/tools/cluster_status.sh           # expects 3
-#   bash gitops/tools/cluster_status.sh 1         # expects >=1
-#   KUBECONFIG=/path/to/cfg bash gitops/tools/cluster_status.sh
+#   bash gitops/tools/cluster-status.sh           # expects 3
+#   bash gitops/tools/cluster-status.sh 1         # expects >=1
+#   KUBECONFIG=/path/to/cfg bash gitops/tools/cluster-status.sh
 #
 # Canonicalises the Ready check that bit us during the role build: in bash the
 # jsonpath is single-quoted, so the inner "Ready" quotes survive (unlike the
@@ -36,7 +36,7 @@ fi
 
 if ! kubectl get nodes -o wide 2>&1; then
   printf '\nerror: kubectl could not reach the API via %s\n' "$KUBECONFIG" >&2
-  printf '       run admin_ip_check.sh — your public IP may no longer match the SG /32\n' >&2
+  printf '       run admin-ip-check.sh — your public IP may no longer match the SG /32\n' >&2
   exit 1
 fi
 

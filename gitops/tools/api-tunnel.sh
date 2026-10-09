@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# api_tunnel.sh — ensure the kube-API is reachable when the cluster has no
+# api-tunnel.sh — ensure the kube-API is reachable when the cluster has no
 # public endpoint (prod: private-subnet nodes). If the active kubeconfig points
 # at https://127.0.0.1:6443 and nothing answers there, this starts a background
 # SSM port-forward to the env's primary node and waits for the port — so no
@@ -7,8 +7,8 @@
 # every kubectl-using phase). Anywhere else (dev's public endpoint, local k3d)
 # it is a no-op.
 #
-#   bash gitops/tools/api_tunnel.sh            # ensure (default)
-#   bash gitops/tools/api_tunnel.sh stop_api_tunnel
+#   bash gitops/tools/api-tunnel.sh            # ensure (default)
+#   bash gitops/tools/api-tunnel.sh stop_api_tunnel
 #
 # The tunnel is a plain `aws ssm start-session` (AWS-StartPortForwardingSession,
 # 6443→6443) — IAM-gated and audited like every other SSM channel; 127.0.0.1 is

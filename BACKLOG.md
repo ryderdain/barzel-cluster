@@ -24,7 +24,7 @@ change-of-image-source steps.
    New ADRs 0021–0024 (kiesei driver/conductor; run-log driver; mimic-now
    services; local as first env).
 2. **Driver skeleton + k3d adapter.** `local.env`, run-log mechanics,
-   `substrate_up`/`substrate_down`; replaces `k3d_up.sh`; rewrite
+   `substrate_up`/`substrate_down`; replaces `k3d-up.sh`; rewrite
    `docs/LOCAL.md`. Rename toolbox → kiesei.
 3. **External Zot + kiesei build/push + warm conductor.**
 4. **Argo on local (GitOps mode) + `fast_on`/`fast_off`.**
@@ -132,7 +132,7 @@ Most fold naturally into the numbered items above; tracked here until they do.
 - ~~`platform.sh` `operator()` phase: comment claims it installs EBS CSI + gp3,
   body doesn't (open since the A2 drill).~~ → item 1 — **DONE (pass 1, pending live
   verify):** `operator()` now installs EBS CSI + gp3 via the new
-  `gitops/bootstrap/install_ebs_csi.sh` (emit-style, renders the SAME committed
+  `gitops/bootstrap/install-ebs-csi.sh` (emit-style, renders the SAME committed
   ebs-csi values the ApplicationSet wave 0 uses → can't drift), then asserts the
   gp3 class exists before continuing. RECOVERY.md Step 4 updated.
 - ~~Driver hardening: preflight per-layer `backend "s3"` blocks; print "next
@@ -141,7 +141,7 @@ Most fold naturally into the numbered items above; tracked here until they do.
   LOCAL state); `_run_phases` prints the stopped phase + exact resume command (+
   phases not reached) on any failure, dual-mode (EXIT trap for direct runs,
   return-catch when sourced — no parent-shell trap pollution).
-- **Pass-1 also:** renamed `generate-inventory.sh` → `generate_inventory.sh`
+- **Pass-1 also:** renamed `generate-inventory.sh` → `generate-inventory.sh`
   (snake_case rule; all live callers updated, `notes/` history left as-is).
 - **Discovered (→ item 3, env-DRY / aroni cand-002 env-coupling):** the shared
   `gitops/infrastructure/ebs-csi/values.yaml` hardcodes the `brzl-dev-k8s`

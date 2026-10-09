@@ -20,7 +20,7 @@ order, but they are different jobs with different operators and lifetimes:
 
 > **Billing:** phases marked **💸** create costed AWS resources. Print the plan
 > and confirm before every `apply` (see [../CLAUDE.md](../CLAUDE.md) guardrails).
-> Run long phases from the **toolbox container / bootstrap VM** so an expiring
+> Run long phases from the **kiesei container / bootstrap VM** so an expiring
 > session can't orphan a half-finished apply.
 
 Status legend: ✅ live · 🔜 pending (built in a later PLAN.md block).
@@ -28,7 +28,7 @@ Status legend: ✅ live · 🔜 pending (built in a later PLAN.md block).
 > **Orchestrated path.** The phases below map to `gitops/tools/platform.sh` — one
 > gated driver (`ENV=dev|prod`, AWS only) that sequences them. From zero: as **admin
 > on the laptop** do Phases 0–1 (state backend + identity), then `platform.sh
-> conductor` to launch the ops box and `ship_repo.sh | bash` to push your approved
+> conductor` to launch the ops box and `ship-repo.sh | bash` to push your approved
 > working tree to the state bucket (the conductor holds **no GitHub credential** — it
 > runs exactly what you ship). Then **SSM onto the conductor**, run `brzl-fetch`
 > (pulls the tree via the instance role), and `platform.sh bootstrap` (= `secrets →
@@ -37,7 +37,7 @@ Status legend: ✅ live · 🔜 pending (built in a later PLAN.md block).
 > run **from the conductor** (audited, IAM-gated, identical toolchain); the laptop only
 > bootstraps the trust anchor, launches the conductor, and ships the tree. The same
 > driver does the DR `restore` and the `teardown`. (local-dev is separate —
-> `gitops/clusters/local/k3d_up.sh`, no AWS.)
+> `gitops/clusters/local/k3d-up.sh`, no AWS.)
 
 ## Prerequisites
 - OpenTofu `>= 1.6` (`tofu`), AWS CLI v2, an admin identity for phases 0–1.
@@ -136,10 +136,10 @@ SANs. See [ACCESS.md](ACCESS.md).)
   ```sh
   export GHCR_USERNAME=... GHCR_TOKEN=...              # GitHub user + read:packages PAT
   export DOCKERHUB_USERNAME=... DOCKERHUB_TOKEN=...    # Docker Hub user + read-only token
-  AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh        # preview
-  AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh | bash # run
+  AWS_PROFILE=brzl-apply bash gitops/bootstrap/create-pullthrough-secrets.sh        # preview
+  AWS_PROFILE=brzl-apply bash gitops/bootstrap/create-pullthrough-secrets.sh | bash # run
   # render the resulting ARNs straight into the 40-ecr tfvars (no paste-back), then apply:
-  AWS_PROFILE=brzl-apply bash gitops/bootstrap/create_pullthrough_secrets.sh \
+  AWS_PROFILE=brzl-apply bash gitops/bootstrap/create-pullthrough-secrets.sh \
     write_arns_to_tfvars terraform/stack/aws/40-ecr/credentials.auto.tfvars   # account-level; shared dev/prod
   ```
 
@@ -167,7 +167,7 @@ SANs. See [ACCESS.md](ACCESS.md).)
   `repo-deploy-key.yaml` (real one is gitignored), paste the private half. Without
   it ArgoCD installs but can't sync the private repo.
   > **Pre-staging on the conductor.** This file is **gitignored**, so it is not in a
-  > fresh clone and `ship_repo.sh` does **not** carry it to the conductor — place it on
+  > fresh clone and `ship-repo.sh` does **not** carry it to the conductor — place it on
   > whichever host runs the `gitops` phase (the conductor), e.g. from the laptop:
   > `scp -i ~/.ssh/<conductor-key> -o IdentitiesOnly=yes -o ProxyCommand='aws ssm
   > start-session --target <conductor-id> --document-name AWS-StartSSHSession
@@ -191,15 +191,15 @@ SANs. See [ACCESS.md](ACCESS.md).)
   beforehand to pin a known password, otherwise one is generated. To (re)create it
   out of band, the helper is standalone (emit-commands; it makes the namespace too):
   ```sh
-  bash gitops/bootstrap/create_cluster_secrets.sh        # preview
-  bash gitops/bootstrap/create_cluster_secrets.sh | bash # run (generates the password)
+  bash gitops/bootstrap/create-cluster-secrets.sh        # preview
+  bash gitops/bootstrap/create-cluster-secrets.sh | bash # run (generates the password)
   ```
-  `gitops/tools/ui_forward.sh` reads it back to print the login.
+  `gitops/tools/ui-forward.sh` reads it back to print the login.
 
 **Install** (emit-commands script; review then pipe to a shell):
 ```sh
-AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap_argocd.sh        # preview
-AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap_argocd.sh | bash # run
+AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap-argocd.sh        # preview
+AWS_PROFILE=brzl-apply bash gitops/bootstrap/bootstrap-argocd.sh | bash # run
 ```
 It helm-installs ArgoCD (image via ECR pull-through), waits for rollout, applies
 the deploy-key Secret + the `brzl-dev` AppProject + the **in-cluster cluster
@@ -209,7 +209,7 @@ annotation). ArgoCD then self-manages and syncs by wave: argocd (-1) → EBS CSI
 gp3 (0) → operators (cnpg, external-secrets, 1) → Postgres (2) → demo-app (3).
 
 **Account-id note (ADR-0016):** no account id is committed. The host is derived
-live from `aws sts get-caller-identity` (`resolve_ecr_host.sh`): injected into the
+live from `aws sts get-caller-identity` (`resolve-ecr-host.sh`): injected into the
 ArgoCD install via `helm --set`, and written (with the backup bucket) onto the
 in-cluster Secret's annotations. The **ApplicationSet's `clusters` generator** reads
 those annotations and injects the real host/bucket at render — Helm `parameters`
@@ -227,7 +227,7 @@ sc` shows `gp3 (default)`.
 ## Phase 5 — Operator + DB + app ✅ (validated live 2026-06-04 / 06-09)
 CloudNativePG operator → `Cluster` CR (3 instances, gp3 PVCs) → demo-app, all
 via GitOps. **Checkpoint:** demo-app reads/writes Postgres end to end —
-`seed_demo_data.sh pf` drives a full search→DB roundtrip. (`ENV=prod`: the UI
+`seed-demo-data.sh pf` drives a full search→DB roundtrip. (`ENV=prod`: the UI
 is reached via the **NLB** — `tofu output demo_app_url` in prod `50-compute`;
 the allowlist is the operator /32 unless `lb_ingress_cidr` was widened.)
 

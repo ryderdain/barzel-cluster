@@ -3,7 +3,7 @@
 Audience: operators performing version changes. Companion:
 [BOOTSTRAP.md](BOOTSTRAP.md), [RECOVERY.md](RECOVERY.md).
 
-> **Always run upgrades from the toolbox container / bootstrap VM**, not a laptop
+> **Always run upgrades from the kiesei container / bootstrap VM**, not a laptop
 > SSH session — long rolling operations must survive an expiring auth session
 > ([ARCHITECTURE.md](ARCHITECTURE.md) ADR-0007). **Take a backup before any stateful upgrade** ([RECOVERY.md](RECOVERY.md)).
 
