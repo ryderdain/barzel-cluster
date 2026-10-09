@@ -53,7 +53,9 @@ bash driver/driver.sh local up | bash driver/kiesei.sh
 
 The local environment has five phases. Each phase has a locus: the driver
 (where you operate the procedure) or the conductor (a kiesei pod in the
-cluster).
+cluster). The locus is where the run-log of the phase runs. The command is
+always `driver.sh`, for all phases: the driver sends a conductor phase to the
+conductor. Do not operate `driver/conductor.sh` yourself.
 
 - `10-substrate` (driver) makes the Zot registry (if it is not there) and the
   k3d cluster, and writes the kubeconfig to the run directory.
