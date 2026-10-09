@@ -30,6 +30,47 @@ from the substrate adapter). Pass 3 (3a–3c) verified live 2026-10-09 (runs
 RETROSPECTIVE entry written. Known gap: `up` does not restart Zot when
 `k3d-zot.json` changes (restart by hand).
 
+**⏸ PARKED 2026-10-09 — pass 4 design round Q54–Q60 WAITS FOR THE USER'S
+ANSWERS.** No pass-4 code written. Facts found: the repo is PUBLIC (Argo can
+read it over HTTPS, no deploy key); the argo-cd chart pulls redis from
+`public.ecr.aws`, which Zot does not mirror yet (add a sixth mirror).
+Recommendations (➡️), not decisions:
+
+- **Q54 One ApplicationSet or a local one?** ➡️ (a) local gets its own
+  `gitops/clusters/local/applicationset.yaml` (same shape and waves; apps:
+  argocd, cnpg, ESO, postgres, demo-app); dev/prod unchanged; merge in pass 8.
+  Alt (b): one shared ApplicationSet now (touches untestable AWS files).
+- **Q55 What does injection inject on local?** k3s mirrors already route the
+  upstreams through Zot, so only built images need a host. ➡️ (a) the phase
+  takes the host from `substrate_image_ref` and writes annotations
+  `brzl.dev/registry-host` + `brzl.dev/demo-app-tag` on the local cluster
+  Secret; the ApplicationSet builds the demo-app image (ADR-0016 pattern); no
+  fixed `localhost:5001` in the overlay. Alt (b): substitute at emit time.
+- **Q56 Which revision does local Argo follow?** ➡️ (b) the checked-out branch
+  at emit time; an exported `BRZL_GITOPS_REVISION` wins; recorded in the
+  run-log; stderr warning if the branch has unpushed commits. Alts: (a)
+  always `main`; (c) a value in `env/local.env`.
+- **Q57 How does fast mode stop Argo?** ➡️ (a) one annotation
+  `brzl.dev/auto-sync: "false"` on the cluster Secret; the template drops
+  `automated`; `fast_on`/`fast_off` change only that; `fast_off` = prune +
+  self-heal back to the pushed branch. Alts: (b) patch each Application +
+  `ignoreApplicationDifferences`; (c) scale the application controller to 0.
+- **Q58 Fast-mode "apply the working tree"?** ➡️ (a) new driver action
+  `driver.sh local apply`: render the kustomize apps (postgres, demo-app) from
+  the working tree, conductor applies; refuses when fast mode is off; helm
+  apps stay with Argo. Alt (b): also `helm template` the helm apps.
+- **Q59 Phase layout?** ➡️ 10-substrate (driver), 15-conductor (driver),
+  20-images (driver), 30-gitops (conductor: helm-install Argo; AppProject,
+  cluster Secret + annotations, ApplicationSet), 40-workloads (conductor,
+  check only: all Applications Synced/Healthy, pg healthy, demo-app rolled
+  out). Images before GitOps. Argo self-manages (wave -1); the conductor stays
+  outside Argo so it is never pruned.
+- **Q60 ADR?** ➡️ ADR-0025 "Argo CD on local: a cluster-Secret annotation
+  controls the registry host and auto-sync" + a SPEC §3 line.
+
+On return: get the answers, then write pass 4 (one commit), offline tests,
+user live run.
+
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 
 - Local (sleipnir, k3d) = first env of local → dev → prod; harness for cluster-
