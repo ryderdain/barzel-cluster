@@ -121,6 +121,7 @@ export OPERATOR_EMAIL=you@example.com      # MUST equal your GitHub primary emai
 bash gitops/clusters/local/k3d-up.sh --with-sso          # preview (creds stay as $VAR literals)
 bash gitops/clusters/local/k3d-up.sh --with-sso | bash   # run it
 ```
+
 The cert issuer is config, not a manual step: `ACME_ISSUER` (default
 `letsencrypt-staging`) substitutes the `__ACME_ISSUER__` sentinel in
 [`certificate.yaml`](../gitops/clusters/local/sso/certificate.yaml) at apply.
@@ -157,6 +158,7 @@ This removes the cluster for either path (`driver.sh` or `--with-sso`). The
 next `up` starts a new run.
 
 ## What differs from the AWS cluster (and why)
+
 The overlay touches only the genuinely AWS-specific bits; everything else is
 byte- for-byte the cloud manifests:
 
