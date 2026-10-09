@@ -49,7 +49,9 @@ Settled design (Q1–Q45, user-confirmed 2026-10-07):
   → approve → run; outputs between phases via files. One adapter per
   substrate. Env definition = sourceable plain `VAR=value` list; exported value
   wins + stderr warning; resolved values in the run-log; never flags.
-- Approval rule: required for any effect outside the driver, or billable.
+- Approval rule (REVISED 2026-10-09, Q53): no prompts — approval is running the
+  driver's output; off-machine/billable phases go one at a time (`next`), local-
+  only phases may go together (`up | bash`).
 - Local substrate: Zot (outside k3d, persistent) = pull-through + push
   registry; OpenBao dev mode (KV + transit), Vault CE fallback via one env
   value; ESO read boundary + per-store write adapters; bootstrap sources all

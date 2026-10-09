@@ -7,14 +7,18 @@ starts a phase again, breaks easily. Its 700 lines mix substrate work and
 general work. The emit-commands rule in `ryderdain/bash` applies to the leaf
 scripts, but not to the driver.
 **Decision.** Divide `platform.sh` into emit-style phase scripts and a thin
-driver. For each phase, the driver does these steps:
+driver. The driver is also an emit script. Its output has one group for each
+phase. Each phase group does these steps:
 
-1. It gets the commands from the phase script.
-2. It writes them to a run-log: `var/run/<env>/<YYYYmmddHHMM>/<NN>_<phase>.sh`.
-3. It shows the run-log and gets approval.
-4. It operates the run-log file and writes `<NN>_<phase>.rc`.
-5. It operates the check of the phase and writes `<NN>_<phase>.ok` if the
+1. It gets the commands from the phase script and writes them to a run-log:
+   `var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh`.
+2. It operates the run-log file and writes `<NN>-<phase>.rc`.
+3. It operates the check of the phase and writes `<NN>-<phase>.ok` if the
    result is correct.
+
+The driver does not ask questions. The approval of the operator is to
+operate the output. `driver.sh <env> next` gives only the subsequent phase.
+`driver.sh <env> up | bash` operates all the phases that are not complete.
 
 A run-log puts its commands in `{ … }` groups. Each group is one anonymous
 function for one object. Thus the reader sees the procedure as a sequence of
@@ -24,13 +28,14 @@ an unsuccessful step can make the condition of the system unclear. The exit
 code does not tell if a phase did its work. The check of the phase tells it.
 **It must be safe to operate each phase again.** To start again, the driver
 finds the first phase that has no `.ok` file.
-Phases give their outputs to subsequent phases as files. Approval is
-necessary for each effect on a different machine and for each step that
-costs money. Each environment has one environment definition, with lines
-that have the shape `NAME=value`. An exported value replaces the default,
-and the driver shows a warning. Each substrate has one adapter, and all
-adapters have the same interface. The rules are in `ryderdain/bash` STYLE.md
-§1.2, §1.11, and §1.12.
+Phases give their outputs to subsequent phases as files. Some phases have an
+effect on a different machine, or cost money. Do these phases one at a time,
+and examine each phase before you operate it. Only phases with local effects
+can all go together. Each environment has one environment definition, with
+lines that have the shape `NAME=value`. An exported value replaces the
+default, and the driver shows a warning. Each substrate has one adapter, and
+all adapters have the same interface. The rules are in `ryderdain/bash`
+STYLE.md §1.2, §1.11, and §1.12.
 **Considered options.**
 
 - Commands connected with `&&`. Rejected: the check is implicit, and it
