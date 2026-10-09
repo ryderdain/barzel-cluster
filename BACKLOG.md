@@ -53,6 +53,13 @@ Standing concerns (check in every pass, do not lose):
   published history; see SCRATCHPAD).
 - **Port the seed's §1.10** ("a script's claims are part of its contract") to
   `ryderdain/bash` STYLE.md (number reserved).
+- **Markdown lint debt** (found 2026-10-09). The repo has a markdownlint
+  config now (`.markdownlint-cli2.jsonc`: no line-length check in tables), and
+  `docs/LOCAL.md` is clean. About 600 older errors remain in other `.md` files,
+  most in SPEC, SCRATCHPAD and the runbooks. Most are MD013 (line length),
+  then MD060 (table pipes), MD032/MD022/MD031 (blank lines). Clean one file
+  when a pass edits it, or do one lint-only pass. Do not change
+  RETROSPECTIVE entries (append-only): ask the user first.
 
 ## Active — the major refactor (next barzel session) + aroni assists
 
