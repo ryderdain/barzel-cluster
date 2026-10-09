@@ -145,20 +145,33 @@ plain-up dataset is disposable).
 **One-time prerequisites** (all flow in as env — nothing is written to a file
 or git):
 
-1. **GitHub OAuth App** — Authorization callback URL `https://dex.sso.barzel.sh/callback`.
-2. **FreeDNS / afraid.org** account that manages `barzel.sh` (for the DNS-01 TXT).
-3. **`/etc/hosts`**: `127.0.0.1 dex.sso.barzel.sh grafana.sso.barzel.sh prometheus.sso.barzel.sh demo.sso.barzel.sh`
-4. **`kubelogin`** (`brew install int128/kubelogin/kubelogin`) for the kube-API OIDC step.
+1. **GitHub OAuth App** — Authorization callback URL
+   `https://dex.sso.barzel.sh/callback`.
+2. **FreeDNS / afraid.org** account that manages `barzel.sh` (for the DNS-01
+   TXT).
+3. **`/etc/hosts`**:
+
+   ```text
+   127.0.0.1 dex.sso.barzel.sh grafana.sso.barzel.sh
+   127.0.0.1 prometheus.sso.barzel.sh demo.sso.barzel.sh
+   ```
+
+4. **`kubelogin`** (`brew install int128/kubelogin/kubelogin`) for the
+   kube-API OIDC step.
 
 ```sh
 export GITHUB_CLIENT_ID=...  GITHUB_CLIENT_SECRET=...
-export OAUTH2_PROXY_CLIENT_SECRET="$(openssl rand -hex 32)"   # you mint this — hex (URL-safe), NOT base64
+# you mint this — hex (URL-safe), NOT base64
+export OAUTH2_PROXY_CLIENT_SECRET="$(openssl rand -hex 32)"
 export FREEDNS_USERNAME=...  FREEDNS_PASSWORD=...
 export ACME_EMAIL=you@example.com         # default ryder.dain@gmail.com
-export OPERATOR_EMAIL=you@example.com      # MUST equal your GitHub primary email (gates Grafana/Prometheus + kube-admin)
-# Optional: ACME_ISSUER=letsencrypt-prod   # default letsencrypt-staging while validating DNS-01
+# MUST equal your GitHub primary email (gates Grafana/Prometheus + kube-admin)
+export OPERATOR_EMAIL=you@example.com
+# Optional: ACME_ISSUER=letsencrypt-prod
+# (default letsencrypt-staging while validating DNS-01)
 
-bash gitops/clusters/local/k3d-up.sh --with-sso          # preview (creds stay as $VAR literals)
+# preview (creds stay as $VAR literals)
+bash gitops/clusters/local/k3d-up.sh --with-sso
 bash gitops/clusters/local/k3d-up.sh --with-sso | bash   # run it
 ```
 
@@ -173,7 +186,8 @@ certificate sso-wildcard -w`), move to the trusted prod chain —
 cert with the same substitution — no recreate:
 
 ```sh
-sed "s|__ACME_ISSUER__|letsencrypt-prod|g" gitops/clusters/local/sso/certificate.yaml | kubectl apply -f -
+sed "s|__ACME_ISSUER__|letsencrypt-prod|g" \
+  gitops/clusters/local/sso/certificate.yaml | kubectl apply -f -
 ```
 
 cert-manager re-issues against prod via the same FreeDNS DNS-01 path (a few
@@ -203,7 +217,7 @@ The overlay touches only the genuinely AWS-specific bits; everything else is
 byte- for-byte the cloud manifests:
 
 | Concern | AWS cluster | Local (k3d) | Why |
-|---------|-------------|-------------|-----|
+| ------- | ----------- | ----------- | --- |
 | Images | ECR + pull-through (host injected by the ApplicationSet) | Zot pull-through + a locally built `localhost:5001/brzl/demo-app:local` (pushed) | same pull path as the cloud; no registry auth locally |
 | Storage | EBS CSI, `gp3` | `local-path` (k3d built-in) | no cloud block storage on a laptop |
 | Postgres | 3 instances (HA) | 1 instance | laptop footprint; HA isn't the point locally |

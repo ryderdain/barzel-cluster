@@ -1,0 +1,6 @@
+{
+  "config": {
+    // Table rows cannot wrap; the 80-column limit stays on for prose.
+    "MD013": { "tables": false }
+  }
+}
