@@ -8,8 +8,9 @@
 # (../bootstrap-vm), or a k8s Job.
 #
 # Toolchain: tofu, ansible, kubectl, helm, kustomize, argocd, kubectl-cnpg,
-# aws-cli, session-manager-plugin, yq, trivy, tflint, psql, git, jq, tmux — see
-# the pinned ARGs below.
+# aws-cli, session-manager-plugin, yq, trivy, tflint, psql, git, jq, tmux, k3d,
+# and the docker CLI (driver mode: it drives the host's engine through the
+# mounted socket — see driver/kiesei.sh) — see the pinned ARGs below.
 #
 # Base: python:3.14-slim-trixie — CPython 3.14 on Debian 13 (trixie) slim.
 # Both are pinned to long-lived series (Python 3.14 EoL ~Oct 2030; Debian 13
@@ -34,6 +35,7 @@ FROM python:3.14-slim-trixie
 ARG TOFU_VERSION=1.12.1
 ARG KUBECTL_VERSION=1.31.5
 ARG HELM_VERSION=3.16.4
+ARG K3D_VERSION=5.9.0
 ARG AWSCLI_VERSION=2.34.58
 ARG SMP_VERSION=1.2.814.0
 ARG ANSIBLE_CORE_VERSION=2.20.6
@@ -79,6 +81,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates curl git jq unzip gnupg openssh-client tar \
         postgresql-client tmux less vim \
+        docker-cli docker-buildx \
     && rm -rf /var/lib/apt/lists/*
 
 # All third-party fetch/verify/install happens from /tmp.
@@ -115,6 +118,18 @@ RUN set -eux; \
     tar -xzf "${f}" --strip-components=1 -C /usr/local/bin "linux-${TARGETARCH}/helm"; \
     rm -f "${f}" "${f}.sha256sum"; \
     helm version --short
+
+# --- k3d (verify against published checksums.txt) --------------------------
+# Driver mode makes local (k3d) clusters through the host engine's socket.
+RUN set -eux; \
+    f="k3d-linux-${TARGETARCH}"; \
+    base="https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}"; \
+    curl -fsSLO "${base}/${f}"; \
+    curl -fsSLo checksums.txt "${base}/checksums.txt"; \
+    grep " _dist/${f}\$" checksums.txt | sed "s| _dist/| |" | sha256sum -c -; \
+    install -m 0755 "${f}" /usr/local/bin/k3d; \
+    rm -f "${f}" checksums.txt; \
+    k3d version
 
 # --- kustomize (verify against published checksums.txt) --------------------
 RUN set -eux; \

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 30-workloads.sh — phase 30: the smoke workload. Builds the demo-app image,
-# makes it available to the cluster, and applies the local overlay (namespaces,
-# the Postgres cluster, the demo-app). Pass 3 moves the image to Zot; pass 4
-# moves the apply under Argo CD.
+# pushes it to the substrate's registry (Zot, for k3d), and applies the local
+# overlay (namespaces, the Postgres cluster, the demo-app). Pass 4 moves the
+# apply under Argo CD.
 #
 # Emit + generator, one function each:
 #   bash driver/phases/30-workloads.sh phase_up <env> <run_dir>     # EMIT
@@ -30,11 +30,11 @@ host_arch() {
 phase_up() {
   local env="$1" run_dir="$2" image
   phase_init "$env" || end_function "$?" 'environment definition'
-  image="demo-app:$BRZL_DEMO_APP_TAG"
+  image="$(substrate_image_ref "demo-app:$BRZL_DEMO_APP_TAG")"
   phase_header "$run_dir"
-  printf '{ # demo-app image, built here and handed to the cluster\n'
+  printf '{ # demo-app image: build it here, push it to the registry the cluster pulls from\n'
   printf '  docker build --build-arg TARGETARCH=%q -t %q apps/demo-app\n' "$(host_arch)" "$image"
-  substrate_load_image "$image"
+  printf '  docker push %q\n' "$image"
   printf '}\n'
   printf '{ # the demo stack: namespaces, Postgres cluster, demo-app (local overlay)\n'
   printf '  kubectl apply -k gitops/clusters/local\n'

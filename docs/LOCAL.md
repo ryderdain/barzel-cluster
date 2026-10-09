@@ -8,48 +8,57 @@ cluster, applied through a thin
 
 ## Prerequisites
 
-- A container engine (Docker, Colima, or equivalent), with the engine
-  started.
-- `k3d`, `kubectl`, `helm`, and `jq` on the `PATH`.
-- Internet access. The operator images come from the upstream registries.
+- A container engine (Docker Desktop, Colima, or equivalent), with the engine
+  started, and its `docker` CLI.
+- Internet access. The images come from the upstream registries, through the
+  local Zot cache.
 - No AWS account, profile, or credentials.
 
-Until pass 3 makes the kiesei image, the driver operates on the host with the
-tools above. On macOS, install the two tools that are usually missing:
+The other tools (`k3d`, `kubectl`, `helm`, `jq`) are in the kiesei image. Make
+the image one time, and again after a change to `containers/kiesei/`:
 
 ```sh
-brew install k3d helm
+docker build -t kiesei:local containers/kiesei
 ```
 
-This host installation is temporary. After pass 3, the host needs only the
-container engine, because the kiesei image contains the other tools.
+## Where the procedure operates
+
+The driver prints a procedure. The command on the right side of the pipe
+selects where it operates:
+
+- `| bash driver/kiesei.sh` operates it in the kiesei image, with the pinned
+  tools. This is the usual selection.
+- `| bash` operates it on the host. Then the host must have `k3d`, `kubectl`,
+  `helm`, and `jq`.
+
+The procedure is the same for the two shells.
 
 ## Up
 
 The driver prints a procedure and does not operate it. You give your approval
-when you pipe the procedure to `bash`.
+when you pipe the procedure to a shell.
 
 Careful mode, one phase at a time:
 
 ```sh
-bash driver/driver.sh local next            # read the next phase
-bash driver/driver.sh local next | bash     # operate it; do again for each phase
+bash driver/driver.sh local next                          # read the next phase
+bash driver/driver.sh local next | bash driver/kiesei.sh  # operate it; do again
 ```
 
 Fast mode, all phases that are not complete:
 
 ```sh
-bash driver/driver.sh local up | bash
+bash driver/driver.sh local up | bash driver/kiesei.sh
 ```
 
 The local environment has three phases:
 
-- `10-substrate` makes the k3d cluster and writes its kubeconfig to the run
-  directory.
+- `10-substrate` makes the Zot registry (if it is not there) and the k3d
+  cluster, and writes the kubeconfig to the run directory.
 - `20-platform` installs the CloudNativePG and External Secrets operators
   with helm.
-- `30-workloads` builds the demo-app image, imports it, and applies the local
-  overlay.
+- `30-workloads` assembles the demo-app image, pushes it to Zot, and applies the
+  local overlay.
 
 Each phase writes a run-log to `var/run/local/<YYYYmmddHHMM>/`: the commands
 (`<NN>-<phase>.sh`), their output (`.out`), the exit status (`.rc`), and `.ok`
@@ -71,10 +80,29 @@ bash driver/driver.sh local status
 
 The values for the local environment are in `env/local.env`. To change one
 value for one run, export it. The driver shows a warning and records the
-value in the run-log:
+value in the run-log. Export the value. Then the two sides of the pipe get
+it:
 
 ```sh
-BRZL_K3D_AGENTS=2 bash driver/driver.sh local up | bash
+export BRZL_K3D_AGENTS=2
+bash driver/driver.sh local up | bash driver/kiesei.sh
+```
+
+### The Zot registry
+
+Zot operates adjacent to the cluster, on the container network `brzl-local`.
+It is a pull-through cache for `docker.io`, `ghcr.io`, `quay.io`, and
+`registry.k8s.io`, and the registry for images that you assemble here
+(`localhost:5001/brzl/...`). Its data is on the volume `brzl-zot-data`. Thus the
+cache stays when you remove the cluster. The first pull of an image through
+Zot can continue for some minutes.
+
+To remove Zot, its cache, and the network:
+
+```sh
+docker rm -f brzl-zot
+docker volume rm brzl-zot-data
+docker network rm brzl-local
 ```
 
 ## Use it
@@ -164,7 +192,7 @@ byte- for-byte the cloud manifests:
 
 | Concern | AWS cluster | Local (k3d) | Why |
 |---------|-------------|-------------|-----|
-| Images | ECR + pull-through (host injected by the ApplicationSet) | upstream registries + a locally-built `demo-app:local` (imported) | the host-injection is AWS-only; local needs no registry auth |
+| Images | ECR + pull-through (host injected by the ApplicationSet) | Zot pull-through + a locally built `localhost:5001/brzl/demo-app:local` (pushed) | same pull path as the cloud; no registry auth locally |
 | Storage | EBS CSI, `gp3` | `local-path` (k3d built-in) | no cloud block storage on a laptop |
 | Postgres | 3 instances (HA) | 1 instance | laptop footprint; HA isn't the point locally |
 | Backups | CNPG → S3 (Barman) | **off** | no object store locally |
@@ -172,12 +200,10 @@ byte- for-byte the cloud manifests:
 | GitOps | ArgoCD ApplicationSet | `kubectl apply -k` (direct) | skips the ECR-coupled ApplicationSet; faster dev loop |
 | Identity / UI SSO | OIDC roles, ingress (prod path) | none by default; **the full SSO edge** with `--with-sso` (see below) | the local cluster is where the SSO gateway is actually built (ADR-0018) |
 
-**Image strategy.** Local builds the demo-app and `k3d image import`s it (tag
-`demo-app:local`, `imagePullPolicy: IfNotPresent`), so there's no ECR login. If
-you *do* want to pull the published image from ECR instead, `aws ecr
-get-login-password` → create a docker-registry `imagePullSecret` in the `demo`
-namespace and point the deployment at the ECR ref — but that reintroduces an
-AWS dependency the import path avoids.
+**Image strategy.** Local builds the demo-app and pushes it to Zot
+(`localhost:5001/brzl/demo-app:local`). The cluster pulls it from Zot, and it
+pulls every upstream image through Zot's cache, as a cloud cluster pulls
+through ECR (ADR-0023). There is no ECR login and no registry credential.
 
 **Parity note.** The CNPG operator, External Secrets, the `Cluster`, the ESO
 `ClusterSecretStore`/`ExternalSecret`, and the demo-app Deployment/Service are

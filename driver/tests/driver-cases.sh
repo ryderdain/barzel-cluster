@@ -44,7 +44,7 @@ printf 'BRZL_SUBSTRATE=fake\n' > "$scratch/env/test.env"
 cat > "$scratch/driver/substrates/fake.sh" <<'EOF'
 substrate_up() { printf '{ # fake cluster\n  : > %s\n}\n' "$1/cluster"; }
 substrate_down() { printf '{ # remove fake cluster\n  rm -f var/run/test/*/cluster\n}\n'; }
-substrate_load_image() { :; }
+substrate_image_ref() { printf 'test/%s' "$1"; }
 substrate_check() { [[ -e "$1/cluster" && ! -e BREAK ]]; }
 substrate_check_down() { ! compgen -G 'var/run/test/*/cluster' >/dev/null; }
 EOF

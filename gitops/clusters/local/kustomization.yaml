@@ -16,11 +16,12 @@ resources:
   - ../../operators/postgres
   - ../../applications/demo-app
 
-# demo-app: the locally built + `k3d image import`-ed tag. The base carries the
-# __ECR_REGISTRY_HOST__ sentinel; rewrite the whole ref to the local image.
+# demo-app: built locally and pushed to the local Zot registry (driver phase
+# 30-workloads). The host must match BRZL_ZOT_PORT in env/local.env; pass 4
+# replaces this fixed value with registry-host injection, as on AWS.
 images:
   - name: __ECR_REGISTRY_HOST__/brzl-dev/demo-app
-    newName: demo-app
+    newName: localhost:5001/brzl/demo-app
     newTag: local
 
 patches:
