@@ -197,3 +197,31 @@ happen before it did.
   group"); `driver-cases.sh` found same-minute runs reusing old `.ok` files.
 - **Also**: `notes/` made local-only and removed from the public tree;
   toolbox → kiesei and hyphenated script names across both repos.
+
+## 2026-10-09 — local-first refactor, pass 3: Zot, kiesei driver, warm conductor
+
+User-verified on sleipnir. Run `202610091438` (3a+3b) and run `202610091501`
+(3c, `driver.sh local up | bash driver/kiesei.sh`): all five phases — `10-substrate`,
+`15-conductor`, `20-platform`, `30-images`, `40-workloads` — `rc=0` and `.ok`.
+
+- **3a — Zot outside k3d**: a persistent pull-through cache for docker.io,
+  ghcr.io, quay.io, registry.k8s.io and oci.external-secrets.io, and the push
+  registry for local images. The Zot catalog showed each upstream's namespace,
+  so the k3s mirrors work. k3s pinned to `v1.31.5+k3s1` (parity with AWS).
+- **3b — the driver runs from kiesei**: the only host prerequisite is a
+  container engine; `| bash driver/kiesei.sh` runs the emitted stream in a kiesei
+  container (host network, engine socket, repo at the same path). The API is
+  pinned to `127.0.0.1:6550`, so one kubeconfig works on the host and in kiesei.
+- **3c — the warm conductor**: phase `15-conductor` puts kiesei in the cluster;
+  phases with locus conductor (`20-platform`, `40-workloads`) are copied into the
+  pod, verified by checksum, run detached, followed, and their `.rc` collected.
+  ESO's image came through Zot (`oci.external-secrets.io/…` in the catalog). The
+  conductor scaled itself to zero after exactly 30 idle minutes.
+- **A user question exposed a doc gap**: the phase table's "locus" column read
+  as "which command to type". `docs/LOCAL.md` now says the locus is where the
+  run-log runs and the command is always `driver.sh`.
+- **Instruments caught bugs before the live run**: byte offsets (not
+  characters) when following the conductor's log; an unquoted heredoc that would
+  expand `$1`; ESO bypassing Zot through a fifth upstream.
+- **Also**: a repo markdownlint config (no line-length check in tables); about
+  600 older lint errors parked in `BACKLOG.md`.

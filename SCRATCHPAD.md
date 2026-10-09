@@ -23,9 +23,12 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ NOW: pass 3** (Zot outside k3d, kiesei build/push incl. k3d + docker CLI +
-socket + kubeconfig rewrite, warm conductor). Pass 2 verified live 2026-10-09
-(run 202610091342, all phases ok) — RETROSPECTIVE entry written.
+**▶ NEXT: pass 4** (Argo CD on local in GitOps mode; `fast_on`/`fast_off`;
+replace the fixed `localhost:5001` overlay value with registry-host injection
+from the substrate adapter). Pass 3 (3a–3c) verified live 2026-10-09 (runs
+202610091438, 202610091501; conductor idle stop at 30 min; ESO via Zot) —
+RETROSPECTIVE entry written. Known gap: `up` does not restart Zot when
+`k3d-zot.json` changes (restart by hand).
 
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 
