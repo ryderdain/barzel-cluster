@@ -23,7 +23,7 @@ change-of-image-source steps.
    Superseded banners on `notes/GUIDANCE.md` + the vault Doctrine Seed note.
    New ADRs 0021–0024 (kiesei driver/conductor; run-log driver; mimic-now
    services; local as first env).
-2. **Driver skeleton + k3d adapter.** `local.env`, run-log mechanics,
+2. **Driver skeleton + k3d adapter.** *(written 2026-10-09; live run pending)* `local.env`, run-log mechanics,
    `substrate_up`/`substrate_down`; replaces `k3d-up.sh`; rewrite
    `docs/LOCAL.md`. Rename toolbox → kiesei.
 3. **External Zot + kiesei build/push + warm conductor.**

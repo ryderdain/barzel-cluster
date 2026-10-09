@@ -94,3 +94,6 @@ terraform.rc
 # log, research). They belong to the private project barzel derived from:
 # local-only, never published.
 notes/
+
+# Driver run-logs (.sh/.rc/.ok per phase) and phase outputs. Local record only.
+var/

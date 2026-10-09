@@ -1,0 +1,8 @@
+# Vendored from ryderdain/bash (the canonical Bash doctrine).
+# Kept byte-identical to upstream; check with: bash driver/lib/upstream-check.sh
+# Vendored only while the `bash-doctrine` branch of ryderdain/bash is unmerged
+# (decision Q49, 2026-10-09). After the merge, source upstream directly.
+repo=ryderdain/bash
+branch=bash-doctrine
+commit=eed07d4
+files=includes/runlib.sh includes/error.sh

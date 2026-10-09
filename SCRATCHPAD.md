@@ -23,12 +23,11 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ NOW: pass 1 written, AWAITING USER REVIEW before push.** barzel-cluster
-side committed locally (unpushed); `ryderdain/bash` side left UNCOMMITTED in its
-working tree (not git-delegated; mixed with the user's own lint edits). Then
-pass 2 (driver skeleton + k3d adapter). Open with user: `notes/` history scrub
-(feasible: 0 forks/PRs, ~18 SHA refs in memory files + 1 in aroni would break;
-needs git-filter-repo + force-push + a GitHub support purge — user must authorize).
+**▶ NOW: pass 2 written + offline-tested, LIVE RUN PENDING (user go-ahead).**
+`driver/` (driver.sh emit-style, phases 10/20/30, k3d adapter, vendored
+runlib/error from bash@eed07d4 + upstream-check), `env/local.env`,
+`driver/tests/driver-cases.sh` (11/11). docs/LOCAL.md rewritten. Plain
+`k3d-up.sh` path superseded; `--with-sso` stays on it until the SSO pass.
 
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 
