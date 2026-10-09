@@ -26,7 +26,11 @@ change-of-image-source steps.
 2. **Driver skeleton + k3d adapter.** *(written 2026-10-09; live run pending)* `local.env`, run-log mechanics,
    `substrate_up`/`substrate_down`; replaces `k3d-up.sh`; rewrite
    `docs/LOCAL.md`. Rename toolbox → kiesei.
-3. **External Zot + kiesei build/push + warm conductor.**
+3. **External Zot + kiesei build/push + warm conductor.** For the driver to
+   run from kiesei on k3d: add `k3d` + the `docker` CLI to the image; mount
+   the engine socket in `kiesei-shell.sh`; rewrite the k3d kubeconfig server
+   (`0.0.0.0:<port>` is unreachable from inside a container). Then drop the
+   host k3d/helm prerequisite from docs/LOCAL.md.
 4. **Argo on local (GitOps mode) + `fast_on`/`fast_off`.**
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
    with a write-then-read smoke test in `up`.

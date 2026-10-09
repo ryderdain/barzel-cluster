@@ -15,7 +15,14 @@ cluster, applied through a thin
 - No AWS account, profile, or credentials.
 
 Until pass 3 makes the kiesei image, the driver operates on the host with the
-tools above.
+tools above. On macOS, install the two tools that are usually missing:
+
+```sh
+brew install k3d helm
+```
+
+This host installation is temporary. After pass 3, the host needs only the
+container engine, because the kiesei image contains the other tools.
 
 ## Up
 
