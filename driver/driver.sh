@@ -14,7 +14,8 @@
 #                                               #    the emitted groups call this
 #
 # Each phase group: (1) the phase's emitter writes its commands to a run-log,
-# var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh; (2) the run-log runs, its output
+# var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh; (2) the run-log runs at the
+# phase's locus — here, or on the conductor via driver/conductor.sh — its output
 # goes to <NN>-<phase>.out and its exit status to .rc; (3) the phase's check
 # runs and, if it passes, writes .ok. A failed check stops the stream with
 # `error 3`. Resume = run `up` or `next` again: it continues at the first phase
@@ -29,7 +30,7 @@ repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
 # shellcheck source=SCRIPTDIR/lib/runlib.sh
 source "$repo_root/driver/lib/runlib.sh" || exit 1
 
-up_phases=(10-substrate 20-platform 30-workloads)
+up_phases=(10-substrate 15-conductor 20-platform 30-images 40-workloads)
 down_phases=(10-substrate)
 
 # current_run <env> — print the run directory to use for `up`/`next`: the
@@ -78,15 +79,21 @@ emit_prelude() {
 
 # emit_phase <env> <run_dir> <phase> <up|down>
 emit_phase() {
-  local env="$1" run_dir="$2" phase="$3" mode="$4" name emitter checker
+  local env="$1" run_dir="$2" phase="$3" mode="$4" name emitter checker locus
   name="$phase"; emitter=phase_up; checker=''
   if [[ "$mode" == down ]]; then
     name="$phase-down"; emitter=phase_down; checker=' down'
   fi
-  printf '{ # phase %s (%s)\n' "$name" "$env"
+  locus="$(bash "$repo_root/driver/phases/$phase.sh" phase_locus 2>/dev/null)"
+  [[ "$mode" == down ]] && locus=driver   # removing a cluster is never the conductor's job
+  printf '{ # phase %s (%s, locus: %s)\n' "$name" "$env" "${locus:-driver}"
   printf '  bash driver/phases/%s.sh %s %q %q > %q\n' "$phase" "$emitter" "$env" "$run_dir" "$run_dir/$name.sh"
-  printf '  { bash %q; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-    "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+  if [[ "$locus" == conductor ]]; then
+    printf '  bash driver/conductor.sh %q %q 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
+  else
+    printf '  { bash %q; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+      "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+  fi
   printf '  bash driver/driver.sh %q check %q %q%s \\\n' "$env" "$phase" "$run_dir" "$checker"
   printf '    || error 3 %s\n' "$(squote "phase $name did not pass its check; read $run_dir/$name.sh and $name.out, fix, then run again")"
   printf '}\n'

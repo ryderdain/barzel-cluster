@@ -48,18 +48,28 @@ substrate_image_ref() { printf 'test/%s' "$1"; }
 substrate_check() { [[ -e "$1/cluster" && ! -e BREAK ]]; }
 substrate_check_down() { ! compgen -G 'var/run/test/*/cluster' >/dev/null; }
 EOF
-# Phases 20 and 30 become trivial, so the driver's sequencing is what is tested.
-for phase in 20-platform 30-workloads; do
+# Every phase after 10 becomes trivial, so the driver's sequencing is what is
+# tested. 20-platform declares the conductor locus; a fake conductor.sh runs the
+# run-log locally and writes the .rc, as the real one does after collecting it.
+for phase in 15-conductor 20-platform 30-images 40-workloads; do
+  locus=driver; [[ "$phase" == 20-platform ]] && locus=conductor
   cat > "$scratch/driver/phases/$phase.sh" <<EOF
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 repo_root="\$(cd -- "\${BASH_SOURCE[0]%/*}/../.." && pwd -P)" || exit 1
 source "\$repo_root/driver/lib/runlib.sh" || exit 1
 source "\$repo_root/driver/lib/phase-common.sh" || exit 1
-phase_up() { phase_init "\$1" || return 1; phase_header "\$2"; printf '{ # %s\n  : > %s\n}\n' $phase "\$2/$phase.done"; }
+phase_locus() { printf '%s\n' $locus; }
+phase_up() { phase_init "\$1" || return 1; phase_header "\$2" $locus; printf '{ # %s\n  : > %s\n}\n' $phase "\$2/$phase.done"; }
 phase_check() { [[ -e "\$2/$phase.done" ]]; }
 if [[ "\$is_sourced" == false ]]; then "\$@"; fi
 EOF
 done
+cat > "$scratch/driver/conductor.sh" <<'EOF'
+: > "$1/$2.via-conductor"
+bash "$1/$2.sh"; rc=$?
+printf '%s\n' "$rc" > "$1/$2.rc"
+exit "$rc"
+EOF
 
 drive() { (cd "$scratch" && bash driver/driver.sh test "$@" 2>/dev/null); }
 run_dir() { readlink "$scratch/var/run/test/current"; }
@@ -84,12 +94,15 @@ report 'the run-log records the resolved environment' '# BRZL_SUBSTRATE=fake' "$
 before="$(run_dir)"
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)
 report 'up resumes in the same run directory' "$before" "$(run_dir)"
-report 'up finishes the remaining phases' 'ok ok' \
-  "$([[ -e "$dir/20-platform.ok" ]] && printf ok) $([[ -e "$dir/30-workloads.ok" ]] && printf ok)"
+report 'up finishes the remaining phases' 'ok ok ok ok' \
+  "$(for p in 15-conductor 20-platform 30-images 40-workloads; do [[ -e "$dir/$p.ok" ]] && printf 'ok '; done | sed 's/ $//')"
+report 'a conductor-locus phase goes through conductor.sh; others do not' 'yes no' \
+  "$([[ -e "$dir/20-platform.via-conductor" ]] && printf yes || printf no) $([[ -e "$dir/30-images.via-conductor" ]] && printf yes || printf no)"
+report 'a conductor run-log carries no kubeconfig export' '0' "$(grep -c '^export KUBECONFIG' "$dir/20-platform.sh")"
 
 # 5. When every phase is complete, `up` starts a new run (a fresh, idempotent pass).
 got="$(drive up | grep -c '^{ # phase ')"
-report 'a complete run makes up start a new run with all phases' '3' "$got"
+report 'a complete run makes up start a new run with all phases' '5' "$got"
 
 # 6. A failed check stops the stream with code 3, and later phases do not run.
 rm -rf "${scratch:?}/var"; : > "$scratch/BREAK"

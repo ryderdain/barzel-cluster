@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 20-platform.sh — phase 20: the platform operators every workload needs:
 # CloudNativePG and External Secrets, installed from their upstream charts.
-# (Pass 4 moves this under Argo CD; until then helm installs them directly.)
+# Locus: the conductor. (Pass 4 moves this under Argo CD; until then helm
+# installs them directly.)
 #
 # Emit + generator, one function each:
 #   bash driver/phases/20-platform.sh phase_up <env> <run_dir>     # EMIT
@@ -18,10 +19,12 @@ source "$repo_root/driver/lib/runlib.sh" || exit 1
 # shellcheck source=SCRIPTDIR/../lib/phase-common.sh
 source "$repo_root/driver/lib/phase-common.sh" || exit 1
 
+phase_locus() { printf '%s\n' conductor; }
+
 phase_up() {
   local env="$1" run_dir="$2"
   phase_init "$env" || end_function "$?" 'environment definition'
-  phase_header "$run_dir"
+  phase_header "$run_dir" conductor
   cat <<EOF
 { # helm chart repositories for the operators
   helm repo add cnpg https://cloudnative-pg.github.io/charts

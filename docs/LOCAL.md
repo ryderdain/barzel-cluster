@@ -51,14 +51,24 @@ Fast mode, all phases that are not complete:
 bash driver/driver.sh local up | bash driver/kiesei.sh
 ```
 
-The local environment has three phases:
+The local environment has five phases. Each phase has a locus: the driver
+(where you operate the procedure) or the conductor (a kiesei pod in the
+cluster).
 
-- `10-substrate` makes the Zot registry (if it is not there) and the k3d
-  cluster, and writes the kubeconfig to the run directory.
-- `20-platform` installs the CloudNativePG and External Secrets operators
-  with helm.
-- `30-workloads` assembles the demo-app image, pushes it to Zot, and applies the
-  local overlay.
+- `10-substrate` (driver) makes the Zot registry (if it is not there) and the
+  k3d cluster, and writes the kubeconfig to the run directory.
+- `15-conductor` (driver) pushes the kiesei image to Zot and starts the
+  conductor in the namespace `brzl-system`.
+- `20-platform` (conductor) installs the CloudNativePG and External Secrets
+  operators with helm.
+- `30-images` (driver) assembles the demo-app image and pushes it to Zot.
+- `40-workloads` (conductor) applies the local overlay. The driver renders the
+  overlay into the run-log, so the run-log shows all that was applied.
+
+For a conductor phase, the driver copies the run-log into the conductor pod,
+operates it there, shows its output, and copies back the exit status. The
+conductor stops itself after `BRZL_CONDUCTOR_IDLE_SECONDS` with no work. The
+next conductor phase starts it again.
 
 Each phase writes a run-log to `var/run/local/<YYYYmmddHHMM>/`: the commands
 (`<NN>-<phase>.sh`), their output (`.out`), the exit status (`.rc`), and `.ok`

@@ -26,8 +26,8 @@ change-of-image-source steps.
 2. **Driver skeleton + k3d adapter.** *(DONE — verified live 2026-10-09)* `local.env`, run-log mechanics,
    `substrate_up`/`substrate_down`; replaces `k3d-up.sh`; rewrite
    `docs/LOCAL.md`. Rename toolbox → kiesei.
-3. **External Zot + kiesei build/push + warm conductor.** *(3a Zot + 3b driver
-   in kiesei written 2026-10-09, live run pending; 3c conductor next.)* For the driver to
+3. **External Zot + kiesei build/push + warm conductor.** *(3a+3b verified live
+   2026-10-09; 3c conductor written, live run pending.)* For the driver to
    run from kiesei on k3d: add `k3d` + the `docker` CLI to the image; mount
    the engine socket in `kiesei-shell.sh`; rewrite the k3d kubeconfig server
    (`0.0.0.0:<port>` is unreachable from inside a container). Then drop the

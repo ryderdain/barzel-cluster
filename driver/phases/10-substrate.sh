@@ -20,6 +20,8 @@ source "$repo_root/driver/lib/runlib.sh" || exit 1
 # shellcheck source=SCRIPTDIR/../lib/phase-common.sh
 source "$repo_root/driver/lib/phase-common.sh" || exit 1
 
+phase_locus() { printf '%s\n' driver; }
+
 phase_up() {
   local env="$1" run_dir="$2"
   phase_init "$env" || end_function "$?" 'environment definition'

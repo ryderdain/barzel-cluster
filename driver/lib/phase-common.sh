@@ -3,8 +3,13 @@
 # action script; `source` it from one, after runlib.sh.
 #
 #   phase_init <env>          load env/<env>.env and the substrate adapter it names
-#   phase_header <run_dir>    print the top of a run-log: the resolved inputs and
-#                             the kubeconfig the later commands use
+#   phase_header <run_dir> [locus]
+#                             print the top of a run-log: the resolved inputs,
+#                             and for the driver locus the kubeconfig to use (a
+#                             conductor run-log uses its in-cluster account)
+#
+# Each phase script also defines phase_locus, which prints `driver` or
+# `conductor`; the driver reads it to choose how to run the phase.
 #
 # Paths are relative to the repo root: the driver's stream starts with `cd` to it.
 # The sourcing phase script sets repo_root.
@@ -26,8 +31,13 @@ phase_init() {
 }
 
 phase_header() {
-  local run_dir="$1"
+  local run_dir="$1" locus="${2:-driver}"
   printf '# resolved environment definition:\n'
   env_definition_record
-  printf 'export KUBECONFIG=%q\n' "$run_dir/kubeconfig"
+  if [[ "$locus" == conductor ]]; then
+    printf '# locus: conductor (in-cluster service account)\n'
+  else
+    printf '# locus: driver\n'
+    printf 'export KUBECONFIG=%q\n' "$run_dir/kubeconfig"
+  fi
 }
