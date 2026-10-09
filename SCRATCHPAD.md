@@ -23,11 +23,9 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ NOW: pass 2 written + offline-tested, LIVE RUN PENDING (user go-ahead).**
-`driver/` (driver.sh emit-style, phases 10/20/30, k3d adapter, vendored
-runlib/error from bash@eed07d4 + upstream-check), `env/local.env`,
-`driver/tests/driver-cases.sh` (11/11). docs/LOCAL.md rewritten. Plain
-`k3d-up.sh` path superseded; `--with-sso` stays on it until the SSO pass.
+**▶ NOW: pass 3** (Zot outside k3d, kiesei build/push incl. k3d + docker CLI +
+socket + kubeconfig rewrite, warm conductor). Pass 2 verified live 2026-10-09
+(run 202610091342, all phases ok) — RETROSPECTIVE entry written.
 
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 

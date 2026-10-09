@@ -167,3 +167,33 @@ growing a structure. All arbiter-verified in-session.
   `intersections.py --work-order` emits the tasks. Code detects+enforces; the model
   judges. Verified by dogfooding.
 - Vault at aroni `b5744e3`: 4 notes, 17 episodes, 5 decisions, passes 000–013.
+
+## 2026-10-09 — local-first refactor, passes 0–2: the emit-style driver runs local
+
+User-verified: the first live `driver.sh local` run on sleipnir (run
+`202610091342`) brought up all three phases — `10-substrate`, `20-platform`,
+`30-workloads` — each `rc=0` and `.ok`. The user's verdict: "worked like a charm";
+running each phase script on its own as an emit script showed exactly what would
+happen before it did.
+
+- **Design** (grilling, 2026-10-07, Q1–Q53): local is the first environment of
+  local → dev → prod; one operator image **kiesei** in two modes, **driver**
+  (outside the cluster) and **conductor** (in it); `platform.sh` split into
+  emit-style phase scripts and a thin driver; Zot/OpenBao local stand-ins.
+  ADRs 0021–0024; vocabulary in `GLOSSARY.md`.
+- **Pass 0**: ADRs moved verbatim into `docs/adr/`, one file each.
+- **Pass 1**: the bash doctrine moved to `ryderdain/bash` as the only home;
+  `CLAUDE.md` now points there. The recurring `&&`-chaining was traced to this
+  repo's own `CLAUDE.md`, loaded every session — removed.
+- **Doctrine corrections from the user** (each one overturned an agent draft):
+  `{ … }` groups are anonymous functions for the *reader*, not only an execution
+  mechanism; a check goes only where re-running a block would harm; reuse the
+  existing `error` function (code 3 = deliberate stop) instead of inventing
+  `step_failed`; the driver is an emit script — **running its output is the
+  approval**, never a prompt; script file names use hyphens, functions
+  underscores.
+- **Instruments caught real bugs before use**: a subagent probe found that an
+  `exit` inside a piped group only ends the pipe (→ "never pipe a checked
+  group"); `driver-cases.sh` found same-minute runs reusing old `.ok` files.
+- **Also**: `notes/` made local-only and removed from the public tree;
+  toolbox → kiesei and hyphenated script names across both repos.
