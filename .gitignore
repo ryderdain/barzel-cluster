@@ -97,3 +97,6 @@ notes/
 
 # Driver run-logs (.sh/.rc/.ok per phase) and phase outputs. Local record only.
 var/
+
+# Backups that emit_to makes before it overwrites a golden file.
+driver/tests/golden/*.bak.*

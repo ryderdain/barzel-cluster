@@ -38,9 +38,18 @@ change-of-image-source steps.
 6. **Loki + Alloy + conductor log shipping.**
 7. **`promote` phase** (digest + env-definition values along the chain).
 8. *(AWS unfreezes)* AWS phases of `platform.sh` → the AWS adapter.
+   **Gate before any environment beyond local (pass 7 promote to dev, pass
+   8):** migrate Argo CD's repo credential from a read-only deploy key to a
+   **GitHub App** (user decision 2026-10-12, Q61). Local uses the deploy key
+   `sleipnir-brzl-deploy` until then.
 
 Standing concerns (check in every pass, do not lose):
 
+- **GitHub App before leaving local** (Q61). The repo is private since
+  2026-10-12. Argo CD on local reads it with a read-only deploy key from the
+  bootstrap source `BRZL_REPO_DEPLOY_KEY`. Before pass 7 promotes to dev, or
+  pass 8 starts, replace the deploy key with a GitHub App credential, on every
+  environment.
 - **Every phase must be safe to run again.** Resume depends on it
   (`ryderdain/bash` STYLE.md §1.11, ADR-0022). Review each new phase script
   for converging commands before it lands.

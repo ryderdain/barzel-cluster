@@ -77,6 +77,17 @@ security) → Argo needs a repo credential on local too (new Q61). Q55 (a). Q56
 ADR-0016, pending a check of how (prototype vs golden render). Q57 (a), user
 asked for a deeper explanation. Q58 open, user asked for the trade-offs.
 
+**Answers round 2 (2026-10-12):** Q54 (b) ACCEPTED, golden render test first
+(`driver/tests/appset-golden.sh`, disposable cluster `brzl-golden`). Q57 (a):
+the cluster-Secret annotation is a live switch (no commit). The user REFRAMES
+fast mode: an **emergency shutoff** for interventions (by agents), outside the
+developer's loop — conflicts with GLOSSARY "Fast mode" (local, cluster
+structure) → Q62 open. Q58 **(b)**: helm apps too, via the conductor; surface
+the risks (hooks, CRDs/SSA, Argo's own chart) in the human-facing docs. Q61
+(a): read-only deploy key `~/.ssh/sleipnir-brzl-deploy` (public key is in
+GitHub); bootstrap source `BRZL_REPO_DEPLOY_KEY`; GitHub App gate added to
+BACKLOG + SPEC decision 8.
+
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 
 - Local (sleipnir, k3d) = first env of local → dev → prod; harness for cluster-
