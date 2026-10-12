@@ -8,14 +8,25 @@
 #   substrate_down                  EMIT: remove the cluster (the registry stays)
 #   substrate_image_ref <name:tag>  print the reference to push a locally built
 #                                   image to, which the cluster can also pull
+#   substrate_registry_host         print the registry host the cluster pulls
+#                                   from (the ApplicationSet's registry-host)
+#   substrate_upstream_prefix <upstream>
+#                                   print the path under that host for an
+#                                   upstream: docker-hub, github, quay, k8s
 #   substrate_check <run_dir>       GENERATOR: registry ready, cluster Ready?
 #   substrate_check_down            GENERATOR: is the cluster gone?
 #
 # The registry is Zot (ADR-0023), outside the cluster, on its own volume, so its
 # cache survives `down`. It is a pull-through cache for docker.io, ghcr.io,
-# quay.io, registry.k8s.io and oci.external-secrets.io (k3s mirrors rewrite each upstream into its own
-# namespace in Zot), and the push registry for images built here, under
-# localhost:<port> from the host and from the cluster alike.
+# quay.io, registry.k8s.io, oci.external-secrets.io and public.ecr.aws (k3s
+# mirrors rewrite each upstream into its own namespace in Zot), and the push
+# registry for images built here, under localhost:<port> from the host and from
+# the cluster alike. The same namespaces serve injected image paths:
+# localhost:<port>/quay.io/argoproj/argocd is quay.io/argoproj/argocd.
+#
+# Zot reads its config only when it starts. The container carries the config's
+# sha256 as a label; when the label differs from the committed config, `up`
+# replaces the container (its data volume stays).
 #
 # The k3s image is pinned to the cloud's k3s version. The API listens on
 # 127.0.0.1:<port>, so one kubeconfig works on the host and in a kiesei
@@ -27,23 +38,48 @@
 # upstream pulls). The sourcing phase script sets repo_root.
 # shellcheck disable=SC2154
 
+# zot_state <config_sha> — print `absent`, `current` or `stale` for the Zot
+# container, read from the engine when the phase is emitted.
+zot_state() {
+  local want="$1" have
+  if ! have="$(docker inspect --format '{{ index .Config.Labels "dev.brzl.zot-config-sha256" }}' \
+      "$BRZL_ZOT_NAME" 2>/dev/null)"; then
+    printf absent
+  elif [[ "$have" == "$want" ]]; then
+    printf current
+  else
+    printf stale
+  fi
+}
+
 substrate_up() {
-  local run_dir="$1" zot="$BRZL_ZOT_NAME" port="$BRZL_ZOT_PORT"
+  local run_dir="$1" zot="$BRZL_ZOT_NAME" port="$BRZL_ZOT_PORT" config sha state
+  config="$repo_root/driver/substrates/k3d-zot.json"
+  sha="$(sha256sum < "$config")"; sha="${sha%% *}"
+  state="$(zot_state "$sha")"
   printf '{ # container network shared by the registry and the cluster\n'
   printf '  docker network create %q\n' "$BRZL_DOCKER_NETWORK"
   printf '}\n'
-  printf '{ # Zot registry (pull-through cache + push registry); its data outlives the cluster\n'
-  printf '  docker volume create %q\n' "$BRZL_ZOT_VOLUME"
-  printf '  docker run -d --name %q --network %q --restart unless-stopped \\\n' "$zot" "$BRZL_DOCKER_NETWORK"
-  printf '    -p %q -v %q \\\n' "127.0.0.1:$port:5000" "$BRZL_ZOT_VOLUME:/var/lib/registry"
-  printf '    -v %q \\\n' "$repo_root/driver/substrates/k3d-zot.json:/etc/zot/config.json:ro"
-  printf '    %q\n' "$BRZL_ZOT_IMAGE"
-  printf '}\n'
+  if [[ "$state" == current ]]; then
+    printf '{ # Zot registry: its config is current; make sure it runs\n'
+    printf '  docker start %q\n' "$zot"
+    printf '}\n'
+  else
+    printf '{ # Zot registry (pull-through cache + push registry); its data outlives the cluster\n'
+    printf '  docker volume create %q\n' "$BRZL_ZOT_VOLUME"
+    [[ "$state" == stale ]] && printf '  docker rm -f %q   # its config changed; the cache volume stays\n' "$zot"
+    printf '  docker run -d --name %q --network %q --restart unless-stopped \\\n' "$zot" "$BRZL_DOCKER_NETWORK"
+    printf '    --label %q \\\n' "dev.brzl.zot-config-sha256=$sha"
+    printf '    -p %q -v %q \\\n' "127.0.0.1:$port:5000" "$BRZL_ZOT_VOLUME:/var/lib/registry"
+    printf '    -v %q \\\n' "$config:/etc/zot/config.json:ro"
+    printf '    %q\n' "$BRZL_ZOT_IMAGE"
+    printf '}\n'
+  fi
   printf '{ # k3s registry mirrors: each upstream through Zot, in its own namespace\n'
   printf "  cat > %q <<'EOF'\n" "$run_dir/registries.yaml"
   printf 'mirrors:\n'
   local upstream
-  for upstream in docker.io ghcr.io quay.io registry.k8s.io oci.external-secrets.io; do
+  for upstream in docker.io ghcr.io quay.io registry.k8s.io oci.external-secrets.io public.ecr.aws; do
     # shellcheck disable=SC2016  # "$1" is for containerd's rewrite, not for bash
     printf '  %s:\n    endpoint: ["http://%s:5000"]\n    rewrite:\n      "^(.*)$": "%s/$1"\n' \
       "$upstream" "$zot" "$upstream"
@@ -68,6 +104,20 @@ substrate_down() {
 
 substrate_image_ref() {
   printf 'localhost:%s/brzl/%s' "$BRZL_ZOT_PORT" "$1"
+}
+
+substrate_registry_host() {
+  printf 'localhost:%s' "$BRZL_ZOT_PORT"
+}
+
+substrate_upstream_prefix() {
+  case "$1" in
+    docker-hub) printf 'docker.io' ;;
+    github) printf 'ghcr.io' ;;
+    quay) printf 'quay.io' ;;
+    k8s) printf 'registry.k8s.io' ;;
+    *) printf 'error: no upstream %s in the k3d adapter\n' "$1" >&2; return 1 ;;
+  esac
 }
 
 substrate_check() {

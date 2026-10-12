@@ -38,3 +38,7 @@ configs:
   params:
     # TLS is terminated at the port-forward / future ingress, not in-pod.
     server.insecure: true
+    # Let the platform ApplicationSet set its own applicationsSync policy
+    # (create-update: it never deletes an Application; ADR-0025). Without this
+    # flag some Argo CD versions ignore the per-ApplicationSet policy.
+    applicationsetcontroller.enable.policy.override: true

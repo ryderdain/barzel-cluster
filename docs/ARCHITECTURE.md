@@ -254,3 +254,4 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs | Accepted |
 | [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Accepted |
 | [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted |
+| [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted |

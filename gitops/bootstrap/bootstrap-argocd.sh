@@ -56,7 +56,10 @@ emit_bootstrap_argocd() {
   local argocd_values="${repo_root}/gitops/infrastructure/argocd/values.yaml"
   local project_manifest="${repo_root}/gitops/clusters/${env_name}/project.yaml"
   local in_cluster_manifest="${repo_root}/gitops/clusters/${env_name}/in-cluster.yaml"
-  local appset_manifest="${repo_root}/gitops/clusters/${env_name}/applicationset.yaml"
+  # One platform ApplicationSet for every environment (ADR-0025); the per-env
+  # values are the cluster Secret's labels (in-cluster.yaml) + annotations (below).
+  # UNTESTED on AWS since pass 4 — pass 8 rewrites this script as the AWS adapter.
+  local appset_manifest="${repo_root}/gitops/platform/applicationset.yaml"
   local deploy_key="${repo_root}/gitops/bootstrap/repo-deploy-key.yaml"
 
   # Resolve the ECR registry host live from the caller's account via the shim
@@ -108,7 +111,10 @@ ${deploy_key_step} && \\
 kubectl apply -f ${project_manifest} && \\
 kubectl apply -f ${in_cluster_manifest} && \\
 kubectl annotate --overwrite -n ${namespace} secret brzl-${env_name}-in-cluster \\
-  brzl.dev/ecr-host=${registry} brzl.dev/backup-bucket=${backup_bucket} && \\
+  brzl.dev/registry-host=${registry} brzl.dev/backup-bucket=${backup_bucket} \\
+  brzl.dev/prefix-quay=brzl-${env_name}-quay brzl.dev/prefix-k8s=brzl-${env_name}-k8s \\
+  brzl.dev/prefix-github=brzl-${env_name}-github brzl.dev/prefix-docker-hub=brzl-${env_name}-docker-hub \\
+  brzl.dev/demo-app-image=brzl-${env_name}/demo-app brzl.dev/demo-app-tag=0.2.0 && \\
 kubectl apply -f ${appset_manifest}"
 
   # Make gp3 the single default StorageClass: drop k3s local-path's default

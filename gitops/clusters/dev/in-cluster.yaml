@@ -1,13 +1,15 @@
-# Declarative registration of the local cluster as an ArgoCD cluster Secret, so
-# the ApplicationSet's `clusters` generator can read per-cluster values from it.
-# We register it explicitly (rather than rely on ArgoCD's implicit in-cluster)
-# only to attach the selector label + the two annotations the generator needs.
-#
-# The annotations carry the account-bearing values and are NOT committed — the
-# bootstrap shim writes them at bring-up (resolve-ecr-host.sh for the host; SSM
-# for the bucket), so the account id / bucket name never live in git:
-#   brzl.dev/ecr-host      <account>.dkr.ecr.<region>.amazonaws.com
-#   brzl.dev/backup-bucket brzl-dev-cnpg-backups-<account>
+# Declarative registration of the dev cluster as an ArgoCD cluster Secret, so
+# the platform ApplicationSet (gitops/platform/applicationset.yaml) can read
+# per-cluster values from it. The labels select it and choose the AppProject
+# and the AWS-only apps. The annotations carry the account-bearing values and
+# are NOT committed — the bootstrap writes them at bring-up (ADR-0016, ADR-0025;
+# the full list is in the ApplicationSet header):
+#   brzl.dev/registry-host       <account>.dkr.ecr.<region>.amazonaws.com
+#   brzl.dev/prefix-<upstream>   brzl-dev-quay, brzl-dev-k8s, brzl-dev-github,
+#                                brzl-dev-docker-hub (ECR pull-through prefixes)
+#   brzl.dev/demo-app-image      brzl-dev/demo-app
+#   brzl.dev/demo-app-tag        0.2.0
+#   brzl.dev/backup-bucket       brzl-dev-cnpg-backups-<account>
 #
 # Selector label keeps this the ONLY cluster the generator matches (ArgoCD's
 # implicit in-cluster lacks the label), so there's no duplicate.
@@ -19,6 +21,8 @@ metadata:
   labels:
     argocd.argoproj.io/secret-type: cluster
     brzl.dev/appset-cluster: "true"
+    brzl.dev/env: dev
+    brzl.dev/substrate: aws
 type: Opaque
 stringData:
   name: in-cluster

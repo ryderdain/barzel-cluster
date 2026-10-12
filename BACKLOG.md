@@ -32,7 +32,10 @@ change-of-image-source steps.
    the engine socket in `kiesei-shell.sh`; rewrite the k3d kubeconfig server
    (`0.0.0.0:<port>` is unreachable from inside a container). Then drop the
    host k3d/helm prerequisite from docs/LOCAL.md.
-4. **Argo on local (GitOps mode) + `fast_on`/`fast_off`.**
+4. **Argo on local (GitOps mode) + `fast_on`/`fast_off`.** *(written
+   2026-10-12 on branch `pass-4`, live run pending; ADR-0025.)* One platform
+   ApplicationSet for every environment; phases 20-images, 25-bootstrap-secrets,
+   30-gitops, 40-workloads; fast mode `fast_on` / `apply` / `fast_off`.
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
    with a write-then-read smoke test in `up`.
 6. **Loki + Alloy + conductor log shipping.**

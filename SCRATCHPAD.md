@@ -30,8 +30,15 @@ from the substrate adapter). Pass 3 (3a–3c) verified live 2026-10-09 (runs
 RETROSPECTIVE entry written. Known gap: `up` does not restart Zot when
 `k3d-zot.json` changes (restart by hand).
 
-**⏸ PARKED 2026-10-09 — pass 4 design round Q54–Q60 WAITS FOR THE USER'S
-ANSWERS.** No pass-4 code written. Facts found: the repo is PUBLIC (Argo can
+**▶ 2026-10-12: pass 4 WRITTEN on branch `pass-4`, waiting for the user's
+live run.** Design closed (Q54–Q65, below). Offline checks: an offline Go
+renderer showed the shared ApplicationSet gives dev and prod the same 7
+Applications as the old files; local gets 5; the fast-apply kustomization
+renders the injected images; driver-cases 16/16; shellcheck clean. Argo CD
+follows branch `pass-4` in the live run (Q56). After the user verifies: merge
+to main, RETROSPECTIVE, close pass 4.
+
+**(History) PARKED 2026-10-09 — pass 4 design round Q54–Q60.** No pass-4 code written. Facts found: the repo is PUBLIC (Argo can
 read it over HTTPS, no deploy key); the argo-cd chart pulls redis from
 `public.ecr.aws`, which Zot does not mirror yet (add a sixth mirror).
 Recommendations (➡️), not decisions:

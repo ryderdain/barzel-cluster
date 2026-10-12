@@ -1,0 +1,22 @@
+# Local overlay of the demo-app (the platform ApplicationSet's `demo-app` app on
+# local). The ApplicationSet injects the image (Zot's push path); this overlay
+# only drops the ServiceMonitor, because local runs no Prometheus (its CRD is
+# absent).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../applications/demo-app
+
+patches:
+  - target:
+      group: monitoring.coreos.com
+      version: v1
+      kind: ServiceMonitor
+      name: demo-app
+    patch: |-
+      $patch: delete
+      apiVersion: monitoring.coreos.com/v1
+      kind: ServiceMonitor
+      metadata:
+        name: demo-app

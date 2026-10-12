@@ -65,6 +65,22 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **Backups:** CNPG → S3 (Barman Cloud), authenticated by the **EC2 instance profile** — no second IAM user.
 - **GitOps:** a **single `ApplicationSet`** (account-id-free, ADR-0016 — NOT an app-of-apps root) with **sync waves** so operators land before the applications that need them; `clusters/{dev,prod}` + `clusters/local`.
 - **Local is the first environment (2026-10-07, ADR-0024).** The promotion chain is local → dev → prod. Local runs on a laptop (k3d) as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **fast mode** (`fast_on`/`fast_off` turn Argo auto-sync off and on so the working tree can be applied directly). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** dev mode (KV + transit; Vault CE fallback by one env value), ESO as the read boundary with one write adapter per store, Loki + Alloy. The local cluster is disposable.
+- **One platform ApplicationSet; values and sync switch per cluster (2026-10-12,
+  ADR-0025).** `gitops/platform/applicationset.yaml` serves local, dev and prod
+  (same Application names and AWS values as the old per-env files, verified by
+  an offline render). Every per-environment value is a label or annotation on
+  the cluster Secret (registry host, per-upstream prefix, demo-app image/tag,
+  backup bucket, git revision), written by the bootstrap (AWS) or phase
+  30-gitops (local) — never in git. The annotation `brzl.dev/auto-sync: "false"`
+  is the one switch that stops automated sync: **fast mode** (local,
+  `fast_on`/`fast_off`, `apply` renders the working tree with Argo's own
+  injection) and **break-glass mode** (any environment, emergencies, BACKLOG
+  pass 6b). Guard against the ADR-0016 prune cascade: `applicationsSync:
+  create-update` + `preserveResourcesOnDeletion`, and phase 30-gitops stops
+  before an apply that would orphan a live Application. Argo CD reads the
+  private repo with a read-only deploy key from the bootstrap source
+  `BRZL_REPO_DEPLOY_KEY` (phase 25, driver locus); a GitHub App replaces it
+  before any environment beyond local.
 - **Platform-layer portability (2026-10-07).** The platform layer (`gitops/infrastructure`, operators, workloads) assumes only conformant Kubernetes plus the substrate adapter's outputs (kubeconfig, registry host, secret store). No dependency on k3s-bundled components, so a managed control plane (EKS/GKE/DOKS) can later replace k3s inside one adapter. Known violation: the local SSO edge uses Traefik `IngressRoute` CRDs (BACKLOG).
 - **CI:** keep all pipeline/runner definitions **CI-system agnostic** (must work on GitHub Actions or GitLab CI).
 - **Node access:** **SSM Session Manager (SSH-over-SSM)** is the access path — no inbound `:22` (`20-security` `enable_ssh_ingress=false`), node role granted SSM (`30-iam` `enable_ssm=true`), Ansible tunnels via a ProxyCommand using the EC2 instance-id. IAM-gated + audited; the TF-generated key is break-glass only. *Chosen over the Ansible `aws_ssm` connection plugin specifically to avoid its S3 file-transfer bucket — SSH-over-SSM needs none.* Prod hardening (documented): private subnets, no public IP, VPC interface endpoints for `ssm`/`ssmmessages`/`ec2messages`.
@@ -311,6 +327,11 @@ rather than replacing it.
 ---
 
 ## 10. Changelog
+- **v0.10 (2026-10-12):** Pass 4 design (Q54–Q65): one platform ApplicationSet
+  with the per-environment values and the sync switch on the cluster Secret
+  (ADR-0025); **break-glass mode** added beside fast mode (GLOSSARY; BACKLOG
+  pass 6b); the repo is private, so local Argo CD reads it with a deploy key
+  (phase 25), and a GitHub App is a gate before leaving local (decision 8).
 - **v0.9 (2026-10-07):** **Local-first refactor designed** (grilling session, Q1–Q45; passes 0–8 in BACKLOG; vocabulary in `GLOSSARY.md`). §3: the toolbox is renamed **kiesei** and used in two modes — **driver** (outside the cluster) and **conductor** (warm pod in the cluster) — replacing the EC2 conductor (ADR-0021); the **driver execution model** (emit → run-log → approve → run; idempotent phases; environment definitions) replaces in-place execution (ADR-0022); **local becomes the first environment** with Zot/OpenBao stand-ins (ADR-0023, ADR-0024); **platform-layer portability** rule. ADRs moved to `docs/adr/` (pass 0). `notes/` made local-only. AWS frozen until pass 8. The §9 conductor/multi-account direction predates this and is to be re-assessed against ADR-0021 when AWS unfreezes.
 - **v0.8 (2026-06-17):** Captured the **conductor + multi-account direction** (new §9, directional/not-built) from the 2026-06-15/17 design discussion, and sharpened §3: the conductor reclassified from a per-env layer to a **temporary, per-account, single-purpose IaC distributor** (sibling of bootstrap/identity, not hub-and-spoke); state-backend extended to the **per-account** form (bucket+CMK per account, envs key-separated within; conductor tied to its account's state); a **one-fine-grained-PAT** conductor GitHub credential decision (refines "scope to job" = no broader than needed, not one-token-per-call). §9 records: clone+pipe deploy delivery (vs S3 ship + on-box monolith), optional least-priv cross-account shared-services chosen at bootstrap (rationale: a unified vuln-scanning regime), and the **dual-mode ECR** (pull-selective by default + push-for-hotfix via replication). No code yet — the next major pass; gated behind finishing item 3 + a live test.
 - **v0.7 (2026-06-15):** Post-delivery refactor begins (BACKLOG items 1–4). **Promoted this SPEC from `notes/` to the repo root as the design source of truth**; CLAUDE.md now delegates standing decisions here (§3) instead of duplicating them — one home (cand-004 SSOT). New/updated §3 decisions: **environment layout model B** (single-source `terraform/stack/aws/<layer>` + per-env tfvars — the promotion gate is separate *instances*, not duplicated source); **state backend** simplified to ONE bucket + ONE CMK, env split by S3 object key, driver-composed at init (the gitignored per-env `backend.hcl` retired); folded the previously CLAUDE-only decisions (GitOps ApplicationSet, CI-agnostic, ops-from-toolbox, saved-plan, account-bearing-values-derived) into §3 and corrected the stale "app-of-apps" wording. Item-1 pass also landed: `operator()` installs EBS CSI+gp3 (was a doc-vs-body lie), driver backend-block preflight + resume-on-failure, standalone/DR path de-pinned from `brzl-dev-*`. `10-network` is the first migrated stack layer (prototype).

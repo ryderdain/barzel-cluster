@@ -4,7 +4,7 @@
 # so the procedure uses the image's pinned toolchain, not the host's tools.
 #
 #   bash driver/driver.sh local next | bash driver/kiesei.sh   # careful
-#   bash driver/driver.sh local up   | bash driver/kiesei.sh   # fast
+#   bash driver/driver.sh local up   | bash driver/kiesei.sh   # all at once
 #
 # Compare `| bash`, which runs the same stream with the host's tools. The stream
 # is identical either way: the locus is chosen by the pipe, not by the script.
@@ -21,7 +21,8 @@
 #
 # Execution-locus script (neither emit nor generator: like `bash`, it runs what
 # it is given). Inputs: BRZL_KIESEI_IMAGE (exported, or from env/local.env).
-# Needs only the docker CLI on the host. No credentials for local.
+# Needs only the docker CLI on the host. Credentials: only what a BRZL_*
+# bootstrap secret source carries (phase 25), passed by name, never in argv.
 
 (( BASH_VERSINFO[0] < 4 )) && { printf 'error: bash >= 4 required\n' >&2; exit 1; }
 

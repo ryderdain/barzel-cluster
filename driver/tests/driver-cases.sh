@@ -49,10 +49,10 @@ substrate_check() { [[ -e "$1/cluster" && ! -e BREAK ]]; }
 substrate_check_down() { ! compgen -G 'var/run/test/*/cluster' >/dev/null; }
 EOF
 # Every phase after 10 becomes trivial, so the driver's sequencing is what is
-# tested. 20-platform declares the conductor locus; a fake conductor.sh runs the
+# tested. 30-gitops declares the conductor locus; a fake conductor.sh runs the
 # run-log locally and writes the .rc, as the real one does after collecting it.
-for phase in 15-conductor 20-platform 30-images 40-workloads; do
-  locus=driver; [[ "$phase" == 20-platform ]] && locus=conductor
+for phase in 15-conductor 20-images 25-bootstrap-secrets 30-gitops 40-workloads; do
+  locus=driver; [[ "$phase" == 30-gitops ]] && locus=conductor
   cat > "$scratch/driver/phases/$phase.sh" <<EOF
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 repo_root="\$(cd -- "\${BASH_SOURCE[0]%/*}/../.." && pwd -P)" || exit 1
@@ -85,7 +85,7 @@ drive next | (cd "$scratch" && bash >/dev/null 2>&1)
 dir="$scratch/var/run/test/$(run_dir)"
 files=("$dir"/10-substrate.*); got="$(printf '%s ' "${files[@]##*/}")"
 report 'next runs one phase and records .sh .out .rc .ok' '10-substrate.ok 10-substrate.out 10-substrate.rc 10-substrate.sh ' "$got"
-report 'next runs only that phase' 'no' "$([[ -e "$dir/20-platform.sh" ]] && printf yes || printf no)"
+report 'next runs only that phase' 'no' "$([[ -e "$dir/15-conductor.sh" ]] && printf yes || printf no)"
 
 # 3. The run-log starts with the resolved inputs.
 report 'the run-log records the resolved environment' '# BRZL_SUBSTRATE=fake' "$(sed -n 2p "$dir/10-substrate.sh")"
@@ -94,15 +94,15 @@ report 'the run-log records the resolved environment' '# BRZL_SUBSTRATE=fake' "$
 before="$(run_dir)"
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)
 report 'up resumes in the same run directory' "$before" "$(run_dir)"
-report 'up finishes the remaining phases' 'ok ok ok ok' \
-  "$(for p in 15-conductor 20-platform 30-images 40-workloads; do [[ -e "$dir/$p.ok" ]] && printf 'ok '; done | sed 's/ $//')"
+report 'up finishes the remaining phases' 'ok ok ok ok ok' \
+  "$(for p in 15-conductor 20-images 25-bootstrap-secrets 30-gitops 40-workloads; do [[ -e "$dir/$p.ok" ]] && printf 'ok '; done | sed 's/ $//')"
 report 'a conductor-locus phase goes through conductor.sh; others do not' 'yes no' \
-  "$([[ -e "$dir/20-platform.via-conductor" ]] && printf yes || printf no) $([[ -e "$dir/30-images.via-conductor" ]] && printf yes || printf no)"
-report 'a conductor run-log carries no kubeconfig export' '0' "$(grep -c '^export KUBECONFIG' "$dir/20-platform.sh")"
+  "$([[ -e "$dir/30-gitops.via-conductor" ]] && printf yes || printf no) $([[ -e "$dir/20-images.via-conductor" ]] && printf yes || printf no)"
+report 'a conductor run-log carries no kubeconfig export' '0' "$(grep -c '^export KUBECONFIG' "$dir/30-gitops.sh")"
 
 # 5. When every phase is complete, `up` starts a new run (a fresh, idempotent pass).
 got="$(drive up | grep -c '^{ # phase ')"
-report 'a complete run makes up start a new run with all phases' '5' "$got"
+report 'a complete run makes up start a new run with all phases' '6' "$got"
 
 # 6. A failed check stops the stream with code 3, and later phases do not run.
 rm -rf "${scratch:?}/var"; : > "$scratch/BREAK"
@@ -110,10 +110,17 @@ drive up | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
 dir="$scratch/var/run/test/$(run_dir)"
 report 'a failed check stops the stream with exit 3' '3' "$rc"
 report 'no .ok for the failed phase, and the next phase never ran' 'none none' \
-  "$([[ -e "$dir/10-substrate.ok" ]] && printf ok || printf none) $([[ -e "$dir/20-platform.sh" ]] && printf ran || printf none)"
+  "$([[ -e "$dir/10-substrate.ok" ]] && printf ok || printf none) $([[ -e "$dir/15-conductor.sh" ]] && printf ran || printf none)"
 rm -f "$scratch/BREAK"
 
-# 7. `down` removes the cluster, passes its check, and drops the current run.
+# 7. Fast mode needs a run that passed 30-gitops; then it emits one group.
+drive fast_on >/dev/null; rc=$?
+report 'fast_on refuses before 30-gitops has passed' '2' "$rc"
+drive up | (cd "$scratch" && bash >/dev/null 2>&1)
+report 'fast_on emits one group after 30-gitops' '1' "$(drive fast_on | grep -c '^{ # fast mode on')"
+report 'apply emits one conductor group' '1' "$(drive apply | grep -c 'bash driver/conductor.sh')"
+
+# 8. `down` removes the cluster, passes its check, and drops the current run.
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)
 drive down | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
 report 'down succeeds and passes its check' '0' "$rc"

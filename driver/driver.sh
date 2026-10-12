@@ -6,9 +6,12 @@
 #   bash driver/driver.sh <env> next            # preview the next unfinished phase
 #   bash driver/driver.sh <env> next | bash     # ...and run it (careful mode)
 #   bash driver/driver.sh <env> up              # preview all unfinished phases
-#   bash driver/driver.sh <env> up | bash       # ...and run them (fast mode:
-#                                               #    only for local-only effects)
+#   bash driver/driver.sh <env> up | bash       # ...and run them all at once
+#                                               #    (only for local-only effects)
 #   bash driver/driver.sh <env> down | bash     # remove the environment's cluster
+#   bash driver/driver.sh local fast_on | bash  # fast mode: Argo CD holds
+#   bash driver/driver.sh local apply | bash    # ...apply the working tree
+#   bash driver/driver.sh local fast_off | bash # ...back to the pushed branch
 #   bash driver/driver.sh <env> status          # GENERATOR: the current run
 #   bash driver/driver.sh <env> check <phase> <run_dir> [down]   # GENERATOR;
 #                                               #    the emitted groups call this
@@ -21,8 +24,13 @@
 # `error 3`. Resume = run `up` or `next` again: it continues at the first phase
 # with no .ok. Rules: ryderdain/bash STYLE.md §1.11–§1.12; ADR-0022.
 #
+# Fast mode (GLOSSARY; local only; ADR-0025): fast_on / fast_off / apply write
+# their run-logs into the current run (fast-on-<HHMMSS>.sh, ...) with
+# driver/fast-mode.sh and need a run that has passed 30-gitops.
+#
 # Inputs: <env> selects env/<env>.env. Needs the tools of each phase (k3d,
-# docker, kubectl, helm, jq for local). No credentials for local.
+# docker, kubectl, helm, jq, yq, git for local). Credentials for local: phase
+# 25 reads the bootstrap secret source BRZL_REPO_DEPLOY_KEY where it runs.
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
@@ -30,7 +38,7 @@ repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
 # shellcheck source=SCRIPTDIR/lib/runlib.sh
 source "$repo_root/driver/lib/runlib.sh" || exit 1
 
-up_phases=(10-substrate 15-conductor 20-platform 30-images 40-workloads)
+up_phases=(10-substrate 15-conductor 20-images 25-bootstrap-secrets 30-gitops 40-workloads)
 down_phases=(10-substrate)
 
 # current_run <env> — print the run directory to use for `up`/`next`: the
@@ -129,6 +137,41 @@ emit_down() {
   end_function 0 "emitted $env down for $run_dir"
 }
 
+# emit_fast <env> <on|off|apply> — one group for a fast-mode action, in the
+# current run. Switching runs here (driver locus); apply runs on the conductor.
+emit_fast() {
+  local env="$1" what="$2" link="$repo_root/var/run/$1/current" run_dir name
+  if [[ ! -L "$link" ]]; then
+    printf 'error: %s has no current run; bring it up first\n' "$env" >&2
+    return 2
+  fi
+  run_dir="var/run/$env/$(readlink "$link")"
+  if [[ ! -e "$repo_root/$run_dir/30-gitops.ok" ]]; then
+    printf 'error: fast mode needs Argo CD: phase 30-gitops has not passed in %s\n' "$run_dir" >&2
+    return 2
+  fi
+  name="fast-$what-$(printf '%(%H%M%S)T' -1)"
+  printf 'cd %q || exit 1\n' "$repo_root"
+  awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+  if [[ "$what" == apply ]]; then
+    printf '{ # fast mode: apply the working tree (%s, locus: conductor)\n' "$env"
+    printf '  bash driver/fast-mode.sh fast_apply %q %q > %q \\\n' "$env" "$run_dir" "$run_dir/$name.sh"
+    printf '    || error 3 %s\n' "$(squote "nothing applied: is fast mode on? (bash driver/driver.sh $env fast_on)")"
+    printf '  bash driver/conductor.sh %q %q 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
+    printf '}\n'
+  else
+    printf '{ # fast mode %s (%s, locus: driver)\n' "$what" "$env"
+    printf '  bash driver/fast-mode.sh fast_switch %q %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
+    printf '    || error 3 %s\n' "$(squote "fast mode not switched: see the message above")"
+    printf '  { bash %q; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+      "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+    printf '  bash driver/fast-mode.sh fast_check %q %q %q \\\n' "$what" "$env" "$run_dir"
+    printf '    || error 3 %s\n' "$(squote "fast mode $what did not take effect; read $run_dir/$name.out")"
+    printf '}\n'
+  fi
+  end_function 0 "emitted $env fast $what for $run_dir"
+}
+
 # check <env> <phase> <run_dir> [down] — GENERATOR. Runs the phase's check in a
 # subshell (so the phase script's globals stay out of this one) and writes .ok.
 check() {
@@ -169,7 +212,7 @@ status() {
 main() {
   local env="${1:-}" action="${2:-}"
   if [[ -z "$env" || -z "$action" ]]; then
-    sed -n '2,24p' "${BASH_SOURCE[0]}" >&2
+    sed -n '2,31p' "${BASH_SOURCE[0]}" >&2
     return 2
   fi
   if [[ ! -r "$repo_root/env/$env.env" ]]; then
@@ -183,7 +226,10 @@ main() {
     down)   emit_down "$env" ;;
     check)  check "$env" "$@" ;;
     status) status "$env" ;;
-    *) printf 'error: unknown action %q (up, next, down, status, check)\n' "$action" >&2; return 2 ;;
+    fast_on)  emit_fast "$env" on ;;
+    fast_off) emit_fast "$env" off ;;
+    apply)    emit_fast "$env" apply ;;
+    *) printf 'error: unknown action %q (up, next, down, status, check, fast_on, fast_off, apply)\n' "$action" >&2; return 2 ;;
   esac
 }
 

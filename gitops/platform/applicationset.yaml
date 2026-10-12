@@ -1,0 +1,278 @@
+# The platform ApplicationSet — ONE file for every environment (local, dev,
+# prod; ADR-0025). It replaces gitops/clusters/{dev,prod}/applicationset.yaml,
+# keeping their Application names, waves and AWS values (ADR-0016).
+#
+# Everything that differs per environment comes from the cluster Secret that the
+# environment registers (gitops/clusters/<env>/in-cluster.yaml on AWS; phase
+# 30-gitops on local), never from git:
+#
+#   labels
+#     brzl.dev/appset-cluster: "true"   the generators select this Secret
+#     brzl.dev/env:        local|dev|prod   AppProject brzl-<env>; prod deltas
+#     brzl.dev/substrate:  k3d|aws          the AWS-only apps (EBS CSI, monitoring)
+#   annotations (written live by the bootstrap or the phase)
+#     brzl.dev/registry-host       the registry the cluster pulls from
+#     brzl.dev/prefix-<upstream>   path under that host per upstream
+#                                  (quay, k8s, github, docker-hub): an ECR
+#                                  pull-through prefix on AWS, a Zot namespace locally
+#     brzl.dev/demo-app-image      demo-app repository under the host
+#     brzl.dev/demo-app-tag        demo-app tag
+#     brzl.dev/backup-bucket       CNPG backup bucket (AWS only; absent = no backup patch)
+#     brzl.dev/revision            git revision to follow (absent = main)
+#     brzl.dev/auto-sync           "false" = Argo CD holds: fast mode on local,
+#                                  break-glass mode anywhere (absent = sync)
+#
+# Two matrices, unioned: every cluster gets the common apps; only clusters
+# labelled brzl.dev/substrate=aws get the AWS-only ones.
+#
+# Guard (ADR-0016, ADR-0025): `applicationsSync: create-update` — this
+# ApplicationSet never deletes an Application, so a renamed element leaves the
+# old Application in place for an operator to remove on purpose; and
+# `preserveResourcesOnDeletion` — deleting an Application never cascades into
+# what it deployed. Phase 30-gitops also stops before it applies a change that
+# would leave a live Application without an element.
+#
+# Sync waves (annotation, per element): -1 argocd self-manage, 0 ebs-csi+gp3,
+# 1 operators (cnpg, external-secrets, monitoring), 2 postgres Cluster, 3 demo-app.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: brzl-platform
+  namespace: argocd
+spec:
+  goTemplate: true
+  syncPolicy:
+    applicationsSync: create-update
+    preserveResourcesOnDeletion: true
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  brzl.dev/appset-cluster: "true"
+          - list:
+              # Key is `appName`, NOT `name`: in a matrix the clusters generator
+              # injects `name` (= the cluster name), which would shadow a list
+              # `name` (ADR-0016, lesson 1).
+              elements:
+                - appName: argocd
+                  kind: helm
+                  wave: "-1"
+                  namespace: argocd
+                  serverSideApply: "true"
+                  chartRepo: https://argoproj.github.io/argo-helm
+                  chart: argo-cd
+                  chartVersion: "7.7.0"
+                  valueFile: gitops/infrastructure/argocd/values.yaml
+                  imageParams:
+                    - name: global.image.repository
+                      upstream: quay
+                      path: argoproj/argocd
+                - appName: cnpg-operator
+                  kind: helm
+                  wave: "1"
+                  namespace: cnpg-system
+                  serverSideApply: "true"
+                  chartRepo: https://cloudnative-pg.github.io/charts
+                  chart: cloudnative-pg
+                  chartVersion: "0.28.2"
+                  valueFile: gitops/infrastructure/cnpg/values.yaml
+                  imageParams:
+                    - name: image.repository
+                      upstream: github
+                      path: cloudnative-pg/cloudnative-pg
+                - appName: external-secrets
+                  kind: helm
+                  wave: "1"
+                  namespace: external-secrets
+                  serverSideApply: "true"
+                  chartRepo: https://charts.external-secrets.io
+                  chart: external-secrets
+                  chartVersion: "0.10.7"
+                  valueFile: gitops/infrastructure/external-secrets/values.yaml
+                  imageParams:
+                    - name: image.repository
+                      upstream: github
+                      path: external-secrets/external-secrets
+                    - name: webhook.image.repository
+                      upstream: github
+                      path: external-secrets/external-secrets
+                    - name: certController.image.repository
+                      upstream: github
+                      path: external-secrets/external-secrets
+                - appName: postgres
+                  kind: kustomize
+                  wave: "2"
+                  namespace: cnpg-demo
+                  serverSideApply: "false"
+                  path: gitops/operators/postgres
+                  localPath: gitops/clusters/local/postgres
+                - appName: demo-app
+                  kind: kustomize
+                  wave: "3"
+                  namespace: demo
+                  serverSideApply: "false"
+                  path: gitops/applications/demo-app
+                  localPath: gitops/clusters/local/demo-app
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  brzl.dev/appset-cluster: "true"
+                  brzl.dev/substrate: aws
+          - list:
+              elements:
+                - appName: ebs-csi-driver
+                  kind: helm
+                  wave: "0"
+                  namespace: kube-system
+                  serverSideApply: "false"
+                  chartRepo: https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+                  chart: aws-ebs-csi-driver
+                  chartVersion: "2.37.0"
+                  valueFile: gitops/infrastructure/ebs-csi/values.yaml
+                  imageParams:
+                    - name: sidecars.provisioner.image.repository
+                      upstream: k8s
+                      path: sig-storage/csi-provisioner
+                    - name: sidecars.attacher.image.repository
+                      upstream: k8s
+                      path: sig-storage/csi-attacher
+                    - name: sidecars.snapshotter.image.repository
+                      upstream: k8s
+                      path: sig-storage/csi-snapshotter
+                    - name: sidecars.resizer.image.repository
+                      upstream: k8s
+                      path: sig-storage/csi-resizer
+                    - name: sidecars.livenessProbe.image.repository
+                      upstream: k8s
+                      path: sig-storage/livenessprobe
+                    - name: sidecars.nodeDriverRegistrar.image.repository
+                      upstream: k8s
+                      path: sig-storage/csi-node-driver-registrar
+                - appName: monitoring
+                  kind: helm
+                  wave: "1"
+                  namespace: monitoring
+                  serverSideApply: "true"
+                  chartRepo: https://prometheus-community.github.io/helm-charts
+                  chart: kube-prometheus-stack
+                  chartVersion: "86.1.1"
+                  valueFile: gitops/infrastructure/monitoring/values.yaml
+                  # kube-prometheus-stack carries the env-scoped pull-through
+                  # prefixes in its committed values (ADR-0017), so prod has its
+                  # own values file.
+                  valueFileProd: gitops/infrastructure/monitoring/values-prod.yaml
+                  # Single host-injection point: global.imageRegistry = the host.
+                  hostParams:
+                    - global.imageRegistry
+  template:
+    metadata:
+      name: '{{.appName}}'
+      labels:
+        brzl.dev/app: '{{.appName}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{.wave}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: 'brzl-{{ index .metadata.labels "brzl.dev/env" }}'
+      destination:
+        server: '{{.server}}'
+        namespace: '{{.namespace}}'
+  # The source shape is kind-dependent (Helm multi-source vs single kustomize
+  # source) and the Helm parameters list is variable-length, neither of which the
+  # structured template can express — so syncPolicy + sources are added here, in a
+  # Go-templated patch. Every block ADDS a new spec key, so the merge onto the
+  # template is purely additive.
+  templatePatch: |
+    {{- $ann := .metadata.annotations }}
+    {{- $env := index .metadata.labels "brzl.dev/env" }}
+    {{- $host := index $ann "brzl.dev/registry-host" }}
+    {{- $revision := index $ann "brzl.dev/revision" | default "main" }}
+    spec:
+      syncPolicy:
+        {{- if ne (index $ann "brzl.dev/auto-sync") "false" }}
+        automated:
+          prune: true
+          selfHeal: true
+        {{- end }}
+        syncOptions:
+          - CreateNamespace=true
+          {{- if eq .serverSideApply "true" }}
+          - ServerSideApply=true
+          {{- end }}
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 3m
+      {{- if eq .kind "helm" }}
+      {{- $valueFile := .valueFile }}
+      {{- if and (eq $env "prod") .valueFileProd }}{{ $valueFile = .valueFileProd }}{{ end }}
+      sources:
+        - repoURL: {{ .chartRepo }}
+          chart: {{ .chart }}
+          targetRevision: "{{ .chartVersion }}"
+          helm:
+            valueFiles:
+              - $values/{{ $valueFile }}
+            parameters:
+              {{- range .imageParams }}
+              - name: {{ .name }}
+                value: "{{ $host }}/{{ index $ann (printf "brzl.dev/prefix-%s" .upstream) }}/{{ .path }}"
+              {{- end }}
+              {{- range .hostParams }}
+              - name: {{ . }}
+                value: "{{ $host }}"
+              {{- end }}
+        - repoURL: git@github.com:ryderdain/barzel-cluster.git
+          targetRevision: {{ $revision }}
+          ref: values
+      {{- else }}
+      {{- $path := .path }}
+      {{- if and (eq $env "local") .localPath }}{{ $path = .localPath }}{{ end }}
+      sources:
+        - repoURL: git@github.com:ryderdain/barzel-cluster.git
+          targetRevision: {{ $revision }}
+          path: {{ $path }}
+          kustomize:
+            {{- if eq .appName "demo-app" }}
+            images:
+              - "__ECR_REGISTRY_HOST__/brzl-dev/demo-app={{ $host }}/{{ index $ann "brzl.dev/demo-app-image" }}:{{ index $ann "brzl.dev/demo-app-tag" }}"
+            {{- if eq $env "prod" }}
+            patches:
+              - target:
+                  version: v1
+                  kind: Service
+                  name: demo-app
+                patch: |-
+                  - op: replace
+                    path: /spec/type
+                    value: NodePort
+                  - op: add
+                    path: /spec/ports/0/nodePort
+                    value: 30080
+            {{- end }}
+            {{- else if eq .appName "postgres" }}
+            {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
+            patches:
+              - target:
+                  group: postgresql.cnpg.io
+                  version: v1
+                  kind: Cluster
+                  name: pg
+                patch: |-
+                  - op: replace
+                    path: /spec/imageName
+                    value: {{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/cloudnative-pg/postgresql:17.2
+                  {{- if $bucket }}
+                  - op: replace
+                    path: /spec/backup/barmanObjectStore/destinationPath
+                    value: s3://{{ $bucket }}/
+                  {{- end }}
+            {{- end }}
+      {{- end }}

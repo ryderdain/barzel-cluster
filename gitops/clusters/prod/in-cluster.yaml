@@ -1,8 +1,7 @@
 # Declarative registration of the prod cluster as an ArgoCD cluster Secret —
-# same mechanics as dev (gitops/clusters/dev/in-cluster.yaml): the bootstrap
-# shim writes the account-bearing annotations live, never in git:
-#   brzl.dev/ecr-host      <account>.dkr.ecr.<region>.amazonaws.com
-#   brzl.dev/backup-bucket brzl-prod-cnpg-backups-<account>
+# same mechanics as dev (gitops/clusters/dev/in-cluster.yaml), with the prod
+# values: prefixes brzl-prod-*, demo-app image brzl-prod/demo-app, bucket
+# brzl-prod-cnpg-backups-<account>. Written live by the bootstrap, never in git.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -11,6 +10,8 @@ metadata:
   labels:
     argocd.argoproj.io/secret-type: cluster
     brzl.dev/appset-cluster: "true"
+    brzl.dev/env: prod
+    brzl.dev/substrate: aws
 type: Opaque
 stringData:
   name: in-cluster

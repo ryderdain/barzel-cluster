@@ -7,6 +7,12 @@
 #                             print the top of a run-log: the resolved inputs,
 #                             and for the driver locus the kubeconfig to use (a
 #                             conductor run-log uses its in-cluster account)
+#   gitops_repo_url           print the git repo URL that the platform
+#                             ApplicationSet follows (its one home)
+#   phase_error_definition    print the error() function (driver/lib/error.sh)
+#                             for a run-log that stops itself with `error 3`
+#                             (a run-log runs as its own process, so it needs
+#                             its own copy; STYLE.md §1.2)
 #
 # Each phase script also defines phase_locus, which prints `driver` or
 # `conductor`; the driver reads it to choose how to run the phase.
@@ -40,4 +46,20 @@ phase_header() {
     printf '# locus: driver\n'
     printf 'export KUBECONFIG=%q\n' "$run_dir/kubeconfig"
   fi
+}
+
+phase_error_definition() {
+  awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+}
+
+gitops_repo_url() {
+  local line
+  while IFS= read -r line; do
+    if [[ "$line" =~ repoURL:\ (git@[^[:space:]]+) ]]; then
+      printf '%s' "${BASH_REMATCH[1]}"
+      return 0
+    fi
+  done < "$repo_root/gitops/platform/applicationset.yaml"
+  printf 'error: no git repoURL in gitops/platform/applicationset.yaml\n' >&2
+  return 1
 }

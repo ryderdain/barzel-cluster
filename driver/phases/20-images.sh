@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# 30-images.sh — phase 30: build the workload images and push them to the
+# 20-images.sh — phase 20: build the workload images and push them to the
 # substrate's registry (Zot, for k3d), where the cluster pulls them from.
 # Locus: the driver, because a build needs the container engine.
 #
 # Emit + generator, one function each:
-#   bash driver/phases/30-images.sh phase_up <env> <run_dir>     # EMIT
-#   bash driver/phases/30-images.sh phase_check <env> <run_dir>  # GENERATOR
+#   bash driver/phases/20-images.sh phase_up <env> <run_dir>     # EMIT
+#   bash driver/phases/20-images.sh phase_check <env> <run_dir>  # GENERATOR
 #
 # Inputs: env/<env>.env (BRZL_DEMO_APP_TAG). Needs docker. No credentials.
 
@@ -36,7 +36,7 @@ phase_up() {
   printf '  docker build --build-arg TARGETARCH=%q -t %q apps/demo-app\n' "$(host_arch)" "$image"
   printf '  docker push %q\n' "$image"
   printf '}\n'
-  end_function 0 'emitted 30-images up'
+  end_function 0 'emitted 20-images up'
 }
 
 phase_check() {
@@ -44,7 +44,7 @@ phase_check() {
   phase_init "$env" || return 1
   image="$(substrate_image_ref "demo-app:$BRZL_DEMO_APP_TAG")"
   if ! docker manifest inspect --insecure "$image" >/dev/null 2>&1; then
-    printf 'fix: %s is not in the registry; run the 30-images phase again\n' "$image" >&2
+    printf 'fix: %s is not in the registry; run the 20-images phase again\n' "$image" >&2
     return 1
   fi
   printf '%s is in the registry\n' "$image"

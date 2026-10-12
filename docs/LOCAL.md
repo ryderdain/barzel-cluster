@@ -45,27 +45,50 @@ bash driver/driver.sh local next                          # read the next phase
 bash driver/driver.sh local next | bash driver/kiesei.sh  # operate it; do again
 ```
 
-Fast mode, all phases that are not complete:
+All phases that are not complete, at once (only for effects on this machine):
 
 ```sh
 bash driver/driver.sh local up | bash driver/kiesei.sh
 ```
 
-The local environment has five phases. Each phase has a locus: the driver
+Argo CD reads this repository, which is private. Before phase
+`25-bootstrap-secrets`, give the driver the read-only deploy key. Give it only
+to the command that operates the procedure. The key is then not in your shell
+for other commands:
+
+```sh
+bash driver/driver.sh local up \
+  | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/sleipnir-brzl-deploy)" bash driver/kiesei.sh
+```
+
+The run-log records only the name `BRZL_REPO_DEPLOY_KEY`, not the key. The key
+must not have a passphrase, because Argo CD cannot use one. Before an
+environment other than local, a GitHub App replaces the deploy key (BACKLOG).
+
+The local environment has six phases. Each phase has a locus: the driver
 (where you operate the procedure) or the conductor (a kiesei pod in the
 cluster). The locus is where the run-log of the phase runs. The command is
 always `driver.sh`, for all phases: the driver sends a conductor phase to the
 conductor. Do not operate `driver/conductor.sh` yourself.
 
-- `10-substrate` (driver) makes the Zot registry (if it is not there) and the
-  k3d cluster, and writes the kubeconfig to the run directory.
+- `10-substrate` (driver) makes the Zot registry and the k3d cluster, and
+  writes the kubeconfig to the run directory. If the Zot configuration
+  changed, it replaces the Zot container. The cache stays.
 - `15-conductor` (driver) pushes the kiesei image to Zot and starts the
   conductor in the namespace `brzl-system`.
-- `20-platform` (conductor) installs the CloudNativePG and External Secrets
-  operators with helm.
-- `30-images` (driver) assembles the demo-app image and pushes it to Zot.
-- `40-workloads` (conductor) applies the local overlay. The driver renders the
-  overlay into the run-log, so the run-log shows all that was applied.
+- `20-images` (driver) assembles the demo-app image and pushes it to Zot.
+- `25-bootstrap-secrets` (driver) writes the deploy key into the Argo CD
+  repository Secret.
+- `30-gitops` (conductor) installs Argo CD and applies the platform
+  ApplicationSet (ADR-0025). Argo CD then deploys CloudNativePG, External
+  Secrets, Postgres and the demo-app from git.
+- `40-workloads` (conductor) waits until all Applications are Synced and
+  Healthy, and checks Postgres and the demo-app.
+
+Argo CD follows the branch that is checked out when phase `30-gitops` is
+emitted. To follow a different branch, export `BRZL_GITOPS_REVISION`. Argo CD
+reads only commits that are pushed: the phase shows a warning when your branch
+is ahead of its remote.
 
 For a conductor phase, the driver copies the run-log into the conductor pod,
 operates it there, shows its output, and copies back the exit status. The
@@ -81,7 +104,7 @@ operate `up` or `next` again. The driver starts at the first phase that has no
 To see the commands of one phase without the driver:
 
 ```sh
-bash driver/phases/20-platform.sh phase_up local var/run/local/preview
+bash driver/phases/30-gitops.sh phase_up local var/run/local/preview
 ```
 
 To see the condition of the current run:
@@ -103,8 +126,9 @@ bash driver/driver.sh local up | bash driver/kiesei.sh
 ### The Zot registry
 
 Zot operates adjacent to the cluster, on the container network `brzl-local`.
-It is a pull-through cache for `docker.io`, `ghcr.io`, `quay.io`, and
-`registry.k8s.io`, and the registry for images that you assemble here
+It is a pull-through cache for `docker.io`, `ghcr.io`, `quay.io`,
+`registry.k8s.io`, `oci.external-secrets.io` and `public.ecr.aws`, and the
+registry for images that you assemble here
 (`localhost:5001/brzl/...`). Its data is on the volume `brzl-zot-data`. Thus the
 cache stays when you remove the cluster. The first pull of an image through
 Zot can continue for some minutes.
@@ -130,6 +154,39 @@ k3d also adds the cluster to your default kubeconfig, as the context
 Do a search. The app sends the query to Sefaria, shows the results, and writes
 them to the local Postgres, as in the cloud. The ESO credential projection
 between namespaces uses the same path.
+
+## Fast mode
+
+Fast mode is for changes to the structure of the cluster: you apply your
+working tree directly and do not push first. Argo CD holds while fast mode is
+on. Fast mode is only for the local environment. For an emergency in any
+environment, break-glass mode is planned (BACKLOG pass 6b).
+
+```sh
+bash driver/driver.sh local fast_on  | bash driver/kiesei.sh  # Argo CD holds
+bash driver/driver.sh local apply    | bash driver/kiesei.sh  # working tree
+bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
+```
+
+- `fast_on` sets the annotation `brzl.dev/auto-sync: "false"` on the cluster
+  Secret. The ApplicationSet then removes automated sync from each
+  Application. No commit is necessary.
+- `apply` renders the kustomize apps (postgres, demo-app) from your working
+  tree, with the same images and patches that Argo CD injects. The conductor
+  applies the result. The helm apps (Argo CD, CloudNativePG, External Secrets)
+  are not included: to change one, push a branch and let Argo CD sync it.
+- While fast mode is on, Argo CD shows each changed Application as OutOfSync.
+  The difference is your change compared with the pushed branch.
+
+**Caution:**
+
+- `fast_off` makes the cluster agree with the pushed branch again. Argo CD
+  prunes and heals. **A change that you did not commit and push is removed
+  from the cluster.** Push it before `fast_off`.
+- `apply` refuses to operate when fast mode is off. Otherwise Argo CD would
+  revert the change at once.
+- Phase `40-workloads` fails while fast mode is on, because Argo CD does not
+  sync. Operate `fast_off` before you operate `up` again.
 
 ## Up with the operator SSO gateway (`--with-sso`)
 
@@ -213,17 +270,17 @@ next `up` starts a new run.
 
 ## What differs from the AWS cluster (and why)
 
-The overlay touches only the genuinely AWS-specific bits; everything else is
-byte- for-byte the cloud manifests:
+The local overlays (`gitops/clusters/local/postgres`, `.../demo-app`) touch
+only the AWS-specific parts; all else is the same manifests as the cloud:
 
 | Concern | AWS cluster | Local (k3d) | Why |
 | ------- | ----------- | ----------- | --- |
-| Images | ECR + pull-through (host injected by the ApplicationSet) | Zot pull-through + a locally built `localhost:5001/brzl/demo-app:local` (pushed) | same pull path as the cloud; no registry auth locally |
+| Images | ECR + pull-through (host and prefixes injected by the ApplicationSet) | Zot pull-through (host `localhost:5001`, the upstream name as prefix) + a locally built `localhost:5001/brzl/demo-app:local` (pushed) | same `host/prefix/path` shape as the cloud; no registry auth locally |
 | Storage | EBS CSI, `gp3` | `local-path` (k3d built-in) | no cloud block storage on a laptop |
 | Postgres | 3 instances (HA) | 1 instance | laptop footprint; HA isn't the point locally |
 | Backups | CNPG → S3 (Barman) | **off** | no object store locally |
 | Monitoring | kube-prometheus-stack + ServiceMonitor | **off** by default; **on** with `--with-sso` | not needed for plain app iteration |
-| GitOps | ArgoCD ApplicationSet | `kubectl apply -k` (direct) | skips the ECR-coupled ApplicationSet; faster dev loop |
+| GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
 | Identity / UI SSO | OIDC roles, ingress (prod path) | none by default; **the full SSO edge** with `--with-sso` (see below) | the local cluster is where the SSO gateway is actually built (ADR-0018) |
 
 **Image strategy.** Local builds the demo-app and pushes it to Zot
