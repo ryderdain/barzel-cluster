@@ -88,6 +88,14 @@ the risks (hooks, CRDs/SSA, Argo's own chart) in the human-facing docs. Q61
 GitHub); bootstrap source `BRZL_REPO_DEPLOY_KEY`; GitHub App gate added to
 BACKLOG + SPEC decision 8.
 
+**Round 3 (2026-10-12):** Q62 (b) — **intervention mode** (all environments,
+emergencies, Argo holds, changes go through the conductor; actions `hold` /
+`release`) is a NEW mode beside fast mode, in GLOSSARY. Fast mode stays as
+planned: Q57 (a), Q58 (a) (kustomize apps only). The user REJECTS the golden
+test as built: a disposable cluster is fine for local only, and it adds manual
+steps for one narrow purpose → Q63 (replacement) and Q64 (where intervention
+mode goes) open.
+
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 
 - Local (sleipnir, k3d) = first env of local → dev → prod; harness for cluster-

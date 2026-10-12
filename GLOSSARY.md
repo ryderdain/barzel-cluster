@@ -83,6 +83,12 @@ A mode of the local environment for changes to the structure of the cluster.
 The driver applies the working tree directly, and Argo CD does not sync.
 _Avoid_: dev mode, inner loop, direct mode
 
+**Intervention mode**:
+A mode of any environment for an emergency. Argo CD holds and does not sync,
+and an operator or an agent makes changes through the conductor. It is not
+for usual work.
+_Avoid_: fast mode, emergency mode, break-glass mode
+
 **Run-log**:
 The recorded commands of one phase in one environment, as they operated.
 _Avoid_: transcript, history
