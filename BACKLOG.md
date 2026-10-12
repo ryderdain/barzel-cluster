@@ -36,6 +36,12 @@ change-of-image-source steps.
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
    with a write-then-read smoke test in `up`.
 6. **Loki + Alloy + conductor log shipping.**
+6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
+   environment, on the auto-sync switch that pass 4 builds; the procedure for
+   an operator or an agent to change the cluster through the conductor
+   (including helm apps); a record of each use in Loki; the risks in the
+   human-facing docs (helm hooks, large CRDs need server-side apply, a change
+   to Argo CD's own chart while it holds).
 7. **`promote` phase** (digest + env-definition values along the chain).
 8. *(AWS unfreezes)* AWS phases of `platform.sh` → the AWS adapter.
    **Gate before any environment beyond local (pass 7 promote to dev, pass
