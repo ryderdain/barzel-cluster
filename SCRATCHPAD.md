@@ -71,6 +71,12 @@ Recommendations (➡️), not decisions:
 On return: get the answers, then write pass 4 (one commit), offline tests,
 user live run.
 
+**Answers 2026-10-12:** the repo is now **PRIVATE** (user, for production-like
+security) → Argo needs a repo credential on local too (new Q61). Q55 (a). Q56
+(b). Q59 agreed. Q60 yes. Q54 leaning (b) shared ApplicationSet, respecting
+ADR-0016, pending a check of how (prototype vs golden render). Q57 (a), user
+asked for a deeper explanation. Q58 open, user asked for the trade-offs.
+
 Settled design (Q1–Q45, user-confirmed 2026-10-07):
 
 - Local (sleipnir, k3d) = first env of local → dev → prod; harness for cluster-

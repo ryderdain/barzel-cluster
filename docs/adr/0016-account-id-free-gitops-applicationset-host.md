@@ -1,6 +1,7 @@
 # ADR-0016 — Account-id-free GitOps: ApplicationSet host injection at render
 
 **Status:** Accepted · **Date:** 2026-06-04
+
 **Context.** Committed GitOps manifests must not contain the AWS account id, yet
 in-cluster image pulls go through ECR — and ECR auth (the kubelet credential
 provider on the EC2 instance profile, ADR-0008) keys off the **real**
@@ -11,6 +12,7 @@ refs ArgoCD applies. ArgoCD reconciles a *rendered* desired-state and **self-hea
 reverts post-apply edits**, so the host has to enter at **render time**, from a
 source ArgoCD reconciles — not a bootstrap `--set` (that only reaches the initial
 install) and not committed to git.
+
 **Decision.** A **bootstrap shim** (`resolve_ecr_host.sh`) derives the host from
 `aws sts get-caller-identity`; bootstrap writes the host **and** the backup-bucket
 name onto the **in-cluster ArgoCD cluster Secret** as annotations
@@ -23,6 +25,7 @@ operator charts and as kustomize **`images`** (demo-app) / **`patches`** (CNPG
 the `__ECR_REGISTRY_HOST__` / `__BACKUP_BUCKET__` sentinels purely as documentation;
 the rendered output carries the real values. Replaces the prior app-of-apps root +
 the PoC sentinel-render escape hatch (the unresolved half of ADR-0013).
+
 **Consequences.** The account id never lands in git and the injection is
 self-heal-safe (it's part of desired-state). The bootstrap `--set` still covers
 ArgoCD's own image (chicken-and-egg). Costs: one ApplicationSet with a
@@ -33,6 +36,7 @@ files so the workloads accept render-time overrides. *Alternatives weighed and
 dropped: a private config/ops repo (multi-source `$values`) — clean but a second
 repo to run; a CMP `envsubst` sidecar — ideal for plain manifests but mutually
 exclusive with native Helm sources, awkward for the operator charts.*
+
 **Validated live (2026-06-04).** Brought up end-to-end: all six apps Synced/Healthy
 by wave, host/bucket injection confirmed in the rendered `Application` sources
 (Helm params, kustomize images/patches), demo-app read/writes the CNPG HA Postgres.
@@ -46,6 +50,7 @@ the corrected ApplicationSet **pruned** it, the finalizer cascade-deleted ArgoCD
 config layer (`argocd-cm`, RBAC, ServiceAccounts) — recovered by re-running the
 idempotent `helm upgrade --install` and restarting the controllers for fresh SA tokens
 (see [RECOVERY](../RECOVERY.md#argocd-control-plane-self-inflicted-prune-)).
+
 **Amendment (2026-07-07).** A pre-publication history audit (gitleaks + a
 targeted grep — verifying this ADR's claim rather than trusting it) found the
 account id **had** landed in git after all: not in manifests or tfvars (this
