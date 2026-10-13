@@ -225,3 +225,34 @@ User-verified on sleipnir. Run `202610091438` (3a+3b) and run `202610091501`
   expand `$1`; ESO bypassing Zot through a fifth upstream.
 - **Also**: a repo markdownlint config (no line-length check in tables); about
   600 older lint errors parked in `BACKLOG.md`.
+
+## 2026-10-13 — local-first refactor, pass 4: Argo CD on local, fast mode
+
+User-verified on sleipnir, run `202610131623` (branch `pass-4`, which Argo CD
+followed): all six phases — `10-substrate`, `15-conductor`, `20-images`,
+`25-bootstrap-secrets`, `30-gitops`, `40-workloads` — `.ok`; then fast mode:
+`fast_on`, a working-tree change (demo-app replicas 2 → 5) live through
+`apply` with only the Deployment OutOfSync, and `fast_off` back to the branch,
+all Synced.
+
+- **One platform ApplicationSet** for local, dev and prod (ADR-0025). The
+  per-environment values are labels and annotations on the cluster Secret. An
+  offline Go renderer (the controller's template engine) showed dev and prod
+  get the same 7 Applications as the old per-env files; local gets 5, with
+  every image through Zot (`localhost:5001/quay.io/...`, verified in the Zot
+  catalog).
+- **Design corrections from the user:** the shared ApplicationSet over a
+  local copy (Q54); a golden render test on a disposable cluster rejected as
+  extra manual steps for one purpose (→ a guard in the ApplicationSet and an
+  orphan check in phase 30-gitops, Q63); the user's "fast mode" for
+  emergencies was a different concept → **break-glass mode** (Q62/Q65,
+  BACKLOG pass 6b); the repo made private → a deploy key now, a GitHub App
+  before leaving local (Q61).
+- **Live run found three fast-apply bugs** the offline checks did not: a
+  forced namespace broke objects in another namespace; kubectl's merge removed
+  Argo CD's tracking label; and the first label fix assumed the upstream key
+  (`app.kubernetes.io/instance`) when the chart sets
+  `argocd.argoproj.io/instance` — the user's manual Sync exposed it. The key is
+  now read from `argocd-cm`. A failed apply now stops the stream.
+- **Also:** Zot is replaced when its config changes (the pass-3 gap); the
+  `public.ecr.aws` mirror; the legacy `--with-sso` overlay works again.

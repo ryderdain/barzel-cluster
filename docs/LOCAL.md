@@ -187,6 +187,10 @@ bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
   revert the change at once.
 - Phase `40-workloads` fails while fast mode is on, because Argo CD does not
   sync. Operate `fast_off` before you operate `up` again.
+- Do not use **Sync** in the Argo CD UI while fast mode is on. A manual sync
+  replaces your working-tree change in that Application with the pushed
+  branch. Use **Refresh** to see the current difference: Argo CD compares
+  only every 3 minutes by itself.
 
 ## Up with the operator SSO gateway (`--with-sso`)
 

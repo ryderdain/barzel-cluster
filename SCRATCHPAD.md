@@ -23,20 +23,13 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ NEXT: pass 4** (Argo CD on local in GitOps mode; `fast_on`/`fast_off`;
-replace the fixed `localhost:5001` overlay value with registry-host injection
-from the substrate adapter). Pass 3 (3a–3c) verified live 2026-10-09 (runs
-202610091438, 202610091501; conductor idle stop at 30 min; ESO via Zot) —
-RETROSPECTIVE entry written. Known gap: `up` does not restart Zot when
-`k3d-zot.json` changes (restart by hand).
-
-**▶ 2026-10-12: pass 4 WRITTEN on branch `pass-4`, waiting for the user's
-live run.** Design closed (Q54–Q65, below). Offline checks: an offline Go
-renderer showed the shared ApplicationSet gives dev and prod the same 7
-Applications as the old files; local gets 5; the fast-apply kustomization
-renders the injected images; driver-cases 16/16; shellcheck clean. Argo CD
-follows branch `pass-4` in the live run (Q56). After the user verifies: merge
-to main, RETROSPECTIVE, close pass 4.
+**▶ NEXT: pass 5** (OpenBao dev mode, Vault CE fallback by one env value; ESO
+read boundary + per-store write adapters; the `secrets` phase extends
+`25-bootstrap-secrets`; write-then-read smoke test in `up`). Pass 4 verified
+live 2026-10-13 (run 202610131623: all six phases; fast_on / apply / fast_off;
+guard accepted; Zot serves the injected paths) — RETROSPECTIVE entry written.
+Open from pass 4: the AWS bootstrap writes the new annotations but is untested
+until pass 8; GitHub App gate before leaving local.
 
 **(History) PARKED 2026-10-09 — pass 4 design round Q54–Q60.** No pass-4 code written. Facts found: the repo is PUBLIC (Argo can
 read it over HTTPS, no deploy key); the argo-cd chart pulls redis from
