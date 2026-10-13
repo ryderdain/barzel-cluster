@@ -59,6 +59,12 @@ change-of-image-source steps.
 
 Standing concerns (check in every pass, do not lose):
 
+- **Doctrine rule to add in `ryderdain/bash` STYLE.md §1.11** (2026-10-13):
+  a driver runs each run-log and check with stdin from `/dev/null`, because
+  the procedure itself arrives on stdin and any stdin-reading command without
+  its own pipe or heredoc (`docker exec -i`, `kubectl exec -i`, `cat`, `ssh`)
+  swallows the rest of the stream. Found live in pass 5b; the driver and its
+  test now enforce it. The user owns the doctrine text.
 - **ESO in-place upgrades** (2026-10-13, pass 5a). ESO moved 0.10.7 → 2.12.0
   on a fresh cluster. An in-place upgrade must go one minor at a time and
   check `status.storedVersions` on the four ESO CRDs (ESO 0.16.1 notes).

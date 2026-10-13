@@ -50,7 +50,9 @@ substrate_check() { [[ -e "$1/cluster" && ! -e BREAK ]]; }
 substrate_check_down() { ! compgen -G 'var/run/test/*/cluster' >/dev/null; }
 EOF
 # Every phase after 10 becomes trivial, so the driver's sequencing is what is
-# tested. 30-gitops declares the conductor locus; a fake conductor.sh runs the
+# tested. Each one also reads stdin (`cat`), as docker exec -i or kubectl exec
+# -i would: the driver must run a run-log with stdin from /dev/null, or that
+# read swallows the rest of the procedure and the later phases never run. 30-gitops declares the conductor locus; a fake conductor.sh runs the
 # run-log locally and writes the .rc, as the real one does after collecting it.
 for phase in 20-images 25-bootstrap 30-gitops 40-workloads; do
   locus=driver; [[ "$phase" == 30-gitops ]] && locus=conductor
@@ -60,7 +62,7 @@ repo_root="\$(cd -- "\${BASH_SOURCE[0]%/*}/../.." && pwd -P)" || exit 1
 source "\$repo_root/driver/lib/runlib.sh" || exit 1
 source "\$repo_root/driver/lib/phase-common.sh" || exit 1
 phase_locus() { printf '%s\n' $locus; }
-phase_up() { phase_init "\$1" || return 1; phase_header "\$2" $locus; printf '{ # %s\n  : > %s\n}\n' $phase "\$2/$phase.done"; }
+phase_up() { phase_init "\$1" || return 1; phase_header "\$2" $locus; printf '{ # %s\n  cat > /dev/null\n  : > %s\n}\n' $phase "\$2/$phase.done"; }
 phase_check() { [[ -e "\$2/$phase.done" ]]; }
 if [[ "\$is_sourced" == false ]]; then "\$@"; fi
 EOF

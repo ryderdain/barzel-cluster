@@ -65,10 +65,11 @@ secret_store_prelude() {
 # openbao_bao — the name the emitted lines call (defined by secret_store_prelude).
 openbao_bao() { printf 'bao'; }
 
-# openbao_run_bao <args…> — the same call, run here (for generators).
+# openbao_run_bao <args…> — the same call, run here (for generators). No -i:
+# a generator never feeds data in, and an inherited stdin would be swallowed.
 openbao_run_bao() {
   BAO_TOKEN="$(<"$repo_root/$BRZL_SECRET_STORE_DIR/driver.token")" \
-    docker exec -i -e BAO_TOKEN -e BAO_ADDR=http://127.0.0.1:8200 "$BRZL_OPENBAO_NAME" bao "$@"
+    docker exec -e BAO_TOKEN -e BAO_ADDR=http://127.0.0.1:8200 "$BRZL_OPENBAO_NAME" bao "$@"
 }
 
 # openbao_state <config_sha> — absent | current | stale, for the container.

@@ -24,6 +24,12 @@
 # `error 3`. Resume = run `up` or `next` again: it continues at the first phase
 # with no .ok. Rules: ryderdain/bash STYLE.md §1.11–§1.12; ADR-0022.
 #
+# A run-log and a check run with stdin from /dev/null. The procedure itself
+# arrives on stdin (`| bash`, `| bash driver/kiesei.sh`), so any command in a
+# run-log that reads stdin without a pipe or heredoc of its own (docker exec
+# -i, kubectl exec -i, cat, ssh) would swallow the rest of the procedure, and
+# the stream would end silently. Data reaches a command by pipe or heredoc.
+#
 # Fast mode (GLOSSARY; local only; ADR-0025): fast_on / fast_off / apply write
 # their run-logs into the current run (fast-on-<HHMMSS>.sh, ...) with
 # driver/fast-mode.sh and need a run that has passed 30-gitops.
@@ -99,10 +105,10 @@ emit_phase() {
   if [[ "$locus" == conductor ]]; then
     printf '  bash driver/conductor.sh %q %q 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
   else
-    printf '  { bash %q; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+    printf '  { bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
       "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
   fi
-  printf '  bash driver/driver.sh %q check %q %q%s \\\n' "$env" "$phase" "$run_dir" "$checker"
+  printf '  bash driver/driver.sh %q check %q %q%s < /dev/null \\\n' "$env" "$phase" "$run_dir" "$checker"
   printf '    || error 3 %s\n' "$(squote "phase $name did not pass its check; read $run_dir/$name.sh and $name.out, fix, then run again")"
   printf '}\n'
 }
@@ -167,9 +173,9 @@ emit_fast() {
     printf '{ # fast mode %s (%s, locus: driver)\n' "$what" "$env"
     printf '  bash driver/fast-mode.sh fast_switch %q %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
     printf '    || error 3 %s\n' "$(squote "fast mode not switched: see the message above")"
-    printf '  { bash %q; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+    printf '  { bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
       "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
-    printf '  bash driver/fast-mode.sh fast_check %q %q %q \\\n' "$what" "$env" "$run_dir"
+    printf '  bash driver/fast-mode.sh fast_check %q %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
     printf '    || error 3 %s\n' "$(squote "fast mode $what did not take effect; read $run_dir/$name.out")"
     printf '}\n'
   fi
