@@ -23,8 +23,18 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ 2026-10-13: pass 5 DESIGN CLOSED (Q66–Q76). Doing 5a (ESO upgrade),
-then 5b (OpenBao).** Decisions: OpenBao runs OUTSIDE the cluster like Zot
+**▶ 2026-10-13: pass 5a (ESO 2.12.0, v1 API) VERIFIED LIVE by the user (run
+202610131940: all apps Synced/Healthy, pg-app projects `uri`, CRD serves v1
+only). 5b (OpenBao outside the cluster) in progress on branch `pass-5b`.**
+Research facts for 5b: pin openbao/openbao:2.7.1; `storage "pebbledb"` (the
+`file` backend is gone in 2.7); static seal built in, key `file:///…`, 32
+bytes; self-init cannot return a token + has a 2.7.1 parser bug → scripted
+init/token/revoke; k8s auth from outside needs kubernetes_host + CA + a
+long-lived reviewer SA token (system:auth-delegator); enable kv-v2 at secret/;
+`bao kv put -mount=secret <path> value=-`; ESO Vault provider (stable) at
+OpenBao with `auth.kubernetes` + `serviceAccountRef.audiences`.
+
+**(Design) pass 5 CLOSED (Q66–Q76).** Decisions: OpenBao runs OUTSIDE the cluster like Zot
 (container on brzl-local, volume, made in phase 10, kept on down; driver at
 127.0.0.1:8200, cluster at brzl-openbao:8200) — it mimics Secrets Manager:
 exists before the cluster, outlives it (Q66). File storage + static seal; the
