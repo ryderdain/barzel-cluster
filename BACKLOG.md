@@ -54,6 +54,10 @@ change-of-image-source steps.
 
 Standing concerns (check in every pass, do not lose):
 
+- **ESO in-place upgrades** (2026-10-13, pass 5a). ESO moved 0.10.7 → 2.12.0
+  on a fresh cluster. An in-place upgrade must go one minor at a time and
+  check `status.storedVersions` on the four ESO CRDs (ESO 0.16.1 notes).
+  Write this into `docs/UPGRADE.md` when pass 8 brings AWS back.
 - **GitHub App before leaving local** (Q61). The repo is private since
   2026-10-12. Argo CD on local reads it with a read-only deploy key from the
   bootstrap source `BRZL_REPO_DEPLOY_KEY`. Before pass 7 promotes to dev, or

@@ -71,19 +71,6 @@
         },
         {
           "urls": [
-            "https://oci.external-secrets.io"
-          ],
-          "onDemand": true,
-          "syncTimeout": "10m",
-          "content": [
-            {
-              "prefix": "**",
-              "destination": "/oci.external-secrets.io"
-            }
-          ]
-        },
-        {
-          "urls": [
             "https://public.ecr.aws"
           ],
           "onDemand": true,

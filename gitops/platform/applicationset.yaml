@@ -89,7 +89,7 @@ spec:
                   serverSideApply: "true"
                   chartRepo: https://charts.external-secrets.io
                   chart: external-secrets
-                  chartVersion: "0.10.7"
+                  chartVersion: "2.12.0"
                   valueFile: gitops/infrastructure/external-secrets/values.yaml
                   imageParams:
                     - name: image.repository

@@ -18,7 +18,7 @@
 #
 # The registry is Zot (ADR-0023), outside the cluster, on its own volume, so its
 # cache survives `down`. It is a pull-through cache for docker.io, ghcr.io,
-# quay.io, registry.k8s.io, oci.external-secrets.io and public.ecr.aws (k3s
+# quay.io, registry.k8s.io and public.ecr.aws (k3s
 # mirrors rewrite each upstream into its own namespace in Zot), and the push
 # registry for images built here, under localhost:<port> from the host and from
 # the cluster alike. The same namespaces serve injected image paths:
@@ -79,7 +79,7 @@ substrate_up() {
   printf "  cat > %q <<'EOF'\n" "$run_dir/registries.yaml"
   printf 'mirrors:\n'
   local upstream
-  for upstream in docker.io ghcr.io quay.io registry.k8s.io oci.external-secrets.io public.ecr.aws; do
+  for upstream in docker.io ghcr.io quay.io registry.k8s.io public.ecr.aws; do
     # shellcheck disable=SC2016  # "$1" is for containerd's rewrite, not for bash
     printf '  %s:\n    endpoint: ["http://%s:5000"]\n    rewrite:\n      "^(.*)$": "%s/$1"\n' \
       "$upstream" "$zot" "$upstream"

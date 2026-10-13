@@ -47,7 +47,7 @@ action="${action:-up}"
 cluster="${K3D_CLUSTER:-brzl-local}"
 tag="${DEMO_APP_LOCAL_TAG:-local}"
 cnpg_chart_version="${CNPG_CHART_VERSION:-0.28.2}"
-eso_chart_version="${ESO_CHART_VERSION:-0.10.7}"
+eso_chart_version="${ESO_CHART_VERSION:-2.12.0}"
 certmgr_version="${CERT_MANAGER_VERSION:-v1.16.2}"
 kps_version="${KPS_CHART_VERSION:-86.1.1}"
 

@@ -11,8 +11,8 @@
 # external-secrets/external-secrets, routed through ECR pull-through
 # (brzl-dev-github prefix → ghcr.io upstream, same as CNPG; needs the ghcr
 # Secrets Manager credential wired into 40-ecr). __ECR_REGISTRY_HOST__ is resolved
-# at bootstrap so no account id lands in git (ADR-0013). Verify the chart version
-# (and that v1beta1 is still served) at bring-up — see 25-external-secrets.yaml.
+# at bootstrap so no account id lands in git (ADR-0013). Chart 2.12.0 (ESO
+# v2.12.0); its CRDs need server-side apply (the ApplicationSet sets it).
 installCRDs: true
 
 replicaCount: 1

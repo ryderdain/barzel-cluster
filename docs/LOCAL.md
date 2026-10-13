@@ -126,7 +126,7 @@ bash driver/driver.sh local up | bash driver/kiesei.sh
 
 Zot operates adjacent to the cluster, on the container network `brzl-local`.
 It is a pull-through cache for `docker.io`, `ghcr.io`, `quay.io`,
-`registry.k8s.io`, `oci.external-secrets.io` and `public.ecr.aws`, and the
+`registry.k8s.io` and `public.ecr.aws`, and the
 registry for images that you assemble here
 (`localhost:5001/brzl/...`). Its data is on the volume `brzl-zot-data`. Thus the
 cache stays when you remove the cluster. The first pull of an image through
