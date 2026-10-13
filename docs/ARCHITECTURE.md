@@ -255,3 +255,4 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Accepted |
 | [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted |
 | [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted |
+| [ADR-0026](adr/0026-local-secret-store-outside-the-cluster.md) | The local cluster secret store runs outside the cluster | Accepted |

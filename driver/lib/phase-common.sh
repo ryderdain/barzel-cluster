@@ -2,7 +2,8 @@
 # phase-common.sh — what every phase script in driver/phases/ shares. Not an
 # action script; `source` it from one, after runlib.sh.
 #
-#   phase_init <env>          load env/<env>.env and the substrate adapter it names
+#   phase_init <env>          load env/<env>.env, the substrate adapter it names,
+#                             and the secret-store adapter (BRZL_SECRET_STORE), if any
 #   phase_header <run_dir> [locus]
 #                             print the top of a run-log: the resolved inputs,
 #                             and for the driver locus the kubeconfig to use (a
@@ -33,7 +34,14 @@ phase_init() {
     return 1
   fi
   # shellcheck source=/dev/null
-  source "$repo_root/driver/substrates/$BRZL_SUBSTRATE.sh"
+  source "$repo_root/driver/substrates/$BRZL_SUBSTRATE.sh" || return 1
+  [[ -n "${BRZL_SECRET_STORE:-}" ]] || return 0
+  if [[ ! -r "$repo_root/driver/secret-stores/$BRZL_SECRET_STORE.sh" ]]; then
+    printf 'error: no secret-store adapter for BRZL_SECRET_STORE=%s\n' "$BRZL_SECRET_STORE" >&2
+    return 1
+  fi
+  # shellcheck source=/dev/null
+  source "$repo_root/driver/secret-stores/$BRZL_SECRET_STORE.sh"
 }
 
 phase_header() {

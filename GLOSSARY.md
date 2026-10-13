@@ -102,7 +102,8 @@ _Avoid_: secret store (for this meaning), vault
 
 **Cluster secret store**:
 The secret store that the cluster and its workloads read through the External
-Secrets Operator. Each substrate selects the store.
+Secrets Operator. Each substrate selects the store. The store is external to
+the cluster, exists before it, and outlives it.
 _Avoid_: vault (for this meaning), secret backend
 
 **Secret-store adapter**:

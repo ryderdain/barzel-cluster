@@ -47,6 +47,16 @@ phase_check() {
     printf 'fix: Applications not Synced and Healthy (see: kubectl -n argocd get applications):\n%s\n' "$not_ready" >&2
     rc=1
   fi
+  if [[ -n "${BRZL_SECRET_STORE:-}" ]]; then
+    local projected
+    projected="$(kubectl -n brzl-system get secret smoke -o jsonpath='{.data.value}' 2>/dev/null | base64 -d | sha256sum)"
+    if [[ ! -s "$run_dir/smoke.sha256" || "$projected" != "$(<"$run_dir/smoke.sha256")" ]]; then
+      printf 'fix: the smoke secret ESO projected does not match what phase 25 wrote (or is absent); see: kubectl -n brzl-system describe externalsecret smoke; kubectl describe clustersecretstore brzl-secrets\n' >&2
+      rc=1
+    else
+      printf 'the smoke secret round-trips through the cluster secret store\n'
+    fi
+  fi
   if ! kubectl -n cnpg-demo wait --for=jsonpath='{.status.phase}'='Cluster in healthy state' \
       cluster/pg --timeout=300s >/dev/null; then
     printf 'fix: Postgres cluster cnpg-demo/pg is not healthy; see: kubectl -n cnpg-demo describe cluster/pg\n' >&2

@@ -51,10 +51,11 @@ All phases that are not complete, at once (only for effects on this machine):
 bash driver/driver.sh local up | bash driver/kiesei.sh
 ```
 
-Argo CD reads this repository, which is private. Before phase
-`25-bootstrap`, give the driver the read-only deploy key. Give it only
-to the command that operates the procedure. The key is then not in your shell
-for other commands:
+Argo CD reads this repository, which is private. The first time, give the
+driver the read-only deploy key: phase `25-bootstrap` writes it into the
+cluster secret store, and the store keeps it. Later runs do not need the key.
+Give it only to the command that operates the procedure. The key is then not
+in your shell for other commands:
 
 ```sh
 bash driver/driver.sh local up \
@@ -71,18 +72,22 @@ cluster). The locus is where the run-log of the phase runs. The command is
 always `driver.sh`, for all phases: the driver sends a conductor phase to the
 conductor. Do not operate `driver/conductor.sh` yourself.
 
-- `10-substrate` (driver) makes the Zot registry and the k3d cluster, and
-  writes the kubeconfig to the run directory. If the Zot configuration
-  changed, it replaces the Zot container. The cache stays.
+- `10-substrate` (driver) makes the Zot registry, the OpenBao secret store,
+  and the k3d cluster, and writes the kubeconfig to the run directory. If the
+  configuration of Zot or OpenBao changed, it replaces that container. The
+  data stays.
 - `20-images` (driver) pushes the kiesei image to Zot, and assembles the
   demo-app image and pushes it too.
-- `25-bootstrap` (driver) writes the deploy key into the Argo CD repository
-  Secret, and starts the conductor in the namespace `brzl-system`.
+- `25-bootstrap` (driver) connects the secret store to the cluster. It
+  writes the deploy key into the store when you give it. Then it writes the
+  Argo CD repository Secret from the store, and starts the conductor in the
+  namespace `brzl-system`.
 - `30-gitops` (conductor) installs Argo CD and applies the platform
   ApplicationSet (ADR-0025). Argo CD then deploys CloudNativePG, External
   Secrets, Postgres and the demo-app from git.
 - `40-workloads` (conductor) waits until all Applications are Synced and
-  Healthy, and checks Postgres and the demo-app.
+  Healthy, and checks Postgres and the demo-app. It also checks that the
+  smoke value from phase 25 came back through External Secrets.
 
 Argo CD follows the branch that is checked out when phase `30-gitops` is
 emitted. To follow a different branch, export `BRZL_GITOPS_REVISION`. Argo CD
@@ -139,6 +144,41 @@ docker rm -f brzl-zot
 docker volume rm brzl-zot-data
 docker network rm brzl-local
 ```
+
+### The secret store
+
+OpenBao is the local cluster secret store (ADR-0026). It mimics a cloud secret
+store: it operates adjacent to the cluster, on the network `brzl-local`, with
+its data on the volume `brzl-openbao-data`. It exists before the cluster and
+stays when you remove the cluster. The driver reaches it at `127.0.0.1:8200`.
+In the cluster, External Secrets reads it through the store `brzl-secrets`.
+
+Three files in `var/secret-store/local/` are your credential to the store.
+Phase 10 makes them the first time. They are not in git:
+
+- `seal.key`: the key that unseals the store. If you lose this file, the
+  store is lost. Purge it and start again.
+- `driver.token`: the token the driver writes with.
+- `recovery.key`: to make a new root token if `driver.token` is lost.
+
+To write one secret into the store yourself, use the `bao` CLI in the
+container. The value goes on stdin, and the token in the environment:
+
+```sh
+printf '%s' "$VALUE" | BAO_TOKEN="$(<var/secret-store/local/driver.token)" \
+  docker exec -i -e BAO_TOKEN -e BAO_ADDR=http://127.0.0.1:8200 brzl-openbao \
+  bao kv put -mount=secret <path> value=-
+```
+
+To purge the store and its credential, and start from zero:
+
+```sh
+docker rm -f brzl-openbao
+docker volume rm brzl-openbao-data
+rm -r var/secret-store/local
+```
+
+The next `up` makes a new store. Then give the deploy key again.
 
 ## Use it
 

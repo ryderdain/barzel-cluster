@@ -37,7 +37,9 @@ change-of-image-source steps.
    ApplicationSet for every environment; phases 20-images, 25-bootstrap-secrets,
    30-gitops, 40-workloads; fast mode `fast_on` / `apply` / `fast_off`.
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
-   with a write-then-read smoke test in `up`.
+   with a write-then-read smoke test in `up`. *(5a ESO 2.12.0 verified live
+   2026-10-13; 5b written on branch `pass-5b`, live run pending; ADR-0026:
+   the store runs OUTSIDE the cluster, like Zot.)*
 6. **Loki + Alloy + conductor log shipping.**
 6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
    environment, on the auto-sync switch that pass 4 builds; the procedure for
@@ -47,6 +49,9 @@ change-of-image-source steps.
    to Argo CD's own chart while it holds).
 7. **`promote` phase** (digest + env-definition values along the chain).
 8. *(AWS unfreezes)* AWS phases of `platform.sh` → the AWS adapter.
+   Pass 8 also: the AWS secret-store adapter (Secrets Manager) behind the same
+   interface (ADR-0026), and `gitops/clusters/{dev,prod}/secret-store/` (the
+   `secret-store` Application points there; it cannot sync until they exist).
    **Gate before any environment beyond local (pass 7 promote to dev, pass
    8):** migrate Argo CD's repo credential from a read-only deploy key to a
    **GitHub App** (user decision 2026-10-12, Q61). Local uses the deploy key

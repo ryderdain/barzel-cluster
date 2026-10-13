@@ -64,7 +64,7 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **Storage:** EBS CSI + gp3 default StorageClass. `local-path` only as a documented descope lever. A standalone/DR path installs the CSI driver + gp3 itself (it bypasses the wave-0 GitOps storage app).
 - **Backups:** CNPG → S3 (Barman Cloud), authenticated by the **EC2 instance profile** — no second IAM user.
 - **GitOps:** a **single `ApplicationSet`** (account-id-free, ADR-0016 — NOT an app-of-apps root) with **sync waves** so operators land before the applications that need them; `clusters/{dev,prod}` + `clusters/local`.
-- **Local is the first environment (2026-10-07, ADR-0024).** The promotion chain is local → dev → prod. Local runs on a laptop (k3d) as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **fast mode** (`fast_on`/`fast_off` turn Argo auto-sync off and on so the working tree can be applied directly). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** dev mode (KV + transit; Vault CE fallback by one env value), ESO as the read boundary with one write adapter per store, Loki + Alloy. The local cluster is disposable.
+- **Local is the first environment (2026-10-07, ADR-0024).** The promotion chain is local → dev → prod. Local runs on a laptop (k3d) as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **fast mode** (`fast_on`/`fast_off` turn Argo auto-sync off and on so the working tree can be applied directly). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** outside the cluster, persistent, static seal (KV v2 + transit; ADR-0026), ESO as the read boundary with one write adapter per store, Loki + Alloy. The local cluster is disposable.
 - **One platform ApplicationSet; values and sync switch per cluster (2026-10-12,
   ADR-0025).** `gitops/platform/applicationset.yaml` serves local, dev and prod
   (same Application names and AWS values as the old per-env files, verified by
@@ -81,6 +81,17 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   private repo with a read-only deploy key from the bootstrap source
   `BRZL_REPO_DEPLOY_KEY` (phase 25, driver locus); a GitHub App replaces it
   before any environment beyond local.
+- **The cluster secret store is external, persistent, and seeds the cluster
+  (2026-10-13, ADR-0026).** On every substrate the store exists before the
+  cluster and outlives it (AWS: Secrets Manager; local: OpenBao beside Zot on
+  the container network, `pebbledb` on a volume, static seal with the key in
+  `var/secret-store/<env>/`, init once with the root token revoked). The driver
+  seeds it from the bootstrap secret sources (`secret_put`), then bootstraps the
+  cluster FROM the store (Argo CD's repo credential): a secret enters once. ESO
+  reads it through one ClusterSecretStore name, `brzl-secrets`, defined per
+  environment in `gitops/clusters/<env>/secret-store` (Vault provider +
+  Kubernetes auth on local). Smoke: phase 25 writes a random value, phase 40
+  compares hashes. One adapter per store type (`driver/secret-stores/`).
 - **Platform-layer portability (2026-10-07).** The platform layer (`gitops/infrastructure`, operators, workloads) assumes only conformant Kubernetes plus the substrate adapter's outputs (kubeconfig, registry host, secret store). No dependency on k3s-bundled components, so a managed control plane (EKS/GKE/DOKS) can later replace k3s inside one adapter. Known violation: the local SSO edge uses Traefik `IngressRoute` CRDs (BACKLOG).
 - **CI:** keep all pipeline/runner definitions **CI-system agnostic** (must work on GitHub Actions or GitLab CI).
 - **Node access:** **SSM Session Manager (SSH-over-SSM)** is the access path — no inbound `:22` (`20-security` `enable_ssh_ingress=false`), node role granted SSM (`30-iam` `enable_ssm=true`), Ansible tunnels via a ProxyCommand using the EC2 instance-id. IAM-gated + audited; the TF-generated key is break-glass only. *Chosen over the Ansible `aws_ssm` connection plugin specifically to avoid its S3 file-transfer bucket — SSH-over-SSM needs none.* Prod hardening (documented): private subnets, no public IP, VPC interface endpoints for `ssm`/`ssmmessages`/`ec2messages`.
@@ -327,6 +338,11 @@ rather than replacing it.
 ---
 
 ## 10. Changelog
+- **v0.11 (2026-10-13):** Pass 5 (Q66–Q76): the cluster secret store is
+  external and persistent on every substrate; local = OpenBao beside Zot,
+  seeded by the driver, read by ESO with Kubernetes auth (ADR-0026). ESO
+  0.10.7 → 2.12.0 (v1 API). Phases: 10-substrate, 20-images, 25-bootstrap,
+  30-gitops, 40-workloads (15-conductor folded in).
 - **v0.10 (2026-10-12):** Pass 4 design (Q54–Q65): one platform ApplicationSet
   with the per-environment values and the sync switch on the cluster Secret
   (ADR-0025); **break-glass mode** added beside fast mode (GLOSSARY; BACKLOG

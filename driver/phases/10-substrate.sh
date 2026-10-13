@@ -9,8 +9,10 @@
 #   bash driver/phases/10-substrate.sh phase_check_down <env> <run_dir>
 # The driver calls these; run them by hand to see one phase's commands.
 #
-# Inputs: env/<env>.env (BRZL_SUBSTRATE and the adapter's values). Output for
-# later phases: <run_dir>/kubeconfig. No credentials for k3d.
+# Inputs: env/<env>.env (BRZL_SUBSTRATE, BRZL_SECRET_STORE and the adapters'
+# values). Output for later phases: <run_dir>/kubeconfig; on first start the
+# secret store's trust files in BRZL_SECRET_STORE_DIR (driver/secret-stores/).
+# No credentials for k3d.
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
@@ -26,8 +28,15 @@ phase_up() {
   local env="$1" run_dir="$2"
   phase_init "$env" || end_function "$?" 'environment definition'
   phase_header "$run_dir"
+  phase_error_definition
+  substrate_network_up
+  if [[ -n "${BRZL_SECRET_STORE:-}" ]]; then
+    # Before the cluster: k3d writes the network's members into CoreDNS when it
+    # makes the cluster, so the store must exist first (as Zot must).
+    secret_store_up
+  fi
   substrate_up "$run_dir"
-  end_function 0 "emitted 10-substrate up ($BRZL_SUBSTRATE)"
+  end_function 0 "emitted 10-substrate up ($BRZL_SUBSTRATE${BRZL_SECRET_STORE:+ + $BRZL_SECRET_STORE})"
 }
 
 phase_down() {
@@ -39,9 +48,13 @@ phase_down() {
 }
 
 phase_check() {
-  local env="$1" run_dir="$2"
+  local env="$1" run_dir="$2" rc=0
   phase_init "$env" || return 1
-  substrate_check "$run_dir"
+  if [[ -n "${BRZL_SECRET_STORE:-}" ]]; then
+    secret_store_check || rc=1
+  fi
+  substrate_check "$run_dir" || rc=1
+  return "$rc"
 }
 
 phase_check_down() {

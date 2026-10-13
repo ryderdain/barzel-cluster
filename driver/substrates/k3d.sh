@@ -3,6 +3,8 @@
 # engine), with a Zot registry beside it. Every substrate adapter has the same
 # functions:
 #
+#   substrate_network_up            EMIT: the container network the registry,
+#                                   the secret store and the cluster share
 #   substrate_up <run_dir>          EMIT: make the registry and the cluster;
 #                                   write <run_dir>/kubeconfig
 #   substrate_down                  EMIT: remove the cluster (the registry stays)
@@ -52,14 +54,17 @@ zot_state() {
   fi
 }
 
+substrate_network_up() {
+  printf '{ # container network shared by the registry, the secret store and the cluster\n'
+  printf '  docker network create %q\n' "$BRZL_DOCKER_NETWORK"
+  printf '}\n'
+}
+
 substrate_up() {
   local run_dir="$1" zot="$BRZL_ZOT_NAME" port="$BRZL_ZOT_PORT" config sha state
   config="$repo_root/driver/substrates/k3d-zot.json"
   sha="$(sha256sum < "$config")"; sha="${sha%% *}"
   state="$(zot_state "$sha")"
-  printf '{ # container network shared by the registry and the cluster\n'
-  printf '  docker network create %q\n' "$BRZL_DOCKER_NETWORK"
-  printf '}\n'
   if [[ "$state" == current ]]; then
     printf '{ # Zot registry: its config is current; make sure it runs\n'
     printf '  docker start %q\n' "$zot"

@@ -42,6 +42,7 @@ printf 'BRZL_SUBSTRATE=fake\n' > "$scratch/env/test.env"
 # A fake substrate: "up" leaves a marker file; the check looks for it. A
 # marker named BREAK in the scratch root makes the check fail on purpose.
 cat > "$scratch/driver/substrates/fake.sh" <<'EOF'
+substrate_network_up() { printf '{ # fake network\n  :\n}\n'; }
 substrate_up() { printf '{ # fake cluster\n  : > %s\n}\n' "$1/cluster"; }
 substrate_down() { printf '{ # remove fake cluster\n  rm -f var/run/test/*/cluster\n}\n'; }
 substrate_image_ref() { printf 'test/%s' "$1"; }

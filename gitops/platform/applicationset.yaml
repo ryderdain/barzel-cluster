@@ -22,6 +22,9 @@
 #     brzl.dev/auto-sync           "false" = Argo CD holds: fast mode on local,
 #                                  break-glass mode anywhere (absent = sync)
 #
+# A kustomize element's path may carry __ENV__, replaced by the env label: the
+# `secret-store` app renders gitops/clusters/<env>/secret-store (ADR-0026).
+#
 # Two matrices, unioned: every cluster gets the common apps; only clusters
 # labelled brzl.dev/substrate=aws get the AWS-only ones.
 #
@@ -101,6 +104,14 @@ spec:
                     - name: certController.image.repository
                       upstream: github
                       path: external-secrets/external-secrets
+                - appName: secret-store
+                  kind: kustomize
+                  wave: "2"
+                  namespace: external-secrets
+                  serverSideApply: "false"
+                  # __ENV__ becomes the cluster's brzl.dev/env label: each
+                  # environment keeps its own store definition (ADR-0026).
+                  path: gitops/clusters/__ENV__/secret-store
                 - appName: postgres
                   kind: kustomize
                   wave: "2"
@@ -233,7 +244,7 @@ spec:
           targetRevision: {{ $revision }}
           ref: values
       {{- else }}
-      {{- $path := .path }}
+      {{- $path := replace "__ENV__" $env .path }}
       {{- if and (eq $env "local") .localPath }}{{ $path = .localPath }}{{ end }}
       sources:
         - repoURL: git@github.com:ryderdain/barzel-cluster.git

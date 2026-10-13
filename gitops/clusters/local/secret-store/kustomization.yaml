@@ -1,0 +1,10 @@
+# The local cluster secret store, as the cluster sees it (ADR-0026): ESO's
+# ClusterSecretStore `brzl-secrets` — the one name every workload refers to —
+# backed here by OpenBao outside the cluster, and the smoke ExternalSecret that
+# proves the read path. The platform ApplicationSet deploys this path as the
+# `secret-store` app; each environment has its own copy of this directory with
+# its own provider (AWS: Secrets Manager, pass 8).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - secret-store.yaml
