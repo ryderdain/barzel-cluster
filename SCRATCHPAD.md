@@ -23,7 +23,27 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ NEXT: pass 5** (OpenBao dev mode, Vault CE fallback by one env value; ESO
+**▶ 2026-10-13: pass 5 DESIGN CLOSED (Q66–Q76). Doing 5a (ESO upgrade),
+then 5b (OpenBao).** Decisions: OpenBao runs OUTSIDE the cluster like Zot
+(container on brzl-local, volume, made in phase 10, kept on down; driver at
+127.0.0.1:8200, cluster at brzl-openbao:8200) — it mimics Secrets Manager:
+exists before the cluster, outlives it (Q66). File storage + static seal; the
+seal key is `var/secret-store/local/seal.key` (600, gitignored); lost key =
+purge (Q67). Init once; root token makes policy + `driver` token
+(`var/secret-store/local/driver.token`), root revoked (Q68). Five phases:
+10-substrate (Zot, OpenBao, cluster; transit test in check), 20-images (kiesei
++ demo-app), 25-bootstrap (seed store incl. smoke value, project Argo repo
+credential from the store, conductor manifest), 30-gitops, 40-workloads (check
+compares the smoke hash) — 15-conductor removed (Q69). ClusterSecretStore
+`brzl-secrets`, per-env dir, `secret-store` app; ESO auth = Kubernetes auth
+against the k3d API over the docker network (Q70). Adapter `secret_put <path>
+<VAR>`: token via env, value on stdin (Q71). Transit key brzl-local (Q72).
+ESO upgrade FIRST as 5a, manifests to v1 (Q73/Q76). `BRZL_SECRET_STORE=openbao`,
+only openbao built (Q74). Pass 5 stores only the deploy key + smoke value;
+SECRETS.md rows (Q75). To confirm in docs before building: static seal
+config; k8s auth from outside the cluster.
+
+**(Was) NEXT: pass 5** (OpenBao dev mode, Vault CE fallback by one env value; ESO
 read boundary + per-store write adapters; the `secrets` phase extends
 `25-bootstrap-secrets`; write-then-read smoke test in `up`). Pass 4 verified
 live 2026-10-13 (run 202610131623: all six phases; fast_on / apply / fast_off;
