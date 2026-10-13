@@ -118,7 +118,8 @@ emit_up() {
     [[ "$only_next" == true ]] && break
   done
   (( emitted )) || printf '# all phases of %s are complete in %s\n' "$env" "$run_dir"
-  end_function 0 "emitted $env ${only_next/true/next}${only_next/false/up} for $run_dir"
+  local action=up; [[ "$only_next" == true ]] && action=next
+  end_function 0 "emitted $env $action for $run_dir"
 }
 
 emit_down() {
