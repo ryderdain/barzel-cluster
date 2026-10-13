@@ -2,7 +2,7 @@
 # cluster. It runs the run-logs that the driver sends to it (driver/conductor.sh)
 # and stops itself after an idle period; the next conductor phase wakes it.
 #
-# Rendered by driver phase 15-conductor, which replaces two sentinels:
+# Rendered by driver phase 25-bootstrap, which replaces two sentinels:
 #   __KIESEI_IMAGE__   the kiesei image reference in the substrate's registry
 #   __IDLE_SECONDS__   BRZL_CONDUCTOR_IDLE_SECONDS from the environment definition
 #

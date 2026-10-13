@@ -17,7 +17,7 @@
 #
 # Execution-locus script (like driver/kiesei.sh: it runs what it is given).
 # Inputs: <run_dir>/kubeconfig (from phase 10); the conductor from phase
-# 15-conductor; BRZL_CONDUCTOR_WAIT_SECONDS (default 3600) caps step 4. Needs
+# 25-bootstrap; BRZL_CONDUCTOR_WAIT_SECONDS (default 3600) caps step 4. Needs
 # kubectl and sha256sum. No credentials beyond the kubeconfig.
 
 (( BASH_VERSINFO[0] < 4 )) && { printf 'error: bash >= 4 required\n' >&2; exit 1; }
@@ -36,7 +36,7 @@ say() { printf 'conductor: %s\n' "$*" >&2; }
 
 # 1. Wake and wait.
 if ! kubectl -n "$ns" scale deployment/conductor --replicas=1 >/dev/null; then
-  say 'cannot scale deployment/conductor; is phase 15-conductor done?'
+  say 'cannot scale deployment/conductor; is phase 25-bootstrap done?'
   exit 1
 fi
 if ! kubectl -n "$ns" rollout status deployment/conductor --timeout=300s >/dev/null; then

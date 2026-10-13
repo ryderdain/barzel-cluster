@@ -52,7 +52,7 @@ bash driver/driver.sh local up | bash driver/kiesei.sh
 ```
 
 Argo CD reads this repository, which is private. Before phase
-`25-bootstrap-secrets`, give the driver the read-only deploy key. Give it only
+`25-bootstrap`, give the driver the read-only deploy key. Give it only
 to the command that operates the procedure. The key is then not in your shell
 for other commands:
 
@@ -65,7 +65,7 @@ The run-log records only the name `BRZL_REPO_DEPLOY_KEY`, not the key. The key
 must not have a passphrase, because Argo CD cannot use one. Before an
 environment other than local, a GitHub App replaces the deploy key (BACKLOG).
 
-The local environment has six phases. Each phase has a locus: the driver
+The local environment has five phases. Each phase has a locus: the driver
 (where you operate the procedure) or the conductor (a kiesei pod in the
 cluster). The locus is where the run-log of the phase runs. The command is
 always `driver.sh`, for all phases: the driver sends a conductor phase to the
@@ -74,11 +74,10 @@ conductor. Do not operate `driver/conductor.sh` yourself.
 - `10-substrate` (driver) makes the Zot registry and the k3d cluster, and
   writes the kubeconfig to the run directory. If the Zot configuration
   changed, it replaces the Zot container. The cache stays.
-- `15-conductor` (driver) pushes the kiesei image to Zot and starts the
-  conductor in the namespace `brzl-system`.
-- `20-images` (driver) assembles the demo-app image and pushes it to Zot.
-- `25-bootstrap-secrets` (driver) writes the deploy key into the Argo CD
-  repository Secret.
+- `20-images` (driver) pushes the kiesei image to Zot, and assembles the
+  demo-app image and pushes it too.
+- `25-bootstrap` (driver) writes the deploy key into the Argo CD repository
+  Secret, and starts the conductor in the namespace `brzl-system`.
 - `30-gitops` (conductor) installs Argo CD and applies the platform
   ApplicationSet (ADR-0025). Argo CD then deploys CloudNativePG, External
   Secrets, Postgres and the demo-app from git.

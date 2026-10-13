@@ -38,7 +38,7 @@ repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
 # shellcheck source=SCRIPTDIR/lib/runlib.sh
 source "$repo_root/driver/lib/runlib.sh" || exit 1
 
-up_phases=(10-substrate 15-conductor 20-images 25-bootstrap-secrets 30-gitops 40-workloads)
+up_phases=(10-substrate 20-images 25-bootstrap 30-gitops 40-workloads)
 down_phases=(10-substrate)
 
 # current_run <env> — print the run directory to use for `up`/`next`: the
