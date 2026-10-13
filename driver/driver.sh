@@ -103,7 +103,7 @@ emit_phase() {
   printf '{ # phase %s (%s, locus: %s)\n' "$name" "$env" "${locus:-driver}"
   printf '  bash driver/phases/%s.sh %s %q %q > %q\n' "$phase" "$emitter" "$env" "$run_dir" "$run_dir/$name.sh"
   if [[ "$locus" == conductor ]]; then
-    printf '  bash driver/conductor.sh %q %q 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
+    printf '  bash driver/conductor.sh %q %q < /dev/null 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
   else
     printf '  { bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
       "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
@@ -164,7 +164,7 @@ emit_fast() {
     printf '{ # fast mode: apply the working tree (%s, locus: conductor)\n' "$env"
     printf '  bash driver/fast-mode.sh fast_apply %q %q > %q \\\n' "$env" "$run_dir" "$run_dir/$name.sh"
     printf '    || error 3 %s\n' "$(squote "nothing applied: is fast mode on? (bash driver/driver.sh $env fast_on)")"
-    printf '  bash driver/conductor.sh %q %q 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
+    printf '  bash driver/conductor.sh %q %q < /dev/null 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
     # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
     printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name.rc"
     printf '    || error 3 %s\n' "$(squote "apply failed (fast mode stays on); read $run_dir/$name.out, fix, then apply again")"
