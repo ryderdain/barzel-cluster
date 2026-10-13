@@ -158,6 +158,9 @@ emit_fast() {
     printf '  bash driver/fast-mode.sh fast_apply %q %q > %q \\\n' "$env" "$run_dir" "$run_dir/$name.sh"
     printf '    || error 3 %s\n' "$(squote "nothing applied: is fast mode on? (bash driver/driver.sh $env fast_on)")"
     printf '  bash driver/conductor.sh %q %q 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
+    # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
+    printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name.rc"
+    printf '    || error 3 %s\n' "$(squote "apply failed (fast mode stays on); read $run_dir/$name.out, fix, then apply again")"
     printf '}\n'
   else
     printf '{ # fast mode %s (%s, locus: driver)\n' "$what" "$env"

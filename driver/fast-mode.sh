@@ -119,7 +119,7 @@ kustomization_for() {
 }
 
 fast_apply() {
-  local env="$1" run_dir="${2#"$repo_root"/}" auto app app_json ns dir rendered
+  local env="$1" run_dir="${2#"$repo_root"/}" auto app app_json ns dir rendered with_ns without_ns
   fast_init "$env" "$run_dir" || end_function "$?" 'fast mode'
   auto="$(kubectl -n argocd get secret "brzl-$env-in-cluster" \
     -o jsonpath='{.metadata.annotations.brzl\.dev/auto-sync}')" || end_function "$?" 'cluster Secret'
@@ -139,8 +139,15 @@ fast_apply() {
       || end_function "$?" "kustomization for $app"
     rendered="$(kubectl kustomize --load-restrictor LoadRestrictionsNone "$repo_root/$dir")" \
       || end_function "$?" "could not render $app from the working tree"
+    # As Argo CD does: an object with its own namespace stays there; only an
+    # object with none goes to the Application's destination namespace.
+    with_ns="$(yq 'select(.metadata.namespace != null)' <<< "$rendered")" \
+      || end_function "$?" "could not split $app by namespace"
+    without_ns="$(yq 'select(.metadata.namespace == null)' <<< "$rendered")" \
+      || end_function "$?" "could not split $app by namespace"
     printf '{ # %s from the working tree, with the images and patches Argo CD injects\n' "$app"
-    printf "  kubectl apply -n %q -f - <<'EOF'\n%s\nEOF\n" "$ns" "$rendered"
+    [[ -n "$without_ns" ]] && printf "  kubectl apply -n %q -f - <<'EOF'\n%s\nEOF\n" "$ns" "$without_ns"
+    [[ -n "$with_ns" ]] && printf "  kubectl apply -f - <<'EOF'\n%s\nEOF\n" "$with_ns"
     printf '}\n'
   done < <(yq '.spec.generators[].matrix.generators[1].list.elements[] | select(.kind == "kustomize") | .appName' \
     "$repo_root/$appset_file")
