@@ -256,3 +256,33 @@ all Synced.
   now read from `argocd-cm`. A failed apply now stops the stream.
 - **Also:** Zot is replaced when its config changes (the pass-3 gap); the
   `public.ecr.aws` mirror; the legacy `--with-sso` overlay works again.
+
+## 2026-10-13 — local-first refactor, pass 5: ESO 2.12, the secret store outside the cluster
+
+User-verified on sleipnir. 5a (run `202610131940`): ESO 0.10.7 → 2.12.0 on the
+`v1` API, all apps Synced/Healthy, `pg-app` projects `uri`. 5b (runs
+`202610132037` then `202610132108`, branch `pass-5b`): six Applications
+Synced/Healthy including `secret-store`; `brzl-secrets` "store validated"; the
+smoke value written by phase 25 came back through ESO (hashes equal); then
+`down` and `up` **with no deploy key given** — phase 25 found the key in the
+store, the store unsealed on its own after the cluster was remade.
+
+- **The user's correction set the design** (Q66): an in-cluster OpenBao was
+  "not properly mimicking" Secrets Manager. The store now runs beside the
+  cluster like Zot (ADR-0026): exists before it, outlives it, seeded once by
+  the driver, read by ESO through Kubernetes auth against the cluster API from
+  outside. The user also cut the phase list to five (Q69: 15-conductor folded
+  into 20-images and 25-bootstrap; the smoke test lives in phases 25 and 40,
+  no phase of its own) and asked for the ESO upgrade first (Q76).
+- **Research before building** (two subagents, primary sources): OpenBao 2.7
+  removed `file` storage (→ `pebbledb`); the static seal is built in; self-init
+  cannot return a token and has an open 2.7.1 defect (→ scripted init, root
+  revoked); Kubernetes auth from outside needs host + CA + a reviewer token;
+  ESO serves only `v1` since 0.17 and its images moved to ghcr.io.
+- **Live run found a driver bug the offline checks could not**: the procedure
+  arrives on stdin, and a `docker exec -i` with no piped data swallowed the
+  rest of the stream — two runs ended silently after phase 10. Every run line
+  now takes stdin from `/dev/null`; the mechanics test's fake phases read
+  stdin, so the old driver fails 2 cases. Rule parked for the bash doctrine.
+- **Also**: a `bao()` prelude at the top of a run-log, so lines read as plain
+  procedure; ESO's `oci.external-secrets.io` mirror removed from Zot.

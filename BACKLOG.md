@@ -37,9 +37,8 @@ change-of-image-source steps.
    ApplicationSet for every environment; phases 20-images, 25-bootstrap-secrets,
    30-gitops, 40-workloads; fast mode `fast_on` / `apply` / `fast_off`.
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
-   with a write-then-read smoke test in `up`. *(5a ESO 2.12.0 verified live
-   2026-10-13; 5b written on branch `pass-5b`, live run pending; ADR-0026:
-   the store runs OUTSIDE the cluster, like Zot.)*
+   with a write-then-read smoke test in `up`. *(DONE — 5a and 5b verified
+   live 2026-10-13; ADR-0026: the store runs OUTSIDE the cluster, like Zot.)*
 6. **Loki + Alloy + conductor log shipping.**
 6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
    environment, on the auto-sync switch that pass 4 builds; the procedure for

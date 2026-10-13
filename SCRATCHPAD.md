@@ -23,16 +23,13 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ 2026-10-13: pass 5a (ESO 2.12.0, v1 API) VERIFIED LIVE by the user (run
-202610131940: all apps Synced/Healthy, pg-app projects `uri`, CRD serves v1
-only). 5b (OpenBao outside the cluster) in progress on branch `pass-5b`.**
-Research facts for 5b: pin openbao/openbao:2.7.1; `storage "pebbledb"` (the
-`file` backend is gone in 2.7); static seal built in, key `file:///…`, 32
-bytes; self-init cannot return a token + has a 2.7.1 parser bug → scripted
-init/token/revoke; k8s auth from outside needs kubernetes_host + CA + a
-long-lived reviewer SA token (system:auth-delegator); enable kv-v2 at secret/;
-`bao kv put -mount=secret <path> value=-`; ESO Vault provider (stable) at
-OpenBao with `auth.kubernetes` + `serviceAccountRef.audiences`.
+**▶ NEXT: pass 6** (Loki + Alloy on every substrate; the conductor's stdout
+shipped to Loki; then 6b break-glass mode). Pass 5 verified live 2026-10-13
+(5a run 202610131940; 5b runs 202610132037 + 202610132108, incl. `up` with no
+deploy key: the store kept it) — RETROSPECTIVE entry written; `pass-5b`
+merged to main. The local cluster follows branch `pass-5b` until the next
+30-gitops run from main. Open: the stdin rule for the bash doctrine (user's);
+GitHub App gate; pass 8 secret-store paths for dev/prod.
 
 **(Design) pass 5 CLOSED (Q66–Q76).** Decisions: OpenBao runs OUTSIDE the cluster like Zot
 (container on brzl-local, volume, made in phase 10, kept on down; driver at
