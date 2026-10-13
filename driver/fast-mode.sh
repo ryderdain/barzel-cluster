@@ -94,6 +94,12 @@ fast_check() {
 # in <dir> (relative to the repo root), that puts the live Application's images
 # and patches over its path in the working tree. kustomize takes only relative
 # resource paths, so the path climbs from <dir> to the repo root.
+#
+# It also adds Argo CD's tracking label, app.kubernetes.io/instance=<app>, as
+# Argo CD does when it syncs (the default "label" tracking method; fast_apply
+# refuses any other). Without it, kubectl's three-way merge removes the label,
+# and Argo CD shows the object OutOfSync even when its spec is unchanged. The
+# label goes on metadata only, never into selectors.
 kustomization_for() {
   local app_json="$1" dir="$2" path up='' i image name ref new_name new_tag
   local -a part
@@ -102,6 +108,8 @@ kustomization_for() {
   for (( i = 0; i < ${#part[@]}; i++ )); do up+='../'; done
   printf 'apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\n'
   printf 'resources:\n  - %s\n' "$up$path"
+  printf 'labels:\n  - includeSelectors: false\n    pairs:\n      app.kubernetes.io/instance: %s\n' \
+    "$(jq -r '.metadata.name' <<< "$app_json")"
   printf 'images:\n'
   while IFS= read -r image; do
     [[ -n "$image" ]] || continue
@@ -119,10 +127,17 @@ kustomization_for() {
 }
 
 fast_apply() {
-  local env="$1" run_dir="${2#"$repo_root"/}" auto app app_json ns dir rendered with_ns without_ns
+  local env="$1" run_dir="${2#"$repo_root"/}" auto tracking app app_json ns dir rendered with_ns without_ns
   fast_init "$env" "$run_dir" || end_function "$?" 'fast mode'
   auto="$(kubectl -n argocd get secret "brzl-$env-in-cluster" \
     -o jsonpath='{.metadata.annotations.brzl\.dev/auto-sync}')" || end_function "$?" 'cluster Secret'
+  tracking="$(kubectl -n argocd get configmap argocd-cm \
+    -o jsonpath='{.data.application\.resourceTrackingMethod}')" || end_function "$?" 'argocd-cm'
+  if [[ -n "$tracking" && "$tracking" != label ]]; then
+    printf 'error: Argo CD tracks resources by %s; fast apply writes only the label method\n' "$tracking" >&2
+    end_function 1 'unsupported tracking method'
+    return 1
+  fi
   if [[ "$auto" != false ]]; then
     printf 'error: fast mode is off; Argo CD would revert the change. Run first: bash driver/driver.sh %s fast_on\n' "$env" >&2
     end_function 3 'fast mode is off'
