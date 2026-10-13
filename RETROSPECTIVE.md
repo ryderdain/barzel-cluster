@@ -257,7 +257,7 @@ all Synced.
 - **Also:** Zot is replaced when its config changes (the pass-3 gap); the
   `public.ecr.aws` mirror; the legacy `--with-sso` overlay works again.
 
-## 2026-10-13 — local-first refactor, pass 5: ESO 2.12, the secret store outside the cluster
+## 2026-10-13 — local-first refactor, pass 5: ESO 2.12, the external secret store
 
 User-verified on sleipnir. 5a (run `202610131940`): ESO 0.10.7 → 2.12.0 on the
 `v1` API, all apps Synced/Healthy, `pg-app` projects `uri`. 5b (runs
