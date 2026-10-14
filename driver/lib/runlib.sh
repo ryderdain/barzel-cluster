@@ -38,8 +38,11 @@ if (( BASH_VERSINFO[0] < 4 )); then
   { return 1 2>/dev/null || exit 1; }
 fi
 
-# _ts — timestamp for log lines. printf %()T is a bash-4 builtin, so no fork per line.
-_ts() { printf '%(%F %T)T' -1; }
+# _ts — timestamp for log lines: UTC, ISO 8601, with Z. One format on every
+# host and in every container, so lines from different loci sort and join.
+# printf %()T is a bash-4 builtin, so no fork per line; TZ=UTC applies to
+# this one call.
+_ts() { TZ=UTC printf '%(%Y-%m-%dT%H:%M:%SZ)T' -1; }
 
 # end_function <rc> <msg...> — log the outcome of the CALLING function to stderr, then
 # either return or exit:
@@ -105,7 +108,7 @@ emit_to() {
 
   if [[ -f "$target" ]]; then
     local backup
-    backup="${target}.bak.$(printf '%(%Y%m%d-%H%M%S)T' -1)"
+    backup="${target}.bak.$(TZ=UTC printf '%(%Y%m%dT%H%M%SZ)T' -1)"
     if ! cp -p -- "$target" "$backup"; then
       printf 'error: could not back up %s; refusing to overwrite\n' "$target" >&2
       return 1

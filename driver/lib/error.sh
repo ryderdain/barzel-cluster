@@ -11,6 +11,6 @@
 error() {
     ret_code=${1}; shift
     exec >&2
-    printf '[%(%F %T)T] ' -1; printf 'ERROR: %s\n' "$*"
+    TZ=UTC printf '[%(%Y-%m-%dT%H:%M:%SZ)T] ' -1; printf 'ERROR: %s\n' "$*"
     exit "${ret_code}"
 }

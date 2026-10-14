@@ -4,5 +4,5 @@
 # (decision Q49, 2026-10-09). After the merge, source upstream directly.
 repo=ryderdain/bash
 branch=bash-doctrine
-commit=eed07d4
+commit=02e3308
 files=includes/runlib.sh includes/error.sh
