@@ -7,6 +7,7 @@
 #
 #   bash spikes/logs/spike.sh annotate | bash   # optional: route two namespaces
 #   bash spikes/logs/spike.sh up       | bash   # snapshot data, start the stack
+#     (round 2: SPIKE_ADMIN_FLUSH=short bash spikes/logs/spike.sh up | bash)
 #   bash spikes/logs/spike.sh check admin       # also: diagnostic, reader
 #   bash spikes/logs/spike.sh kill_admin | bash # the cluster is lost
 #   bash spikes/logs/spike.sh reader   | bash   # break-glass read of the data
@@ -31,6 +32,12 @@ otelcol_image=otel/opentelemetry-collector-contrib:0.162.0
 grafana_image=grafana/grafana:13.2.4
 
 declare -A port=([admin]=3101 [diagnostic]=3102 [reader]=3103)
+
+# Round 2: a short flush on the admin Loki, to measure the loss window.
+admin_flush=''
+if [[ "${SPIKE_ADMIN_FLUSH:-}" == short ]]; then
+  admin_flush='-e LOKI_CHUNK_IDLE_PERIOD=1m -e LOKI_MAX_CHUNK_AGE=5m '
+fi
 
 annotate() {
   cat <<EOF
@@ -67,7 +74,7 @@ docker run -d --name brzl-spike-loki-admin --network '$network' --user 0 \\
   -p 127.0.0.1:${port[admin]}:3100 \\
   -v '$here/loki.yaml:/etc/loki/loki.yaml:ro' \\
   -v '$spike/admin-store:/store' -v brzl-spike-loki-admin-work:/loki \\
-  -e LOKI_RETENTION_PERIOD=2160h \\
+  -e LOKI_RETENTION_PERIOD=2160h $admin_flush\\
   '$loki_image' -config.file=/etc/loki/loki.yaml -config.expand-env=true
 
 # diagnostic log store: everything in one volume (lost with the cluster)
@@ -146,6 +153,11 @@ check() {
 
   printf '\n# expected: lines per run-log in the snapshot\n'
   ( cd "$spike/data/run-logs/local" && wc -l -- */*.out )
+  printf '\n# admin store: files in storage\n'
+  ( cd "$spike/admin-store" && find . -type f | sed 's#/[^/]*$##' | sort | uniq -c )
+  printf '\n# memory\n'
+  docker stats --no-stream --format '{{.Name}}  {{.MemUsage}}' \
+    | grep brzl-spike
   printf '\n# cold: records per class\n'
   local file
   for file in "$spike"/cold/*.jsonl; do
