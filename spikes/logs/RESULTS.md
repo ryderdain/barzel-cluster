@@ -54,8 +54,8 @@ settings on the admin Loki (`chunk_idle_period` 30m, `max_chunk_age` 2h).
 Round 2: 2026-10-14, 17:25 to 17:57 CEST, run by the user. It answers
 question 8 again with a short flush on the admin Loki (`chunk_idle_period`
 1m, `max_chunk_age` 5m), and question 10. Loki also writes its index to
-storage only every 15 minutes, so the kill waits 20 minutes. `check` now lists the files in the admin store and prints
-the memory.
+storage only every 15 minutes, so the kill waits 20 minutes. `check` now
+lists the files in the admin store and prints the memory.
 
 1. Remove the round-1 data by hand: `rm -rf var/spike-logs`.
 2. Optional: `bash spikes/logs/spike.sh annotate | bash`.
