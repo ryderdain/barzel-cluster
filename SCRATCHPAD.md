@@ -46,6 +46,14 @@ through Argo CD; `promote platform` / `promote workloads`); pass-8 driver
 credential items and the Mermaid touch-up are in BACKLOG. Lint debt left as
 found: SPEC 86, README 29, ADR-0018 body.
 
+**After the round (2026-10-14):** ADRs use `## Status/Context/Decision/
+Consequences` headings (74800e5). *Run-log* retired: **run sheet** = the
+commands (accurate name: seder), **run output** = what it printed (Q124,
+Q125; ed91fb1). `ryderdain/bash` master = 83fdd41, tag
+`barzel-cluster/2026-10-14.2`; `driver/lib` pinned to it (7365b7a).
+Note for pass 6: the run-directory names in code still use the old local
+time stamp; Q101 changes them.
+
 **▶ NEXT: pass 5c, the admin portal** (ADR-0028; BACKLOG). Start with a
 short design round on the build (nginx image, the page, the node port, the
 certificate flow in phase 25), then build.
