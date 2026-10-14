@@ -1,6 +1,6 @@
 # ADR-0002 — Layered Terraform state (Lee-Briggs), not a single root
 
-**Status:** Accepted · **Date:** 2026-06-01
+**Status:** Accepted · Partly superseded by ADR-0020 (state layout) · **Date:** 2026-06-01
 **Context.** A flat root couples unrelated resources, inflating blast radius and
 plan times; `50-compute` churns far more often than the network.
 **Decision.** Split state per rate of change (`10-network`…`50-compute`), per

@@ -1,6 +1,6 @@
 # ADR-0023 — Mimic cloud services locally now; decide on portable services later
 
-**Status:** Accepted · **Date:** 2026-10-07
+**Status:** Accepted · Partly superseded by ADR-0026 (OpenBao dev mode in the cluster) · **Date:** 2026-10-07
 **Context.** The local environment must test the four cloud functions that
 each workload uses. These are a secret store, customer-managed encryption, a
 pull-through cache, and a private push registry. Two architectures are possible.

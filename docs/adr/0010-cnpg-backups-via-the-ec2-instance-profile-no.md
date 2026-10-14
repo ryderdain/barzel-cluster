@@ -1,6 +1,6 @@
 # ADR-0010 — CNPG backups via the EC2 instance profile, no second IAM user
 
-**Status:** Accepted · **Date:** 2026-06-01 (amended 2026-06-04)
+**Status:** Accepted · Partly superseded by ADR-0016, ADR-0025 (the bucket-name sentinel) · **Date:** 2026-06-01 (amended 2026-06-04)
 **Context.** Object-store backups need S3 credentials; a standing IAM user is a
 static-secret liability.
 **Decision.** CloudNativePG → S3 via Barman Cloud, authenticated by the **EC2

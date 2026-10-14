@@ -1,6 +1,6 @@
 # ADR-0017 — Observability: kube-prometheus-stack, trimmed, port-forward access
 
-**Status:** Accepted · **Date:** 2026-06-04
+**Status:** Accepted · Partly superseded by ADR-0027 (logs) and ADR-0028 (UI access) · **Date:** 2026-06-04
 **Context.** The platform needs system-wide visibility (cluster/node/workload
 metrics) plus Postgres metrics, and the demo wants cheap, no-extra-cost web UIs
 (Grafana, Prometheus, and the existing ArgoCD panel) — without a billable

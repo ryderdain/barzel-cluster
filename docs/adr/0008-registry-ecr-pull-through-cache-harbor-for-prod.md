@@ -1,6 +1,6 @@
 # ADR-0008 — Registry: ECR + pull-through cache; Harbor for prod
 
-**Status:** Accepted · **Date:** 2026-06-01
+**Status:** Accepted · Partly superseded by ADR-0016, ADR-0025 (registry host) and ADR-0023 (Zot on local) · **Date:** 2026-06-01
 **Context.** Need a private registry for images and OCI Helm charts with reliable
 upstream caching; want portability off AWS for prod.
 **Decision.** ECR with pull-through cache now; **Harbor** documented as the

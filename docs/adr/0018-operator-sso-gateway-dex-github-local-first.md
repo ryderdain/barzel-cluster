@@ -1,6 +1,6 @@
 # ADR-0018 — Operator SSO gateway (Dex→GitHub), local-first
 
-**Status:** Accepted · **Date:** 2026-06-04
+**Status:** Accepted · Partly superseded by ADR-0028 (the per-host edge; sign-on stays for pass 6a) · **Date:** 2026-06-04
 **Scope — optional differentiator, not the core deliverable.** This is an opt-in extra
 that lives only under `gitops/clusters/local/sso/` and the `k3d_up.sh --with-sso` flag;
 the core platform (and the AWS ApplicationSet) neither installs nor depends on it, and a

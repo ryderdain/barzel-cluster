@@ -231,28 +231,31 @@ append-only: a superseded ADR is marked, not deleted.
 | ADR | Decision | Status |
 | ----- | ---------- | -------- |
 | [ADR-0001](adr/0001-kubernetes-distribution-self-managed-k3s-not-eks.md) | Kubernetes distribution: self-managed k3s, not EKS | Accepted |
-| [ADR-0002](adr/0002-layered-terraform-state-lee-briggs-not-a-single.md) | Layered Terraform state (Lee-Briggs), not a single root | Accepted |
+| [ADR-0002](adr/0002-layered-terraform-state-lee-briggs-not-a-single.md) | Layered Terraform state (Lee-Briggs), not a single root | Partly superseded by ADR-0020 |
 | [ADR-0003](adr/0003-graviton-arm64-end-to-end.md) | Graviton / arm64 end-to-end | Accepted |
 | [ADR-0004](adr/0004-node-access-via-ssm-ssh-over-ssm-no-inbound-22.md) | Node access via SSM SSH-over-SSM, no inbound :22 | Accepted |
 | [ADR-0005](adr/0005-constrained-identity-deployment-via-federated-oidc.md) | Constrained-identity deployment via federated OIDC | Accepted |
 | [ADR-0006](adr/0006-customer-managed-kms-keys-only.md) | Customer-managed KMS keys only | Accepted |
 | [ADR-0007](adr/0007-operator-ci-toolbox-container-cloud-init-bootstrap.md) | Operator/CI toolbox container + cloud-init bootstrap VM | Superseded by ADR-0021 |
-| [ADR-0008](adr/0008-registry-ecr-pull-through-cache-harbor-for-prod.md) | Registry: ECR + pull-through cache; Harbor for prod | Accepted |
+| [ADR-0008](adr/0008-registry-ecr-pull-through-cache-harbor-for-prod.md) | Registry: ECR + pull-through cache; Harbor for prod | Partly superseded by ADR-0016, ADR-0023, ADR-0025 |
 | [ADR-0009](adr/0009-storage-ebs-csi-gp3-local-path-as-descope-lever.md) | Storage: EBS CSI + gp3; local-path as descope lever | Accepted |
-| [ADR-0010](adr/0010-cnpg-backups-via-the-ec2-instance-profile-no.md) | CNPG backups via the EC2 instance profile, no second IAM user | Accepted |
+| [ADR-0010](adr/0010-cnpg-backups-via-the-ec2-instance-profile-no.md) | CNPG backups via the EC2 instance profile, no second IAM user | Partly superseded by ADR-0016, ADR-0025 |
 | [ADR-0011](adr/0011-single-aws-account-for-the-poc-account-per-env.md) | Single AWS account for the PoC; account-per-env/customer for prod | Accepted |
 | [ADR-0012](adr/0012-managed-nat-gateway-spot-on-demand-capacity-toggle.md) | Managed NAT gateway; spot/on-demand capacity toggle | Accepted |
-| [ADR-0013](adr/0013-gitops-argocd-app-of-apps-with-sync-waves-self.md) | GitOps: ArgoCD app-of-apps with sync waves; self-managed | Accepted |
+| [ADR-0013](adr/0013-gitops-argocd-app-of-apps-with-sync-waves-self.md) | GitOps: ArgoCD app-of-apps with sync waves; self-managed | Partly superseded by ADR-0016 |
 | [ADR-0014](adr/0014-in-cluster-secret-projection-via-external-secrets.md) | In-cluster secret projection via External Secrets Operator | Accepted |
 | [ADR-0015](adr/0015-local-dev-parity-via-k3d-built.md) | Local-dev parity via k3d (built) | Superseded by ADR-0024 |
-| [ADR-0016](adr/0016-account-id-free-gitops-applicationset-host.md) | Account-id-free GitOps: ApplicationSet host injection at render | Accepted |
-| [ADR-0017](adr/0017-observability-kube-prometheus-stack-trimmed-port.md) | Observability: kube-prometheus-stack, trimmed, port-forward access | Accepted |
-| [ADR-0018](adr/0018-operator-sso-gateway-dex-github-local-first.md) | Operator SSO gateway (Dex→GitHub), local-first | Accepted |
-| [ADR-0019](adr/0019-prod-environment-private-subnet-placement-nlb-only.md) | Prod environment: private-subnet placement, NLB-only ingress | Accepted |
+| [ADR-0016](adr/0016-account-id-free-gitops-applicationset-host.md) | Account-id-free GitOps: ApplicationSet host injection at render | Partly superseded by ADR-0025 |
+| [ADR-0017](adr/0017-observability-kube-prometheus-stack-trimmed-port.md) | Observability: kube-prometheus-stack, trimmed, port-forward access | Partly superseded by ADR-0027, ADR-0028 |
+| [ADR-0018](adr/0018-operator-sso-gateway-dex-github-local-first.md) | Operator SSO gateway (Dex→GitHub), local-first | Partly superseded by ADR-0028 |
+| [ADR-0019](adr/0019-prod-environment-private-subnet-placement-nlb-only.md) | Prod environment: private-subnet placement, NLB-only ingress | Layout superseded in part by ADR-0020 |
 | [ADR-0020](adr/0020-single-source-environment-stack-model-b-driver.md) | Single-source environment stack (model B) + driver-composed state backend | Accepted |
 | [ADR-0021](adr/0021-kiesei-driver-and-conductor.md) | Kiesei: one operator image, driver and conductor modes | Accepted |
 | [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs | Accepted |
-| [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Accepted |
+| [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Partly superseded by ADR-0026 |
 | [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted |
 | [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted |
 | [ADR-0026](adr/0026-local-secret-store-outside-the-cluster.md) | The local cluster secret store runs outside the cluster | Accepted |
+| [ADR-0027](adr/0027-logs-admin-and-diagnostic-stores.md) | Logs: an admin log store and a diagnostic log store | Accepted (design; pass 6) |
+| [ADR-0028](adr/0028-admin-portal.md) | The admin portal: one nginx, a static page, a path for each service | Accepted (design; pass 5c) |
+| [ADR-0029](adr/0029-vendored-doctrine-helpers-pinned.md) | The Bash doctrine helpers are vendored, pinned to a tagged commit | Accepted |

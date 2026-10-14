@@ -1,6 +1,6 @@
 # ADR-0016 — Account-id-free GitOps: ApplicationSet host injection at render
 
-**Status:** Accepted · **Date:** 2026-06-04
+**Status:** Accepted · Extended and partly superseded by ADR-0025 · **Date:** 2026-06-04
 
 **Context.** Committed GitOps manifests must not contain the AWS account id, yet
 in-cluster image pulls go through ECR — and ECR auth (the kubelet credential
