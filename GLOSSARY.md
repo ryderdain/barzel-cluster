@@ -93,6 +93,14 @@ _Avoid_: fast mode, intervention mode, emergency mode
 The recorded commands of one phase in one environment, as they operated.
 _Avoid_: transcript, history
 
+### Access
+
+**Admin portal**:
+The landing page of an environment, over HTTPS. It links to every service in
+the cluster and gives the matching CLI commands. It is available with or
+without sign-on; sign-on, when there is one, leads to it.
+_Avoid_: dashboard, homepage, launcher
+
 ### Logs
 
 **Workload logs**:
