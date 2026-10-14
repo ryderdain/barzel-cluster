@@ -1,10 +1,14 @@
 # ADR-0027 — Logs: an admin log store and a diagnostic log store
 
-**Status:** Accepted (design; built in BACKLOG pass 6) · **Date:** 2026-10-14 ·
+## Status
+
+Accepted (design; built in BACKLOG pass 6) · **Date:** 2026-10-14 ·
 **Extends:** ADR-0022, ADR-0023, ADR-0026 · **Supersedes in part:** ADR-0017
 (the metrics stack is unchanged; the log design is new)
 
-**Context.** SPEC §3 promised "audited activity (run-logs + Loki)" and
+## Context
+
+SPEC §3 promised "audited activity (run-logs + Loki)" and
 "Loki + Alloy" on every substrate, but no design existed. Logs have two
 concerns with different readers. **Workload logs** serve the people who
 develop a workload. **Platform logs** serve operators and auditors: the
@@ -13,7 +17,7 @@ records. An audit record that is stored in the cluster it audits is lost
 with that cluster. A spike (branch `spike-logs`, `spikes/logs/RESULTS.md`)
 tested the design in two rounds before the build.
 
-**Decision.**
+## Decision
 
 - **Two stores, named by purpose.** The **admin log store** keeps the
   bootstrap, control-plane and access records of an environment. Its data is
@@ -67,7 +71,7 @@ tested the design in two rounds before the build.
   store (Q94). A break-glass reader, outside the cluster, reads the admin
   data when the cluster is down (BACKLOG pass 6b).
 
-**Consequences.**
+## Consequences
 
 - The audit trail outlives the cluster. The loss window is the admin flush
   time, and the cold copy closes it.

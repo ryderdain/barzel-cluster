@@ -1,6 +1,8 @@
 # ADR-0018 — Operator SSO gateway (Dex→GitHub), local-first
 
-**Status:** Accepted · Split 2026-10-14: sign-on (Dex, oauth2-proxy, kube-API
+## Status
+
+Accepted · Split 2026-10-14: sign-on (Dex, oauth2-proxy, kube-API
 OIDC) → ADR-0035; the per-host edge → superseded by ADR-0028 · **Date:**
 2026-06-04
 **Scope — optional differentiator, not the core deliverable.** This is an opt-in extra
@@ -10,13 +12,19 @@ reviewer can run/judge the whole CNPG operator + lifecycle story without it. It 
 its **own** pre-staging (a GitHub OAuth App + a FreeDNS credential) kept separate from the
 core's image-supply-chain creds (the quay/ghcr/Docker-Hub ECR pull-through tokens). Built
 + proven end-to-end on local k3d (browser tiers + trusted LE-prod cert + kube-API OIDC).
-**Context.** ADR-0017 left UI access as per-service `kubectl port-forward` with each
+
+## Context
+
+ADR-0017 left UI access as per-service `kubectl port-forward` with each
 tool's own admin+password — fine for one operator, but the wrong security posture to
 demonstrate: independent local logins, no central revocation, no role tiers, and
 nothing tying cluster-UI access to the cluster API. We want **one** GitHub-backed
 sign-on in front of the operator web UIs *and* the kube-API, with tiers, built where
 there's no billing meter (the k3d local cluster — ADR-0015) and **portable to AWS**.
-**Decision.** A self-hosted OIDC edge, all upstream images, no AWS dependency:
+
+## Decision
+
+A self-hosted OIDC edge, all upstream images, no AWS dependency:
 - **Dex** is the single OIDC issuer (`https://dex.sso.barzel.sh`), federating a
   **GitHub OAuth App** as the human IdP and re-issuing a uniform identity.
 - **Three per-host `oauth2-proxy` instances** in full **reverse-proxy** mode (not
@@ -49,7 +57,10 @@ sidesteps DNS entirely: it skips OIDC discovery and reads token/JWKS over in-clu
 Service DNS while keeping the public issuer for `iss` validation. (Fallback if the
 FreeDNS webhook fights: SelfSigned issuer over `sslip.io` + an API-server `oidc-ca-file`
 — a one-issuer swap; the web-UI gate is otherwise unchanged.)
-**Consequences.** One sign-on, central revocation (revoke at GitHub or flip the
+
+## Consequences
+
+One sign-on, central revocation (revoke at GitHub or flip the
 allowlist), real role tiers, and the cluster UIs + API share an identity — at zero AWS
 cost. Trade-offs: more moving parts (Dex + three proxies + cert-manager + a third-party
 DNS-01 webhook, which is pinned and reviewed); LE **staging** is used while validating

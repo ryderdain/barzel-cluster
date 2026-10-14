@@ -1,14 +1,18 @@
 # ADR-0033 — Metrics: kube-prometheus-stack, trimmed
 
-**Status:** Accepted (AWS substrate) · **Date:** 2026-10-14 (split from
+## Status
+
+Accepted (AWS substrate) · **Date:** 2026-10-14 (split from
 ADR-0017, 2026-06-04)
 
-**Context.** ADR-0017 bundled the metrics stack, access to its UIs by
+## Context
+
+ADR-0017 bundled the metrics stack, access to its UIs by
 port-forward, and the demo-app's rebuild as a Sefaria search app. ADR-0028
 supersedes the access part and ADR-0034 carries the demo-app. This record
 carries the metrics stack as decided.
 
-**Decision.**
+## Decision
 
 - **kube-prometheus-stack** (Prometheus, Grafana, node and kube-state
   exporters) is the metrics stack, installed by the platform ApplicationSet
@@ -20,7 +24,7 @@ carries the metrics stack as decided.
   metrics stack on local is then decided with it, so that each environment
   has one Grafana.
 
-**Consequences.**
+## Consequences
 
 - Metrics and logs are separate concerns with separate collectors (Q78);
   Grafana is the one viewer for both.

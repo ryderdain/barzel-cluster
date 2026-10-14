@@ -1,9 +1,13 @@
 # ADR-0035 — Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC
 
-**Status:** Accepted (design; built in BACKLOG pass 6a) · **Date:**
+## Status
+
+Accepted (design; built in BACKLOG pass 6a) · **Date:**
 2026-10-14 (split from ADR-0018, 2026-06-04)
 
-**Context.** ADR-0018 bundled sign-on (Dex as the OIDC issuer backed by
+## Context
+
+ADR-0018 bundled sign-on (Dex as the OIDC issuer backed by
 GitHub, oauth2-proxy as the gate, the kube-API server trusting Dex, role
 tiers by GitHub email) with the edge that served it (one host and one
 oauth2-proxy for each service, Traefik `IngressRoute` objects, a wildcard
@@ -11,7 +15,7 @@ certificate from Let's Encrypt by DNS-01 at FreeDNS). ADR-0028 replaces the
 edge with the admin portal. This record carries sign-on, which pass 6a
 builds on the new platform.
 
-**Decision.**
+## Decision
 
 - **Dex is the OIDC issuer, with GitHub as the identity provider.** One
   sign-on for the web UIs and for `kubectl`: the kube-API server trusts
@@ -27,7 +31,7 @@ builds on the new platform.
   ADR-0028's `letsencrypt` mode, with the certificate kept in the cluster
   secret store.
 
-**Consequences.**
+## Consequences
 
 - A break-glass record (pass 6b) can name the person who acted, because
   the identity exists before pass 6b.

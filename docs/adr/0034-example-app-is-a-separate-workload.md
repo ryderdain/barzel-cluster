@@ -1,15 +1,19 @@
 # ADR-0034 — The example app is a separate workload (chofesh)
 
-**Status:** Accepted (design; built in BACKLOG pass 5d) · **Date:**
+## Status
+
+Accepted (design; built in BACKLOG pass 5d) · **Date:**
 2026-10-14 (Q115; replaces the demo-app part of ADR-0017)
 
-**Context.** The demo-app (`apps/demo-app`, a Sefaria search web app whose
+## Context
+
+The demo-app (`apps/demo-app`, a Sefaria search web app whose
 logic came from `ryderdain/chofesh`) lives in this repo, and the Postgres
 cluster it uses is part of the platform ApplicationSet. That ties the
 platform to one workload. The objective (SPEC §1, 2026-10-14) is a platform
 that any workload can consume.
 
-**Decision.**
+## Decision
 
 - **The example app is `ryderdain/chofesh`**, in its own repo with its own
   lifecycle. It keeps its Go CLI and gains a server mode (the demo-app's
@@ -26,7 +30,7 @@ that any workload can consume.
   its database; the platform gives it capabilities, a route in the admin
   portal (ADR-0028) and log routes (ADR-0027).
 
-**Consequences.**
+## Consequences
 
 - The bring-up check (phase 40) tests the example app as a workload, not as
   part of the platform.

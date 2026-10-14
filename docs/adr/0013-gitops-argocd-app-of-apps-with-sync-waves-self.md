@@ -1,14 +1,22 @@
 # ADR-0013 — GitOps: ArgoCD app-of-apps with sync waves; self-managed
 
-**Status:** Accepted · Split 2026-10-14: Argo CD self-managed → ADR-0031; the
+## Status
+
+Accepted · Split 2026-10-14: Argo CD self-managed → ADR-0031; the
 app-of-apps root and the sentinel render → superseded by ADR-0016; the
 repository credential → ADR-0032 · **Date:** 2026-06-03
-**Context.** The cluster config must be declarative, ordered (operators before the
+
+## Context
+
+The cluster config must be declarative, ordered (operators before the
 apps that depend on them), and reproducible by the team — not a pile of imperative
 `kubectl apply`s. ArgoCD itself needs to be installed before it can manage
 anything, and it must read a **private** repo whose image refs point at an
 **account-bearing** ECR host.
-**Decision.** **ArgoCD** drives the cluster via an **app-of-apps**: one hand-applied
+
+## Decision
+
+**ArgoCD** drives the cluster via an **app-of-apps**: one hand-applied
 root Application (`gitops/clusters/dev/root.yaml`) watches a flat dir of child
 Applications, each tagged with `argocd.argoproj.io/sync-wave` so they reconcile in
 order — ArgoCD self-management (wave -1), EBS CSI + gp3 default SC (wave 0), then
@@ -33,7 +41,10 @@ ADR-0008's Harbor-for-prod story). *(A brief detour to keep all of this in GitHu
 repo Secrets was rejected: GitHub Secrets are write-only outside Actions, and ECR
 pull-through can't consume them — so Secrets Manager for creds + Parameter Store
 for the host is both required and simpler.)*
-**Consequences.** One declarative, ordered, self-healing source of truth; argo
+
+## Consequences
+
+One declarative, ordered, self-healing source of truth; argo
 upgrades and app changes are diffs. Adds the bootstrap seam (chicken-and-egg
 install), a deploy-key to rotate, and the sentinel/render step for the account-
 bearing host until the ApplicationSet/Harbor pattern is adopted.

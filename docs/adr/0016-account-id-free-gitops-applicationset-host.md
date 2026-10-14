@@ -1,8 +1,12 @@
 # ADR-0016 — Account-id-free GitOps: ApplicationSet host injection at render
 
-**Status:** Accepted · Extended and partly superseded by ADR-0025 · **Date:** 2026-06-04
+## Status
 
-**Context.** Committed GitOps manifests must not contain the AWS account id, yet
+Accepted · Extended and partly superseded by ADR-0025 · **Date:** 2026-06-04
+
+## Context
+
+Committed GitOps manifests must not contain the AWS account id, yet
 in-cluster image pulls go through ECR — and ECR auth (the kubelet credential
 provider on the EC2 instance profile, ADR-0008) keys off the **real**
 `*.dkr.ecr.*.amazonaws.com` host. A placeholder/mirror host breaks that auth (the
@@ -13,7 +17,9 @@ reverts post-apply edits**, so the host has to enter at **render time**, from a
 source ArgoCD reconciles — not a bootstrap `--set` (that only reaches the initial
 install) and not committed to git.
 
-**Decision.** A **bootstrap shim** (`resolve_ecr_host.sh`) derives the host from
+## Decision
+
+A **bootstrap shim** (`resolve_ecr_host.sh`) derives the host from
 `aws sts get-caller-identity`; bootstrap writes the host **and** the backup-bucket
 name onto the **in-cluster ArgoCD cluster Secret** as annotations
 (`brzl.dev/ecr-host`, `brzl.dev/backup-bucket`) — live, never in git. The
@@ -26,7 +32,9 @@ the `__ECR_REGISTRY_HOST__` / `__BACKUP_BUCKET__` sentinels purely as documentat
 the rendered output carries the real values. Replaces the prior app-of-apps root +
 the PoC sentinel-render escape hatch (the unresolved half of ADR-0013).
 
-**Consequences.** The account id never lands in git and the injection is
+## Consequences
+
+The account id never lands in git and the injection is
 self-heal-safe (it's part of desired-state). The bootstrap `--set` still covers
 ArgoCD's own image (chicken-and-egg). Costs: one ApplicationSet with a
 `templatePatch` (Go-templated, the documented way to express variable Helm params +

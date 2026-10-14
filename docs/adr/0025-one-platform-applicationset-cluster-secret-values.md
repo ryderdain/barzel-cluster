@@ -1,8 +1,12 @@
 # ADR-0025 — One platform ApplicationSet; values and sync switch per cluster
 
-**Status:** Accepted · **Date:** 2026-10-12 · **Extends:** ADR-0016, ADR-0024
+## Status
 
-**Context.** ADR-0024 puts Argo CD on every environment, local included. Dev
+Accepted · **Date:** 2026-10-12 · **Extends:** ADR-0016, ADR-0024
+
+## Context
+
+ADR-0024 puts Argo CD on every environment, local included. Dev
 and prod each had an ApplicationSet file. The two files were the same except
 for the values per environment: the pull-through prefixes, the demo-app image,
 the AppProject, the prod values file for monitoring, and the prod NodePort. A
@@ -14,7 +18,7 @@ renamed element makes the ApplicationSet delete the old Application, and the
 finalizer of that Application then deletes what it deployed. The Argo CD
 configuration of dev was lost that way once.
 
-**Decision.**
+## Decision
 
 - **One ApplicationSet**, `gitops/platform/applicationset.yaml`, for every
   environment. It keeps every Application name, wave and AWS value of the
@@ -54,7 +58,7 @@ configuration of dev was lost that way once.
   them over the working-tree path, and the conductor applies the result. The
   template logic is not copied. Helm apps change only through a pushed branch.
 
-**Consequences.**
+## Consequences
 
 - One file to change for all environments. A per-environment difference
   becomes a label or an annotation, not a copy of the file.

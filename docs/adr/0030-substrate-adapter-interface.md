@@ -1,11 +1,15 @@
 # ADR-0030 — One substrate adapter interface; conformant Kubernetes only
 
-**Status:** Accepted · **Date:** 2026-10-14 · **Moved from:** ADR-0022 (the
+## Status
+
+Accepted · **Date:** 2026-10-14 · **Moved from:** ADR-0022 (the
 adapter rule) and SPEC §3 "platform-layer portability" (2026-10-07) ·
 **Supersedes in part:** ADR-0001 (k3s is the default, not a requirement),
 ADR-0024 (the "k3s stays on each substrate" line)
 
-**Context.** The rule that each substrate has one adapter with the same
+## Context
+
+The rule that each substrate has one adapter with the same
 interface was recorded inside ADR-0022, and the rule that the platform layer
 assumes nothing beyond conformant Kubernetes was only a SPEC line. ADR-0024
 and ADR-0026 cite them separately. With the objective restated as a
@@ -13,7 +17,7 @@ workload-independent platform on any substrate (SPEC §1, 2026-10-14), this
 is the main decision of the design and it needs its own record. Each cloud
 provider is a separate substrate (Q119).
 
-**Decision.**
+## Decision
 
 - **One adapter for each substrate, with one interface.** The adapter makes,
   changes and removes the cluster on its substrate, and it makes the services
@@ -38,7 +42,7 @@ provider is a separate substrate (Q119).
   instances of the stack, set by their environment definitions (ADR-0020
   extended to several clouds).
 
-**Consequences.**
+## Consequences
 
 - A new substrate is one adapter and one stack; the phases, the
   ApplicationSet and the docs do not change.

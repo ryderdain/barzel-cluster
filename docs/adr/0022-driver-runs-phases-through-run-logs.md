@@ -1,13 +1,21 @@
 # ADR-0022 — The driver runs phases through run-logs
 
-**Status:** Accepted · The substrate-adapter interface moved to ADR-0030 ·
+## Status
+
+Accepted · The substrate-adapter interface moved to ADR-0030 ·
 **Date:** 2026-10-07
-**Context.** `gitops/tools/platform.sh` operates its commands directly. Thus
+
+## Context
+
+`gitops/tools/platform.sh` operates its commands directly. Thus
 an operator cannot see a full phase before it starts. Its trap logic, which
 starts a phase again, breaks easily. Its 700 lines mix substrate work and
 general work. The emit-commands rule in `ryderdain/bash` applies to the leaf
 scripts, but not to the driver.
-**Decision.** Divide `platform.sh` into emit-style phase scripts and a thin
+
+## Decision
+
+Divide `platform.sh` into emit-style phase scripts and a thin
 driver. The driver is also an emit script. Its output has one group for each
 phase. Each phase group does these steps:
 
@@ -37,7 +45,8 @@ lines that have the shape `NAME=value`. An exported value replaces the
 default, and the driver shows a warning. Each substrate has one adapter, and
 all adapters have the same interface. The rules are in `ryderdain/bash`
 STYLE.md §1.2, §1.11, and §1.12.
-**Considered options.**
+
+## Considered options
 
 - Commands connected with `&&`. Rejected: the check is implicit, and it
   stops at the boundary between two streams.
@@ -47,7 +56,9 @@ STYLE.md §1.2, §1.11, and §1.12.
 - A large script that the operator copies to the host. Rejected: there is
   no preview.
 
-**Consequences.** Each run keeps a full record. Phases must use commands that
+## Consequences
+
+Each run keeps a full record. Phases must use commands that
 give the same result when they operate again: `apply`, `upgrade --install`,
 and saved plans. Each phase has a check. The `&&` rule in `notes/GUIDANCE.md`
 and in `CLAUDE.md` is withdrawn.

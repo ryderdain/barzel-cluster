@@ -1,11 +1,15 @@
 # ADR-0028 — The admin portal: one nginx, a static page, a path for each service
 
-**Status:** Accepted (design; built in BACKLOG pass 5c) · **Date:**
+## Status
+
+Accepted (design; built in BACKLOG pass 5c) · **Date:**
 2026-10-14 · **Supersedes in part:** ADR-0017 (UI access by port-forward),
 ADR-0018 (the per-host edge with Traefik `IngressRoute`; its sign-on part
 stays for pass 6a)
 
-**Context.** Each service of the cluster needed its own port-forward: Argo
+## Context
+
+Each service of the cluster needed its own port-forward: Argo
 CD, the demo-app, and soon Grafana. That is hard to keep track of. The
 legacy SSO edge (`gitops/clusters/local/sso/`) uses Traefik's own routing
 objects, which SPEC §3 lists as a portability violation. The user asked for
@@ -13,7 +17,7 @@ the simplest page that serves the purpose, on the model of mdoc.su: "even a
 well-formed nginx.conf should be able to serve it". HTTPS is there to
 encrypt the traffic, not to prove the page to the user.
 
-**Decision.**
+## Decision
 
 - **One nginx in the cluster is both the page and the way in.** It serves a
   static `index.html` and passes each path to its service: `/argocd/`,
@@ -38,7 +42,7 @@ encrypt the traffic, not to prove the page to the user.
 - **Sign-on comes later and leads to the portal** (pass 6a, nginx
   `auth_request`). The portal also works without it.
 
-**Consequences.**
+## Consequences
 
 - One place to start for every service, the same on every substrate.
 - On a cloud, only the way to reach nginx changes; pass 8 decides it, with

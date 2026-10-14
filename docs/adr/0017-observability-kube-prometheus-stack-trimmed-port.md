@@ -1,13 +1,21 @@
 # ADR-0017 — Observability: kube-prometheus-stack, trimmed, port-forward access
 
-**Status:** Accepted · Split 2026-10-14: the metrics stack → ADR-0033; UI access
+## Status
+
+Accepted · Split 2026-10-14: the metrics stack → ADR-0033; UI access
 by port-forward → superseded by ADR-0028; the demo-app → ADR-0034 · **Date:**
 2026-06-04
-**Context.** The platform needs system-wide visibility (cluster/node/workload
+
+## Context
+
+The platform needs system-wide visibility (cluster/node/workload
 metrics) plus Postgres metrics, and the demo wants cheap, no-extra-cost web UIs
 (Grafana, Prometheus, and the existing ArgoCD panel) — without a billable
 LoadBalancer/Ingress.
-**Decision.** Add **kube-prometheus-stack** (chart 86.1.1) as a wave-1
+
+## Decision
+
+Add **kube-prometheus-stack** (chart 86.1.1) as a wave-1
 GitOps `helm` app in the ApplicationSet: Prometheus + Grafana + node-exporter +
 kube-state-metrics + the operator. **Alertmanager is trimmed** (`enabled: false`)
 — no notification receiver is wired and it saves resources on the 3-node cluster;
@@ -30,7 +38,10 @@ hygiene reuses ADR-0016: a **single `global.imageRegistry`** injection (the new
 pull-through *prefixes* live in the committed `values.yaml`, so no account id is in
 git. Verified offline with `helm template` (all images resolve to
 `<host>/brzl-dev-*/…`, zero upstream leaks) before apply.
-**Consequences.** Full metrics + dashboards at no incremental AWS cost beyond the
+
+## Consequences
+
+Full metrics + dashboards at no incremental AWS cost beyond the
 two small gp3 PVCs. The trade-offs: no alerting until Alertmanager is re-enabled
 with a receiver; UI access is operator-initiated port-forwarding rather than a
 hosted URL (fine for a single-operator PoC; an SSO-fronted Ingress is the

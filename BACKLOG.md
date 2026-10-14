@@ -69,7 +69,8 @@ Order of work (Q120):
     an expired session stops the phase with a fix line (`aws sso login
     --profile …`) instead of a credential error in the middle of a run-log.
 11. **9. `promote workloads`** and **`promote all`** (a platform and workload
-    change that depend on each other) (Q118).
+    change that depend on each other) (Q118). Revisit the Flow diagram in
+    ARCHITECTURE §1 then, for the workload repo's branches (user).
 
 Standing concerns (check in every pass):
 

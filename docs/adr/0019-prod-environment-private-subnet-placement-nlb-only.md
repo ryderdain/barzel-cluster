@@ -1,11 +1,19 @@
 # ADR-0019 — Prod environment: private-subnet placement, NLB-only ingress
 
-**Status:** Accepted · **Date:** 2026-06-10 · **Validated live 2026-06-10** · **Layout superseded in part by [ADR-0020]** — the *per-env-directory* form below (`terraform/environments/prod/`) is retired; the placement / NLB / tunnel *decisions* stand, now expressed as model-B inputs (`public_nodes=false`, `enable_public_ingress=true`) on the single-source stack. (7/7
+## Status
+
+Accepted · **Date:** 2026-06-10 · **Validated live 2026-06-10** · **Layout superseded in part by [ADR-0020]** — the *per-env-directory* form below (`terraform/environments/prod/`) is retired; the placement / NLB / tunnel *decisions* stand, now expressed as model-B inputs (`public_nodes=false`, `enable_public_ingress=true`) on the single-source stack. (7/7
 apps Synced/Healthy on private nodes, demo-app served through the NLB).
-**Context.** Dev placed nodes in public subnets (admin-/32-locked) for direct
+
+## Context
+
+Dev placed nodes in public subnets (admin-/32-locked) for direct
 operability. Environment separation wants prod to be the same modules
 with the production posture: no public node surface at all.
-**Decision.** `terraform/environments/prod/` composes the same modules with
+
+## Decision
+
+`terraform/environments/prod/` composes the same modules with
 private-subnet placement: no public IPs (`associate_public_ip_address=false`),
 egress via NAT, node access unchanged over SSM (the agent's channel is outbound).
 The kube-API is reached through a **driver-managed SSM port-forward**
@@ -21,7 +29,10 @@ port from the NLB's SG only and the NLB listener allowlisted to the operator /32
 **`values-prod.yaml`** — kube-prometheus-stack is the one chart whose committed
 values carry the env-scoped pull-through prefixes, so each env gets a values file
 kept in lockstep modulo prefix.
-**Consequences.** The prod placement model is built and proven, not asserted;
+
+## Consequences
+
+The prod placement model is built and proven, not asserted;
 promotion really is composition (same modules, different inputs). Costs: the NLB
 (~$0.02/hr, in the churned compute layer on purpose) and the tunnel as an
 operational dependency — owned by the driver, not operator memory.

@@ -1,8 +1,12 @@
 # ADR-0026 — The local cluster secret store runs outside the cluster
 
-**Status:** Accepted · **Date:** 2026-10-13 · **Extends:** ADR-0023
+## Status
 
-**Context.** ADR-0023 chose OpenBao as the local stand-in for the cloud secret
+Accepted · **Date:** 2026-10-13 · **Extends:** ADR-0023
+
+## Context
+
+ADR-0023 chose OpenBao as the local stand-in for the cloud secret
 store. The first plan put it in the cluster, as an Argo CD Application. That
 plan failed the parity test before it was built. AWS Secrets Manager exists
 before the cluster and outlives it. The cluster reaches it over the network,
@@ -12,7 +16,7 @@ breaks this in three ways. It comes after Argo CD. It loses its data at each
 Phase 25 showed the symptom: the deploy key was necessary at every run. Zot
 already follows the cloud model locally.
 
-**Decision.**
+## Decision
 
 - **OpenBao runs beside the cluster, like Zot.** It is one container on the
   environment's container network, with its own volume. The substrate phase
@@ -58,7 +62,7 @@ already follows the cloud model locally.
   and `secret_store_has <path>`. Values travel on stdin, and the token travels
   through the environment. A run-log names only variables.
 
-**Consequences.**
+## Consequences
 
 - Local now has the cloud's shape. The store is external and persistent, and
   the driver and the cluster reach it alike. The deploy key is given once.

@@ -1,15 +1,26 @@
 # ADR-0001 — Kubernetes distribution: self-managed k3s, not EKS
 
-**Status:** Accepted · Partly superseded by ADR-0030 (a managed control plane
+## Status
+
+Accepted · Partly superseded by ADR-0030 (a managed control plane
 may replace k3s inside one substrate adapter) · **Date:** 2026-06-01
-**Context.** The platform must be portable across the vendor's substrate mix (bare
+
+## Context
+
+The platform must be portable across the vendor's substrate mix (bare
 metal / private / public cloud, CC-capable) and reproducible by a small team. A
 managed control plane (EKS) is AWS-only and runs outside an operator-held trust
 boundary.
-**Decision.** Run CNCF-conformant **k3s HA (3 servers, embedded etcd)** on EC2
+
+## Decision
+
+Run CNCF-conformant **k3s HA (3 servers, embedded etcd)** on EC2
 Graviton nodes, installed by Ansible. Disable bundled traefik (ingress is
 GitOps-owned); keep flannel VXLAN as the CNI.
-**Consequences.** Full control-plane portability and $0 incremental control-plane
+
+## Consequences
+
+Full control-plane portability and $0 incremental control-plane
 cost; demonstrates real Kubernetes operation. We own control-plane upgrades,
 patching, and etcd backup/restore (work EKS would absorb). RKE2/Talos are the
 documented hardening path. Full rationale + alternatives: [§3](../ARCHITECTURE.md#3-why-k3s-not-eks).
