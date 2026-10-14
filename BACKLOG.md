@@ -47,8 +47,11 @@ change-of-image-source steps.
    Then the run directories: today `var/run/<env>/<YYYYmmddHHMM>[-down]` in
    the host's local time, and fast-mode run-logs `fast-<what>-<HHMMSS>`. They
    change to UTC with `Z` and get a prefix that names the scope of the
-   directory (Q101). The driver finds runs through the `current` link, so
-   the names can change; old run directories keep their names.
+   directory (Q101 (a)): `cluster-20261014T1425Z` for a bring-up and all that
+   follows on that cluster (`next`, fast mode), `teardown-20261014T1425Z` for
+   a `down`; fast-mode run-logs `fast-apply-142512Z.sh`. The driver finds runs
+   through the `current` link, so the names can change; old run directories
+   keep their names.
 6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
    environment, on the auto-sync switch that pass 4 builds; the procedure for
    an operator or an agent to change the cluster through the conductor
