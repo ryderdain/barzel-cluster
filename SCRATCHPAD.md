@@ -23,7 +23,18 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ IN DESIGN: pass 6, logs (2026-10-14).** Q77 reopened by the user: two
+**▶ pass 6, logs: spike DONE (2026-10-14), next = the build plan.** Verdict
+on branch `spike-logs` (`spikes/logs/RESULTS.md`, 6c356bf) and in BACKLOG
+pass 6. Also settled today: Q97 (OTel Collector + Loki + Grafana), Q98
+(retention classes named by period: 7d/30d/90d), Q99 (two Loki installations,
+names visible in code and operation), Q100 (UTC ISO 8601 with Z; vendored),
+Q101 (run dirs `cluster-<UTC>Z` / `teardown-<UTC>Z`), Q102 (run-log header
+line, logfmt), Q103 (vendored helpers pinned to ryderdain/bash master, tag
+`barzel-cluster/2026-10-14`). ryderdain/bash: bash-doctrine squashed into
+master (e3666df); local backup branch `backup/bash-doctrine-pre-squash`.
+The cluster follows branch `spike-logs` until 30-gitops runs from main.
+
+**(Was) IN DESIGN: pass 6, logs (2026-10-14).** Q77 reopened by the user: two
 concerns. Settled: GLOSSARY terms *workload logs* / *platform logs* (Q84).
 Thin platform logs go to an external store; detailed logs (workload AND
 platform-app detail) stay in an in-cluster store, with optional export (Q85).

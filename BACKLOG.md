@@ -39,9 +39,14 @@ change-of-image-source steps.
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
    with a write-then-read smoke test in `up`. *(DONE — 5a and 5b verified
    live 2026-10-13; ADR-0026: the store runs OUTSIDE the cluster, like Zot.)*
-6. **Logs: admin log store + diagnostic log store** (design in progress
-   2026-10-14, Q77 and Q84–Q96; the spike on branch `spike-logs` chooses the
-   products; "Loki + Alloy" is no longer fixed). One node collector, OTLP.
+6. **Logs: admin log store + diagnostic log store** (design 2026-10-14, Q77
+   and Q84–Q102). **Spike done** (branch `spike-logs`, never merged; verdict
+   in `spikes/logs/RESULTS.md` there, commit `6c356bf`): OpenTelemetry
+   Collector + two Loki installations + Grafana works as designed. Build
+   with: the admin Loki flushes early (1m idle, 5m age; the spike lost 4 of
+   5362 records, all in cold); a health check other than Loki's `/ready`
+   (it stayed "not ready" while serving); about 0.8 GiB beside k3d. The
+   break-glass reader (a fresh Loki on the stored data) works.
    Also in pass 6: **time in UTC, ISO 8601 with `Z`, everywhere** (Q100,
    2026-10-14). Log lines (`_ts`, `error`) change first in `ryderdain/bash`.
    Then the run directories: today `var/run/<env>/<YYYYmmddHHMM>[-down]` in
