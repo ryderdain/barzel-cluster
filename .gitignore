@@ -95,5 +95,5 @@ terraform.rc
 # local-only, never published.
 notes/
 
-# Driver run-logs (.sh/.rc/.ok per phase) and phase outputs. Local record only.
+# Driver run sheets (.sh/.rc/.ok per phase) and phase outputs. Local record only.
 var/

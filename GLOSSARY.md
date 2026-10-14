@@ -90,16 +90,18 @@ and an operator or an agent makes changes through the conductor. Each use is
 recorded and reviewed afterwards. It is not for usual work.
 _Avoid_: fast mode, intervention mode, emergency mode
 
-**Run-log**:
+**Run sheet**:
 The file of commands that one phase emitted for one environment. The driver
 records it before it runs it, and keeps it afterwards, so it is the exact
-record of what ran. The conductor runs the run-logs that the driver sends.
-_Avoid_: transcript, history, script (for this meaning), log (for its output)
+record of what ran. The conductor runs the run sheets that the driver sends.
+Accurate name: seder (an ordered sequence that is followed).
+_Avoid_: run-log (retired 2026-10-14), script, procedure (for this meaning),
+transcript, history
 
-**Run-log output**:
-The recorded output of a run-log as it ran, kept beside the run-log with its
-exit status. The admin log store receives it.
-_Avoid_: log, transcript, run-log (for this meaning)
+**Run output**:
+The recorded output of a run sheet as it ran, kept beside the run sheet with
+its exit status. The admin log store receives it.
+_Avoid_: run-log, log, transcript
 
 ### Access
 

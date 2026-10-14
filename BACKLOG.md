@@ -34,7 +34,7 @@ Order of work (Q120):
    CNPG operator stays a platform capability. **Keep it short** (user).
 4. **6. Logs** — collector, admin and diagnostic Loki, Grafana; UTC
    everywhere; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`; a header
-   line in each run-log; API and OpenBao audit logs; `driver.sh <env> state`
+   line in each run output; API and OpenBao audit logs; `driver.sh <env> state`
    lists (and purges) the state kept outside the cluster
    ([ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md)).
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
@@ -53,7 +53,7 @@ Order of work (Q120):
     and AWS, then others. Open items for AWS: the secret-store adapter
     (Secrets Manager) and `gitops/clusters/{dev,prod}/secret-store/`; the
     admin log store (Q96: same product, data in S3); shipping the driver's
-    run-logs (Q106); exposing nginx through the Gateway API (Q113); the
+    run sheets (Q106); exposing nginx through the Gateway API (Q113); the
     CloudWatch Logs exporter is alpha; the live test of model B
     (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
     `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and
@@ -67,7 +67,7 @@ Order of work (Q120):
     the environment expects (an account alias or a tag, not a committed
     account ID, which would break the derive-at-runtime rule). SSO login:
     an expired session stops the phase with a fix line (`aws sso login
-    --profile …`) instead of a credential error in the middle of a run-log.
+    --profile …`) instead of a credential error in the middle of a run.
 11. **9. `promote workloads`** and **`promote all`** (a platform and workload
     change that depend on each other) (Q118). Revisit the Flow diagram in
     ARCHITECTURE §1 then, for the workload repo's branches (user).

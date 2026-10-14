@@ -11,7 +11,7 @@
 #      STORE, so the deploy key is given once: the store keeps it;
 #   4. the conductor (driver/conductor/conductor.yaml, rendered with the kiesei
 #      image that phase 20 pushed and the idle limit).
-# Locus: the driver, because a secret resolves where the run-log runs, and only
+# Locus: the driver, because a secret resolves where the run sheet runs, and only
 # the driver has the operator's environment and the store's driver token; and
 # because a locus never installs itself (ADR-0021). Later the deploy key gives
 # way to a GitHub App (BACKLOG gate, Q61).
@@ -25,10 +25,10 @@
 # platform ApplicationSet; the store's driver token. Credentials: the bootstrap
 # secret source BRZL_REPO_DEPLOY_KEY (the private key's text, given to the
 # command that runs the stream; needed only until the store holds it). The
-# run-log carries only its NAME, never the key; values move on stdin, never in
+# run sheet carries only its NAME, never the key; values move on stdin, never in
 # argv.
 
-# shellcheck disable=SC2016  # the emitted text names variables for the run-log to expand
+# shellcheck disable=SC2016  # the emitted text names variables for the run sheet to expand
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
 repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/../.." && pwd -P)" || exit 1

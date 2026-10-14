@@ -14,7 +14,7 @@
 #   - the host network, so the k3d API (127.0.0.1:<port>) and published ports
 #     are reachable with the same kubeconfig the host uses;
 #   - the repo mounted at its own host path, so every path in the stream is the
-#     same inside and out, and run-logs land in the host's var/run/;
+#     same inside and out, and run sheets land in the host's var/run/;
 #   - user root, because the engine socket in the engine's VM is root-only;
 #   - every exported BRZL_* variable, so a one-off override reaches the phase
 #     emitters that run inside.

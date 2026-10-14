@@ -16,22 +16,22 @@
 #   bash driver/driver.sh <env> check <phase> <run_dir> [down]   # GENERATOR;
 #                                               #    the emitted groups call this
 #
-# Each phase group: (1) the phase's emitter writes its commands to a run-log,
-# var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh; (2) the run-log runs at the
+# Each phase group: (1) the phase's emitter writes its commands to a run sheet,
+# var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh; (2) the run sheet runs at the
 # phase's locus — here, or on the conductor via driver/conductor.sh — its output
 # goes to <NN>-<phase>.out and its exit status to .rc; (3) the phase's check
 # runs and, if it passes, writes .ok. A failed check stops the stream with
 # `error 3`. Resume = run `up` or `next` again: it continues at the first phase
 # with no .ok. Rules: ryderdain/bash STYLE.md §1.11–§1.12; ADR-0022.
 #
-# A run-log and a check run with stdin from /dev/null. The procedure itself
+# A run sheet and a check run with stdin from /dev/null. The procedure itself
 # arrives on stdin (`| bash`, `| bash driver/kiesei.sh`), so any command in a
-# run-log that reads stdin without a pipe or heredoc of its own (docker exec
+# run sheet that reads stdin without a pipe or heredoc of its own (docker exec
 # -i, kubectl exec -i, cat, ssh) would swallow the rest of the procedure, and
 # the stream would end silently. Data reaches a command by pipe or heredoc.
 #
 # Fast mode (GLOSSARY; local only; ADR-0025): fast_on / fast_off / apply write
-# their run-logs into the current run (fast-on-<HHMMSS>.sh, ...) with
+# their run sheets into the current run (fast-on-<HHMMSS>.sh, ...) with
 # driver/fast-mode.sh and need a run that has passed 30-gitops.
 #
 # Inputs: <env> selects env/<env>.env. Needs the tools of each phase (k3d,

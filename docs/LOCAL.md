@@ -71,13 +71,13 @@ bash driver/driver.sh local up \
   | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/sleipnir-brzl-deploy)" bash driver/kiesei.sh
 ```
 
-The run-log records only the name `BRZL_REPO_DEPLOY_KEY`, not the key. The key
+The run sheet records only the name `BRZL_REPO_DEPLOY_KEY`, not the key. The key
 must not have a passphrase, because Argo CD cannot use one. Before an
 environment other than local, a GitHub App replaces the deploy key (BACKLOG).
 
 The local environment has five phases. Each phase has a locus: the driver
 (where you operate the procedure) or the conductor (a kiesei pod in the
-cluster). The locus is where the run-log of the phase runs. The command is
+cluster). The locus is where the run sheet of the phase runs. The command is
 always `driver.sh`, for all phases: the driver sends a conductor phase to the
 conductor. Do not operate `driver/conductor.sh` yourself.
 
@@ -103,12 +103,12 @@ emitted. To follow a different branch, export `BRZL_GITOPS_REVISION`. Argo CD
 reads only commits that are pushed: the phase shows a warning when your branch
 is ahead of its remote.
 
-For a conductor phase, the driver copies the run-log into the conductor pod,
+For a conductor phase, the driver copies the run sheet into the conductor pod,
 operates it there, shows its output, and copies back the exit status. The
 conductor stops itself after `BRZL_CONDUCTOR_IDLE_SECONDS` with no work. The
 next conductor phase starts it again.
 
-Each phase writes a run-log to `var/run/local/<YYYYmmddHHMM>/`: the commands
+Each phase writes a run sheet to `var/run/local/<YYYYmmddHHMM>/`: the commands
 (`<NN>-<phase>.sh`), their output (`.out`), the exit status (`.rc`), and `.ok`
 when the check of the phase is correct. If a phase stops, repair the cause and
 operate `up` or `next` again. The driver starts at the first phase that has no
@@ -128,7 +128,7 @@ bash driver/driver.sh local status
 
 The values for the local environment are in `env/local.env`. To change one
 value for one run, export it. The driver shows a warning and records the
-value in the run-log. Export the value. Then the two sides of the pipe get
+value in the run sheet. Export the value. Then the two sides of the pipe get
 it:
 
 ```sh

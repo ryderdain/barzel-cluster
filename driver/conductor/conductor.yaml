@@ -1,5 +1,5 @@
 # The conductor (kiesei bakar, ADR-0021): the kiesei image as a warm pod in the
-# cluster. It runs the run-logs that the driver sends to it (driver/conductor.sh)
+# cluster. It runs the run sheets that the driver sends to it (driver/conductor.sh)
 # and stops itself after an idle period; the next conductor phase wakes it.
 #
 # Rendered by driver phase 25-bootstrap (which also makes the namespace
@@ -53,7 +53,7 @@ spec:
           env:
             - name: IDLE_SECONDS
               value: "__IDLE_SECONDS__"
-          # Wait for run-logs. driver/conductor.sh touches /work/run/.activity
+          # Wait for run sheets. driver/conductor.sh touches /work/run/.activity
           # on each use; after IDLE_SECONDS with no use, scale to zero.
           command: ["bash", "-c"]
           args:

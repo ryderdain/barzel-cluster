@@ -5,14 +5,14 @@
 #   phase_init <env>          load env/<env>.env, the substrate adapter it names,
 #                             and the secret-store adapter (BRZL_SECRET_STORE), if any
 #   phase_header <run_dir> [locus]
-#                             print the top of a run-log: the resolved inputs,
+#                             print the top of a run sheet: the resolved inputs,
 #                             and for the driver locus the kubeconfig to use (a
-#                             conductor run-log uses its in-cluster account)
+#                             conductor run sheet uses its in-cluster account)
 #   gitops_repo_url           print the git repo URL that the platform
 #                             ApplicationSet follows (its one home)
 #   phase_error_definition    print the error() function (driver/lib/error.sh)
-#                             for a run-log that stops itself with `error 3`
-#                             (a run-log runs as its own process, so it needs
+#                             for a run sheet that stops itself with `error 3`
+#                             (a run sheet runs as its own process, so it needs
 #                             its own copy; STYLE.md §1.2)
 #
 # Each phase script also defines phase_locus, which prints `driver` or

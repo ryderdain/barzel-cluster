@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# driver-cases.sh — checks the driver's own mechanics with no cluster: run-logs,
+# driver-cases.sh — checks the driver's own mechanics with no cluster: run sheets,
 # .rc and .ok files, resume at the first unfinished phase, the `error 3` stop on
 # a failed check, and `down`.
 #
@@ -51,9 +51,9 @@ substrate_check_down() { ! compgen -G 'var/run/test/*/cluster' >/dev/null; }
 EOF
 # Every phase after 10 becomes trivial, so the driver's sequencing is what is
 # tested. Each one also reads stdin (`cat`), as docker exec -i or kubectl exec
-# -i would: the driver must run a run-log with stdin from /dev/null, or that
+# -i would: the driver must run a run sheet with stdin from /dev/null, or that
 # read swallows the rest of the procedure and the later phases never run. 30-gitops declares the conductor locus; a fake conductor.sh runs the
-# run-log locally and writes the .rc, as the real one does after collecting it.
+# run sheet locally and writes the .rc, as the real one does after collecting it.
 for phase in 20-images 25-bootstrap 30-gitops 40-workloads; do
   locus=driver; [[ "$phase" == 30-gitops ]] && locus=conductor
   cat > "$scratch/driver/phases/$phase.sh" <<EOF
@@ -83,15 +83,15 @@ run_dir() { readlink "$scratch/var/run/test/current"; }
 drive up >/dev/null
 report 'previewing up creates nothing' 'absent' "$([[ -e "$scratch/var" ]] && printf present || printf absent)"
 
-# 2. `next | bash` runs exactly one phase and records it: run-log, .rc, .ok.
+# 2. `next | bash` runs exactly one phase and records it: run sheet, .rc, .ok.
 drive next | (cd "$scratch" && bash >/dev/null 2>&1)
 dir="$scratch/var/run/test/$(run_dir)"
 files=("$dir"/10-substrate.*); got="$(printf '%s ' "${files[@]##*/}")"
 report 'next runs one phase and records .sh .out .rc .ok' '10-substrate.ok 10-substrate.out 10-substrate.rc 10-substrate.sh ' "$got"
 report 'next runs only that phase' 'no' "$([[ -e "$dir/20-images.sh" ]] && printf yes || printf no)"
 
-# 3. The run-log starts with the resolved inputs.
-report 'the run-log records the resolved environment' '# BRZL_SUBSTRATE=fake' "$(sed -n 2p "$dir/10-substrate.sh")"
+# 3. The run sheet starts with the resolved inputs.
+report 'the run sheet records the resolved environment' '# BRZL_SUBSTRATE=fake' "$(sed -n 2p "$dir/10-substrate.sh")"
 
 # 4. Resume: `up` continues at the first phase without .ok, in the same run.
 before="$(run_dir)"
@@ -101,7 +101,7 @@ report 'up finishes the remaining phases' 'ok ok ok ok' \
   "$(for p in 20-images 25-bootstrap 30-gitops 40-workloads; do [[ -e "$dir/$p.ok" ]] && printf 'ok '; done | sed 's/ $//')"
 report 'a conductor-locus phase goes through conductor.sh; others do not' 'yes no' \
   "$([[ -e "$dir/30-gitops.via-conductor" ]] && printf yes || printf no) $([[ -e "$dir/20-images.via-conductor" ]] && printf yes || printf no)"
-report 'a conductor run-log carries no kubeconfig export' '0' "$(grep -c '^export KUBECONFIG' "$dir/30-gitops.sh")"
+report 'a conductor run sheet carries no kubeconfig export' '0' "$(grep -c '^export KUBECONFIG' "$dir/30-gitops.sh")"
 
 # 5. When every phase is complete, `up` starts a new run (a fresh, idempotent pass).
 got="$(drive up | grep -c '^{ # phase ')"

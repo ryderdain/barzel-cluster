@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# conductor.sh — the conductor locus: send one run-log to the conductor pod in
+# conductor.sh — the conductor locus: send one run sheet to the conductor pod in
 # the cluster, run it there detached, follow its output, and collect its exit
 # status. The driver's phase groups call it for phases whose locus is the
 # conductor; it is not meant to be run by hand.

@@ -40,7 +40,7 @@ plan in [BACKLOG.md](BACKLOG.md), the records in
 written (adapter interface; Argo CD self-managed; repo credential; metrics;
 example app; sign-on), old Status lines point at them. Q123: supply-chain
 rule restated in SPEC §3. User review items done: "GitOps-driven" back in
-README; GLOSSARY separates *run-log* (the commands) from *run-log output*;
+README; GLOSSARY separates *run sheet* (the commands) from *run output*;
 ARCHITECTURE §1 has the Flow diagram (platform road vs workload road, both
 through Argo CD; `promote platform` / `promote workloads`); pass-8 driver
 credential items and the Mermaid touch-up are in BACKLOG. Lint debt left as
@@ -62,7 +62,7 @@ The user reviews the branch as one diff; then merge to `main`.
   namespace annotation `brzl.dev/log-routes: drop|admin|diagnostic|cold`;
   retention classes `brzl.dev/log-retention: 7d|30d|90d`; Grafana in the
   cluster; UTC with Z; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`;
-  a logfmt header in each run-log. Spike verdict: branch `spike-logs`,
+  a logfmt header in each run output. Spike verdict: branch `spike-logs`,
   `spikes/logs/RESULTS.md`.
 - Admin portal (Q107, Q112–Q114): one nginx, a static page, relative paths
   (`/argocd/`, `/grafana/`, `/apps/<workload>/`); TLS `letsencrypt` (owned

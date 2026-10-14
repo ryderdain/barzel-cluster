@@ -26,7 +26,7 @@ step, and it has the same shape as the others:
 ```text
  driver (kiesei, outside the cluster)
    │  phases: 10-substrate → 20-images → 25-bootstrap → 30-gitops → 40-workloads
-   │  each phase: emit a run-log → run it → check it
+   │  each phase: emit a run sheet → run it → check it
    ▼
  services outside the cluster          the cluster
  (exist before it, outlive it)         ┌────────────────────────────────────┐
@@ -285,7 +285,7 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0019](adr/0019-prod-environment-private-subnet-placement-nlb-only.md) | Prod environment: private-subnet placement, NLB-only ingress | Layout superseded in part by ADR-0020 |
 | [ADR-0020](adr/0020-single-source-environment-stack-model-b-driver.md) | Single-source environment stack (model B) + driver-composed state backend | Accepted |
 | [ADR-0021](adr/0021-kiesei-driver-and-conductor.md) | Kiesei: one operator image, driver and conductor modes | Accepted |
-| [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs | Accepted; adapter interface → ADR-0030 |
+| [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs (now: run sheets) | Accepted; adapter interface → ADR-0030 |
 | [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Partly superseded by ADR-0026 |
 | [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted; k3s line → ADR-0030 |
 | [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted |

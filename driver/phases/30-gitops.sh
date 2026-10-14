@@ -6,12 +6,12 @@
 # Argo CD then deploys the operators and the workloads from git. Locus: the
 # conductor.
 #
-# Everything the conductor needs is rendered into the run-log when the phase is
+# Everything the conductor needs is rendered into the run sheet when the phase is
 # emitted: the Argo CD values, the AppProject, the cluster Secret, the
-# ApplicationSet. The conductor needs no copy of the repo, and the run-log is
+# ApplicationSet. The conductor needs no copy of the repo, and the run sheet is
 # the record of what was applied.
 #
-# Before it applies the ApplicationSet, the run-log stops (`error 3`) if a live
+# Before it applies the ApplicationSet, the run sheet stops (`error 3`) if a live
 # Application has no element in the new file: the ApplicationSet would leave it
 # behind (ADR-0016, ADR-0025).
 #
@@ -31,7 +31,7 @@
 # <run_dir>/kubeconfig (for the check). Needs git, yq (kiesei). No credentials:
 # the repo credential is phase 25's.
 
-# shellcheck disable=SC2016  # the emitted text names variables for the run-log to expand
+# shellcheck disable=SC2016  # the emitted text names variables for the run sheet to expand
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
 repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/../.." && pwd -P)" || exit 1

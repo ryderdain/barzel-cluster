@@ -7,7 +7,7 @@
 #
 #   secret_store_up                 EMIT: make the store (container, first-time
 #                                   init, policies, KV v2, transit); idempotent
-#   secret_store_prelude            EMIT: define bao() for the run-log: one CLI
+#   secret_store_prelude            EMIT: define bao() for the run sheet: one CLI
 #                                   call in the store container as the driver
 #                                   (token from driver.token, via the environment)
 #   secret_store_bind_cluster       EMIT: let the cluster's ESO authenticate to
@@ -15,7 +15,7 @@
 #   secret_put <path> <VAR_NAME>    EMIT (one line, no newline): write
 #                                   $VAR_NAME's value at <path>; the value goes
 #                                   on stdin, the token through the environment;
-#                                   the run-log names the variable
+#                                   the run sheet names the variable
 #   secret_get <path>               EMIT: print the value at <path> on stdout,
 #                                   for a pipe into its consumer
 #   secret_exists <path>            EMIT: succeed if <path> holds a value

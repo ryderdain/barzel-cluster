@@ -2,11 +2,11 @@
 # fast-mode.sh — fast mode on the local environment (GLOSSARY): Argo CD holds,
 # and the driver applies the working tree directly, for changes to the
 # structure of the cluster. The driver's fast_on / fast_off / apply actions call
-# this script; it writes run-logs, the driver runs them (driver.sh).
+# this script; it writes run sheets, the driver runs them (driver.sh).
 #
-#   bash driver/fast-mode.sh fast_switch <on|off> <env> <run_dir>  # EMIT a run-log
+#   bash driver/fast-mode.sh fast_switch <on|off> <env> <run_dir>  # EMIT a run sheet
 #   bash driver/fast-mode.sh fast_check <on|off> <env> <run_dir>   # GENERATOR
-#   bash driver/fast-mode.sh fast_apply <env> <run_dir>            # EMIT a run-log
+#   bash driver/fast-mode.sh fast_apply <env> <run_dir>            # EMIT a run sheet
 #
 # The switch is one annotation on the cluster Secret, brzl.dev/auto-sync
 # ("false" = hold). The platform ApplicationSet reads it and renders every
@@ -16,7 +16,7 @@
 #
 # fast_apply renders the kustomize apps (postgres, demo-app) from the WORKING
 # TREE with the same images and patches that Argo CD injects — read from each
-# live Application, not copied from the template — and the run-log applies the
+# live Application, not copied from the template — and the run sheet applies the
 # result; the driver runs it on the conductor. The helm apps change only
 # through a pushed branch (Q58).
 #
@@ -24,7 +24,7 @@
 # (local). Inputs: <run_dir>/kubeconfig; the live cluster Secret and
 # Applications. Needs kubectl, jq, yq (kiesei). No credentials.
 
-# shellcheck disable=SC2016  # the emitted text names variables for the run-log to expand
+# shellcheck disable=SC2016  # the emitted text names variables for the run sheet to expand
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
 repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
