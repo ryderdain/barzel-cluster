@@ -1,0 +1,150 @@
+# SPIKE (branch spike-logs, never merged) — the node collector, run beside
+# the cluster as brzl-spike-otelcol. It reads snapshots under /data, the live
+# cluster API for events and namespace annotations, and writes to:
+#   otlphttp/admin-log-store       -> brzl-spike-loki-admin
+#   otlphttp/diagnostic-log-store  -> brzl-spike-loki-diagnostic
+#   file/cold                      -> /cold/<retention class>.jsonl
+#
+# Two intake pipelines set the routes; one forward connector fans out to one
+# pipeline per destination. A route list is comma-separated (Q95):
+# drop | admin | diagnostic | cold; a record goes to every store it names.
+
+receivers:
+  filelog/run-logs:
+    include: [/data/run-logs/*/*/*.out]
+    start_at: beginning
+    include_file_path: true
+    operators:
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '^/data/run-logs/(?P<env>[^/]+)/(?P<run>[^/]+)/(?P<phase>[^/]+)\.out$'
+        parse_to: resource
+      - {type: move, from: 'resource["env"]', to: 'resource["brzl.env"]'}
+      - {type: move, from: 'resource["run"]', to: 'resource["brzl.run"]'}
+      - {type: move, from: 'resource["phase"]', to: 'resource["brzl.phase"]'}
+      - {type: add, field: 'resource["brzl.source"]', value: run-log}
+
+  filelog/k3s-server:
+    include: [/data/k3s-server/*.log]
+    start_at: beginning
+    operators:
+      - {type: add, field: 'resource["brzl.source"]', value: k3s-server}
+      - {type: add, field: 'resource["brzl.env"]', value: local}
+
+  filelog/pods:
+    include: [/data/pods/*/*/*.log]
+    start_at: beginning
+    include_file_path: true
+    operators:
+      - type: container                       # namespace, pod, uid, container from the path
+
+  k8sobjects/events:
+    auth_type: kubeConfig
+    objects:
+      - name: events
+        group: events.k8s.io
+        mode: watch                           # only events after the collector starts
+
+processors:
+  k8sattributes:
+    auth_type: kubeConfig
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.uid
+    extract:
+      metadata: [k8s.namespace.name, k8s.pod.name, k8s.deployment.name, k8s.node.name]
+      annotations:
+        - tag_name: brzl.routes
+          key: brzl.dev/log-routes
+          from: namespace
+        - tag_name: brzl.retention
+          key: brzl.dev/log-retention
+          from: namespace
+
+  # Q90: the platform's own records always go to the admin log store and to
+  # cold, from this config and not from an annotation.
+  transform/platform-routes:
+    error_mode: propagate
+    log_statements:
+      - set(resource.attributes["brzl.env"], "local") where resource.attributes["brzl.env"] == nil
+      - set(resource.attributes["brzl.source"], "k8s-event") where resource.attributes["brzl.source"] == nil
+      - set(resource.attributes["brzl.routes"], "admin,cold")
+      - set(resource.attributes["brzl.retention"], "90d")
+
+  # Pod logs: the namespace annotation decides; no annotation = diagnostic.
+  transform/pod-routes:
+    error_mode: propagate
+    log_statements:
+      - set(resource.attributes["brzl.source"], "pod")
+      - set(resource.attributes["brzl.env"], "local")
+      - set(resource.attributes["brzl.routes"], "diagnostic") where resource.attributes["brzl.routes"] == nil
+
+  filter/admin-log-store:
+    error_mode: propagate
+    logs:
+      log_record:
+        - 'not IsMatch(resource.attributes["brzl.routes"], "(^|,)admin(,|$)")'
+  filter/diagnostic-log-store:
+    error_mode: propagate
+    logs:
+      log_record:
+        - 'not IsMatch(resource.attributes["brzl.routes"], "(^|,)diagnostic(,|$)")'
+  filter/cold:
+    error_mode: propagate
+    logs:
+      log_record:
+        - 'not IsMatch(resource.attributes["brzl.routes"], "(^|,)cold(,|$)")'
+
+  # Q99: each record names the store it is in.
+  transform/admin-log-store:
+    log_statements:
+      - set(resource.attributes["brzl.store"], "admin-log-store")
+  transform/diagnostic-log-store:
+    log_statements:
+      - set(resource.attributes["brzl.store"], "diagnostic-log-store")
+  transform/cold:
+    log_statements:
+      - set(resource.attributes["brzl.store"], "cold")
+      - set(resource.attributes["brzl.cold.class"], "default")
+      - set(resource.attributes["brzl.cold.class"], resource.attributes["brzl.retention"]) where resource.attributes["brzl.retention"] != nil
+
+  batch: {}
+
+connectors:
+  forward/routed: {}
+
+exporters:
+  otlphttp/admin-log-store:
+    endpoint: http://brzl-spike-loki-admin:3100/otlp
+  otlphttp/diagnostic-log-store:
+    endpoint: http://brzl-spike-loki-diagnostic:3100/otlp
+  file/cold:
+    path: /cold/*.jsonl
+    format: json
+    group_by:
+      enabled: true
+      resource_attribute: brzl.cold.class
+
+service:
+  pipelines:
+    logs/platform-intake:
+      receivers: [filelog/run-logs, filelog/k3s-server, k8sobjects/events]
+      processors: [transform/platform-routes]
+      exporters: [forward/routed]
+    logs/pod-intake:
+      receivers: [filelog/pods]
+      processors: [k8sattributes, transform/pod-routes]
+      exporters: [forward/routed]
+    logs/admin-log-store:
+      receivers: [forward/routed]
+      processors: [filter/admin-log-store, transform/admin-log-store, batch]
+      exporters: [otlphttp/admin-log-store]
+    logs/diagnostic-log-store:
+      receivers: [forward/routed]
+      processors: [filter/diagnostic-log-store, transform/diagnostic-log-store, batch]
+      exporters: [otlphttp/diagnostic-log-store]
+    logs/cold:
+      receivers: [forward/routed]
+      processors: [filter/cold, transform/cold, batch]
+      exporters: [file/cold]

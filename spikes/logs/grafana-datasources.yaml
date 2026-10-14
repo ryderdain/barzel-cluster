@@ -1,0 +1,20 @@
+# SPIKE (branch spike-logs, never merged) — Grafana's data sources, one for
+# each Loki installation. The names say which store each one reads (Q99).
+apiVersion: 1
+datasources:
+  - name: Admin log store
+    uid: admin-log-store
+    type: loki
+    access: proxy
+    url: http://brzl-spike-loki-admin:3100
+    isDefault: true
+  - name: Diagnostic log store
+    uid: diagnostic-log-store
+    type: loki
+    access: proxy
+    url: http://brzl-spike-loki-diagnostic:3100
+  - name: Admin log store (break-glass reader)
+    uid: admin-log-store-reader
+    type: loki
+    access: proxy
+    url: http://brzl-spike-loki-admin-reader:3100
