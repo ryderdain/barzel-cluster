@@ -51,7 +51,7 @@ settings on the admin Loki (`chunk_idle_period` 30m, `max_chunk_age` 2h).
 | 9 | Does the cold copy have every admin record (the gap that cold closes)? | Yes. Every admin record was in `cold/90d.jsonl` within seconds, and it was still there after the kill. |
 | 10 | Memory of each container (`docker stats --no-stream`). | Not measured. |
 
-Round 2: to run. It answers question 8 again with a short flush on the
+Round 2: 2026-10-14, 17:25 to 17:57 CEST, run by the user. It answers question 8 again with a short flush on the
 admin Loki (`chunk_idle_period` 1m, `max_chunk_age` 5m), and question 10.
 Loki also writes its index to storage only every 15 minutes, so the kill
 waits 20 minutes. `check` now lists the files in the admin store and prints
@@ -66,6 +66,13 @@ the memory.
    `bash spikes/logs/spike.sh check reader`.
 6. `bash spikes/logs/spike.sh down | bash`.
 
+| # | Question | Result |
+| --- | --- | --- |
+| 8 | Does the reader start on the data alone? How many records does it lose? | **Yes.** After 20 minutes the admin store held 69 chunk files and one index file. The reader, with no WAL, found every run-log line (2222) and every k3s-server line (3108). It lost **4 of 32 events**: the newest records, not yet in a saved chunk when the admin Loki was killed. So the loss window is the flush time: minutes, not hours. |
+| 9 | Does the cold copy close that gap? | Yes. `cold/90d.jsonl` held 5362 records at the admin check (= 3108 + 32 + 2222) and 5364 later, so the 4 lost events are in it. |
+| 10 | Memory of each container | Grafana 340 MiB, collector 180 MiB, admin Loki 173 MiB, diagnostic Loki 116 MiB, reader 155 MiB. About 0.8 GiB beside k3d for the full stack. |
+| 1 | Readiness, again | `/ready` still said "Ingester not ready: waiting for 15s" in all three Loki installations, while every query worked. |
+
 ## Not in this spike
 
 - The Kubernetes API audit log. It needs a new cluster with a policy file.
@@ -75,4 +82,24 @@ the memory.
 
 ## Verdict
 
-To write after round 2.
+The design from Q84 to Q102 works as specified, with the OpenTelemetry
+Collector, two Loki installations and Grafana (Q97). Pass 6 builds it, with
+these changes from the spike:
+
+1. **The admin log store flushes early.** With Loki's defaults (30m idle, 2h
+   age), a lost cluster loses up to 2 hours of admin records. With 1m idle
+   and 5m age, the spike lost only the newest 4 records of 5362. The cold
+   copy keeps those. The diagnostic store keeps Loki's defaults.
+2. **The break-glass reader is feasible as designed:** a fresh Loki on the
+   stored data alone reads it back. For the last minutes before a loss, it
+   also needs the cold copy (pass 6b).
+3. **Each run-log starts with a header line** (Q102). Without it, the
+   collector skips a file that has the same first bytes as another.
+4. **The health check is not Loki's `/ready`.** It kept reporting "not
+   ready" while Loki served queries. Pass 6 finds the cause or checks a
+   query instead.
+5. **The memory budget is about 0.8 GiB** for the stack beside k3d, Grafana
+   being the largest part.
+
+Blank lines in run-logs are not shipped. Loki adds a `service_name` label by
+itself. Neither one changes the design.
