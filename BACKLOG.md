@@ -39,6 +39,19 @@ change-of-image-source steps.
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
    with a write-then-read smoke test in `up`. *(DONE — 5a and 5b verified
    live 2026-10-13; ADR-0026: the store runs OUTSIDE the cluster, like Zot.)*
+5c. **Admin portal** (Q107, Q112–Q114, 2026-10-14) — **NEXT**, before pass 6.
+   One nginx in the cluster serves a static `index.html` (relative links, the
+   same file in every environment) and passes each path to its service:
+   `/argocd/`, `/grafana/` (pass 6), `/apps/<workload>/`. One host name, one
+   certificate. Each app gets its sub-path setting. On local a fixed node
+   port is mapped to a host port when the cluster is made (no port-forward).
+   TLS mode in the env definition: `letsencrypt` (default; owned domain, for
+   example `local.barzel.sh` → 127.0.0.1; the certificate is kept in the
+   secret store, because Let's Encrypt allows 5 identical certificates a
+   week) or `local-ca` (any domain; the CA is OpenBao's PKI engine; the
+   browser warns until the CA is trusted). The page also lists the CLI
+   commands. Replaces the legacy `k3d-up.sh --with-sso` edge's routing.
+   The Gateway API is needed only to expose nginx on a cloud (pass 8).
 6. **Logs: admin log store + diagnostic log store** (design 2026-10-14, Q77
    and Q84–Q102). **Spike done** (branch `spike-logs`, never merged; verdict
    in `spikes/logs/RESULTS.md` there, commit `6c356bf`): OpenTelemetry
@@ -62,6 +75,10 @@ change-of-image-source steps.
    run=cluster-20261014T1425Z phase=25-bootstrap start=2026-10-14T14:25:18Z`.
    The spike showed that the collector skips a file whose first bytes match
    another file's (five one-line fast-mode run-logs were lost).
+6a. **SSO, local and remote** (Q112) — after pass 6, before 6b, so that a
+   break-glass record names the person. Sign-on (Dex + oauth2-proxy, from the
+   legacy edge) in front of nginx (`auth_request`); it leads to the admin
+   portal, which stays usable without it. CLI access with the same identity.
 6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
    environment, on the auto-sync switch that pass 4 builds; the procedure for
    an operator or an agent to change the cluster through the conductor
@@ -70,7 +87,9 @@ change-of-image-source steps.
    to Argo CD's own chart while it holds).
    Also (user, 2026-10-14, Q94): a standalone Grafana that reads the admin log
    store and **runs only while break-glass mode is on**, so the admin logs
-   stay readable when the cluster (and its Grafana) is down.
+   stay readable when the cluster (and its Grafana) is down. The reader
+   also loads the cold records newer than the last stored chunk (the spike's
+   4 lost records were only in cold).
 6c. **Cold log storage + CNPG backups** (Q92): the `cold` route; on local a
    directory on the host is enough, on AWS S3.
 7. **`promote` phase** (digest + env-definition values along the chain).
