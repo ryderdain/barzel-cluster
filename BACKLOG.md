@@ -5,142 +5,87 @@ land here when decided, move to [SCRATCHPAD.md](SCRATCHPAD.md) while being
 worked, and produce a [RETROSPECTIVE.md](RETROSPECTIVE.md) entry when done and
 user-verified.
 
-## Active — local-first refactor (designed 2026-10-07, grilling session)
+## Active — the platform, local first
 
-Design settled with the user (Q1–Q45); summary in [SCRATCHPAD.md](SCRATCHPAD.md),
-vocabulary in [GLOSSARY.md](GLOSSARY.md). Supersedes the ordering of items 1–4
-below (their intent folds in). AWS is frozen until pass 8. Each pass: rule in
-`ryderdain/bash` first where one is involved, then `SPEC.md` §3, then ADRs +
-runbooks. Runbooks must give from-zero, upgrade, re-image, and
-change-of-image-source steps.
+barzel-cluster is a **platform**: a general, secured Kubernetes cluster that
+runs on several substrates (k3d, AWS, GCP, DigitalOcean, …) with as few
+changes as possible, as the backbone of a CI/CD chain. It does not depend on
+any workload (user, 2026-10-14). Vocabulary: [GLOSSARY.md](GLOSSARY.md).
+Decisions: [SPEC.md](SPEC.md) §3 and [docs/adr/](docs/adr/). One line per item;
+the detail lives in the linked ADR. Q-numbers refer to the design rounds.
 
-0. **ADR migration.** Move ADR-0001..0020 verbatim from `docs/ARCHITECTURE.md`
-   into `docs/adr/00NN-slug.md` (+ Status line); ARCHITECTURE keeps an index;
-   update `CLAUDE.md` living-docs lines.
-1. **Doctrine + `&&` sources.** In `bash`: emitted `{ … }` groups as anonymous
-   functions (check only where a re-run harms), driver archetype, env-definition pattern, run-logs, approval
-   rule, idempotent phases. `CLAUDE.md` bash section → refer to `ryderdain/bash`.
-   Superseded banners on `notes/GUIDANCE.md` + the vault Doctrine Seed note.
-   New ADRs 0021–0024 (kiesei driver/conductor; run-log driver; mimic-now
-   services; local as first env).
-2. **Driver skeleton + k3d adapter.** *(DONE — verified live 2026-10-09)* `local.env`, run-log mechanics,
-   `substrate_up`/`substrate_down`; replaces `k3d-up.sh`; rewrite
-   `docs/LOCAL.md`. Rename toolbox → kiesei.
-3. **External Zot + kiesei build/push + warm conductor.** *(DONE — 3a–3c
-   verified live 2026-10-09.)* For the driver to
-   run from kiesei on k3d: add `k3d` + the `docker` CLI to the image; mount
-   the engine socket in `kiesei-shell.sh`; rewrite the k3d kubeconfig server
-   (`0.0.0.0:<port>` is unreachable from inside a container). Then drop the
-   host k3d/helm prerequisite from docs/LOCAL.md.
-4. **Argo on local (GitOps mode) + `fast_on`/`fast_off`.** *(DONE — verified
-   live 2026-10-13; ADR-0025.)* One platform
-   ApplicationSet for every environment; phases 20-images, 25-bootstrap-secrets,
-   30-gitops, 40-workloads; fast mode `fast_on` / `apply` / `fast_off`.
-5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
-   with a write-then-read smoke test in `up`. *(DONE — 5a and 5b verified
-   live 2026-10-13; ADR-0026: the store runs OUTSIDE the cluster, like Zot.)*
-5c. **Admin portal** (Q107, Q112–Q114, 2026-10-14) — **NEXT**, before pass 6.
-   One nginx in the cluster serves a static `index.html` (relative links, the
-   same file in every environment) and passes each path to its service:
-   `/argocd/`, `/grafana/` (pass 6), `/apps/<workload>/`. One host name, one
-   certificate. Each app gets its sub-path setting. On local a fixed node
-   port is mapped to a host port when the cluster is made (no port-forward).
-   TLS mode in the env definition: `letsencrypt` (default; owned domain, for
-   example `local.barzel.sh` → 127.0.0.1; the certificate is kept in the
-   secret store, because Let's Encrypt allows 5 identical certificates a
-   week) or `local-ca` (any domain; the CA is OpenBao's PKI engine; the
-   browser warns until the CA is trusted). The page also lists the CLI
-   commands. Replaces the legacy `k3d-up.sh --with-sso` edge's routing.
-   The Gateway API is needed only to expose nginx on a cloud (pass 8).
-6. **Logs: admin log store + diagnostic log store** (design 2026-10-14, Q77
-   and Q84–Q102). **Spike done** (branch `spike-logs`, never merged; verdict
-   in `spikes/logs/RESULTS.md` there, commit `6c356bf`): OpenTelemetry
-   Collector + two Loki installations + Grafana works as designed. Build
-   with: the admin Loki flushes early (1m idle, 5m age; the spike lost 4 of
-   5362 records, all in cold); a health check other than Loki's `/ready`
-   (it stayed "not ready" while serving); about 0.8 GiB beside k3d. The
-   break-glass reader (a fresh Loki on the stored data) works.
-   Also in pass 6: **time in UTC, ISO 8601 with `Z`, everywhere** (Q100,
-   2026-10-14). Log lines (`_ts`, `error`) change first in `ryderdain/bash`.
-   Then the run directories: today `var/run/<env>/<YYYYmmddHHMM>[-down]` in
-   the host's local time, and fast-mode run-logs `fast-<what>-<HHMMSS>`. They
-   change to UTC with `Z` and get a prefix that names the scope of the
-   directory (Q101 (a)): `cluster-20261014T1425Z` for a bring-up and all that
-   follows on that cluster (`next`, fast mode), `teardown-20261014T1425Z` for
-   a `down`; fast-mode run-logs `fast-apply-142512Z.sh`. The driver finds runs
-   through the `current` link, so the names can change; old run directories
-   keep their names.
-   Also in pass 6 (Q102): the driver writes a header as the first line of
-   each `.out`, in logfmt, for example `# brzl run-log env=local
-   run=cluster-20261014T1425Z phase=25-bootstrap start=2026-10-14T14:25:18Z`.
-   The spike showed that the collector skips a file whose first bytes match
-   another file's (five one-line fast-mode run-logs were lost).
-6a. **SSO, local and remote** (Q112) — after pass 6, before 6b, so that a
-   break-glass record names the person. Sign-on (Dex + oauth2-proxy, from the
-   legacy edge) in front of nginx (`auth_request`); it leads to the admin
-   portal, which stays usable without it. CLI access with the same identity.
-6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
-   environment, on the auto-sync switch that pass 4 builds; the procedure for
-   an operator or an agent to change the cluster through the conductor
-   (including helm apps); a record of each use in Loki; the risks in the
-   human-facing docs (helm hooks, large CRDs need server-side apply, a change
-   to Argo CD's own chart while it holds).
-   Also (user, 2026-10-14, Q94): a standalone Grafana that reads the admin log
-   store and **runs only while break-glass mode is on**, so the admin logs
-   stay readable when the cluster (and its Grafana) is down. The reader
-   also loads the cold records newer than the last stored chunk (the spike's
-   4 lost records were only in cold).
-6c. **Cold log storage + CNPG backups** (Q92): the `cold` route; on local a
-   directory on the host is enough, on AWS S3.
-7. **`promote` phase** (digest + env-definition values along the chain).
-8. *(AWS unfreezes)* AWS phases of `platform.sh` → the AWS adapter.
-   Pass 8 also: the AWS secret-store adapter (Secrets Manager) behind the same
-   interface (ADR-0026), and `gitops/clusters/{dev,prod}/secret-store/` (the
-   `secret-store` Application points there; it cannot sync until they exist).
-   **Gate before any environment beyond local (pass 7 promote to dev, pass
-   8):** migrate Argo CD's repo credential from a read-only deploy key to a
-   **GitHub App** (user decision 2026-10-12, Q61). Local uses the deploy key
-   `sleipnir-brzl-deploy` until then.
-   Pass 8 also: the upstream CloudWatch Logs exporter is **alpha** (contrib
-   0.162.0); and the admin log store on AWS (Q96, user leans to the same
-   product on every substrate, data in S3, CloudWatch at most a backup copy).
+Done (verified live; see [RETROSPECTIVE.md](RETROSPECTIVE.md)):
 
-Standing concerns (check in every pass, do not lose):
+- Passes 0–1: ADR migration; the Bash doctrine in `ryderdain/bash`.
+- Pass 2: driver + k3d adapter (2026-10-09; ADR-0021, ADR-0022, ADR-0024).
+- Pass 3: Zot beside the cluster, kiesei, warm conductor (2026-10-09; ADR-0023).
+- Pass 4: Argo CD, one platform ApplicationSet, fast mode (2026-10-13; ADR-0025).
+- Pass 5: ESO 2.12, OpenBao outside the cluster (2026-10-13; ADR-0026).
 
-- **Doctrine rule to add in `ryderdain/bash` STYLE.md §1.11** (2026-10-13):
-  a driver runs each run-log and check with stdin from `/dev/null`, because
-  the procedure itself arrives on stdin and any stdin-reading command without
-  its own pipe or heredoc (`docker exec -i`, `kubectl exec -i`, `cat`, `ssh`)
-  swallows the rest of the stream. Found live in pass 5b; the driver and its
-  test now enforce it. The user owns the doctrine text.
-- **ESO in-place upgrades** (2026-10-13, pass 5a). ESO moved 0.10.7 → 2.12.0
-  on a fresh cluster. An in-place upgrade must go one minor at a time and
-  check `status.storedVersions` on the four ESO CRDs (ESO 0.16.1 notes).
-  Write this into `docs/UPGRADE.md` when pass 8 brings AWS back.
-- **GitHub App before leaving local** (Q61). The repo is private since
-  2026-10-12. Argo CD on local reads it with a read-only deploy key from the
-  bootstrap source `BRZL_REPO_DEPLOY_KEY`. Before pass 7 promotes to dev, or
-  pass 8 starts, replace the deploy key with a GitHub App credential, on every
-  environment.
-- **Every phase must be safe to run again.** Resume depends on it
-  (`ryderdain/bash` STYLE.md §1.11, ADR-0022). Review each new phase script
-  for converging commands before it lands.
-- **Platform-layer portability** (SPEC §3, from Q45). The platform layer may
-  assume only conformant Kubernetes + adapter outputs, so EKS/GKE/DOKS can
-  later replace k3s inside one adapter. Known violation: the local SSO edge
-  uses Traefik `IngressRoute` CRDs (`gitops/clusters/local/sso/`) — move to
-  standard `Ingress`/Gateway API when the SSO edge is next touched.
-- **`notes/` history scrub** — decision pending with the user (rewrites
-  published history; see SCRATCHPAD).
+Order of work (Q120):
+
+1. **Cleanup round** (now, branch `cleanup-docs`): docs only — the platform
+   reframe, ADR-0027..0029, this file, SCRATCHPAD, the resource budget.
+2. **5c. Admin portal** — nginx serves a static page and passes each path to
+   its service; TLS `letsencrypt` or `local-ca` ([ADR-0028](docs/adr/0028-admin-portal.md)).
+3. **5d. Example app** — `ryderdain/chofesh` gains a server mode (the
+   demo-app's REST API), a small web page and Postgres, and keeps its Go CLI;
+   it replaces `apps/demo-app`. The Postgres cluster moves into the app; the
+   CNPG operator stays a platform capability. **Keep it short** (user).
+4. **6. Logs** — collector, admin and diagnostic Loki, Grafana; UTC
+   everywhere; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`; a header
+   line in each run-log; API and OpenBao audit logs; `driver.sh <env> state`
+   lists (and purges) the state kept outside the cluster
+   ([ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md)).
+5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
+   leads to the admin portal, which also works without it (Q108, Q112).
+6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
+   conductor; a record of each use; a Grafana reader of the admin store that
+   runs only in break-glass mode and also loads the newest cold records
+   (Q62–Q65, Q94, Q107).
+7. **6c. Cold storage + backups** — the `cold` route; each workload's
+   database backups (Q92).
+8. **7. `promote platform`** — roll a platform revision one environment at a
+   time (Q118).
+9. **7h. Remote harness** — a second host (huginn, VMs on sleipnir, or
+   OpenStack) to model a shared remote environment (Q116, deferred).
+10. **8. Substrate adapters** — one pass for each: first the shared interface
+    and AWS, then others. Open items for AWS: the secret-store adapter
+    (Secrets Manager) and `gitops/clusters/{dev,prod}/secret-store/`; the
+    admin log store (Q96: same product, data in S3); shipping the driver's
+    run-logs (Q106); exposing nginx through the Gateway API (Q113); the
+    CloudWatch Logs exporter is alpha; the live test of model B
+    (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
+    `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and
+    multi-account direction (SPEC §9).
+11. **9. `promote workloads`** and **`promote all`** (a platform and workload
+    change that depend on each other) (Q118).
+
+Standing concerns (check in every pass):
+
+- **GitHub App before leaving local** (Q61). The repo is private. Argo CD on
+  local reads it with the read-only deploy key `sleipnir-brzl-deploy`
+  (bootstrap source `BRZL_REPO_DEPLOY_KEY`). Replace it with a GitHub App
+  credential before pass 7h or 8.
+- **Every phase must be safe to run again** (`ryderdain/bash` STYLE §1.11,
+  ADR-0022). Review each new phase script for converging commands.
+- **Platform-layer portability** (SPEC §3). The platform layer assumes only
+  conformant Kubernetes and the adapter's outputs. The legacy SSO edge
+  (`gitops/clusters/local/sso/`, Traefik `IngressRoute`) violates it; pass 5c
+  replaces its routing, pass 6a its sign-on.
+- **ESO in-place upgrades** go one minor at a time and check
+  `status.storedVersions` on the four ESO CRDs. Write into `docs/UPGRADE.md`
+  in pass 8.
+- **Resource budget**: sleipnir 32 GB, huginn 8 GB ([docs/LOCAL.md](docs/LOCAL.md)).
+- **`notes/` history scrub** — decision pending with the user (it rewrites
+  published history).
 - **Port the seed's §1.10** ("a script's claims are part of its contract") to
-  `ryderdain/bash` STYLE.md (number reserved).
-- **Markdown lint debt** (found 2026-10-09). The repo has a markdownlint
-  config now (`.markdownlint-cli2.jsonc`: no line-length check in tables), and
-  `docs/LOCAL.md` is clean. About 600 older errors remain in other `.md` files,
-  most in SPEC, SCRATCHPAD and the runbooks. Most are MD013 (line length),
-  then MD060 (table pipes), MD032/MD022/MD031 (blank lines). Clean one file
-  when a pass edits it, or do one lint-only pass. Do not change
-  RETROSPECTIVE entries (append-only): ask the user first.
+  `ryderdain/bash` STYLE.md.
+- **Markdown lint debt**: about 600 older errors (mostly MD013) in SPEC,
+  SCRATCHPAD and the runbooks. Clean a file when a pass edits it. Do not
+  change RETROSPECTIVE entries without asking.
+
+## Earlier plans (before the local-first refactor; kept as written, review later)
 
 ## Active — the major refactor (next barzel session) + aroni assists
 

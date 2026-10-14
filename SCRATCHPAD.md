@@ -18,397 +18,47 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-07, opus — local-first refactor DESIGN SETTLED via a grilling
-session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
-[GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
-until the driver refactor + local are solid.)*
+*(2026-10-14, opus. Pruned to the current state; the history is in git, the
+plan in [BACKLOG.md](BACKLOG.md), the records in
+[RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**▶ pass 6, logs: spike DONE (2026-10-14), next = the build plan.** Verdict
-on branch `spike-logs` (`spikes/logs/RESULTS.md`, 6c356bf) and in BACKLOG
-pass 6. Also settled today: Q97 (OTel Collector + Loki + Grafana), Q98
-(retention classes named by period: 7d/30d/90d), Q99 (two Loki installations,
-names visible in code and operation), Q100 (UTC ISO 8601 with Z; vendored),
-Q101 (run dirs `cluster-<UTC>Z` / `teardown-<UTC>Z`), Q102 (run-log header
-line, logfmt), Q103 (vendored helpers pinned to ryderdain/bash master, tag
-`barzel-cluster/2026-10-14`). ryderdain/bash: bash-doctrine squashed into
-master (e3666df); local backup branch `backup/bash-doctrine-pre-squash`.
-The cluster follows branch `spike-logs` until 30-gitops runs from main.
+**Branch `cleanup-docs`** (checked out in the user's tree). The cleanup round
+(Q121), docs only:
 
-**(Was) IN DESIGN: pass 6, logs (2026-10-14).** Q77 reopened by the user: two
-concerns. Settled: GLOSSARY terms *workload logs* / *platform logs* (Q84).
-Thin platform logs go to an external store; detailed logs (workload AND
-platform-app detail) stay in an in-cluster store, with optional export (Q85).
-One node collector owned by the platform, two outputs, plus a host-side
-shipper for `var/run/` (Q86). Records travel as OTLP (Q87 b). External store
-gets six sources: run-logs, k3s server log, API audit log (metadata), OpenBao
-audit log, k8s events, later break-glass (Q90). Per-namespace export label,
-value names the destination explicitly (`drop`, not `none`; Q91, open on
-product-vs-purpose values). Cold storage: separate pass with CNPG backups; a
-local directory is enough (Q92, confirming). Store names by purpose, not
-location (Q93, open: "Admin log store" + ?). Spike accepted (Q89): throwaway
-branch `spike-logs`, `spikes/logs/`, OTel Collector vs Alloy × Loki+Grafana vs
-VictoriaLogs; user runs it, verdict committed, branch never merged (Q88). Later: routes `drop|admin|diagnostic|cold` in a namespace annotation, a
-combination = all at once (Q91a, Q95); aging = each store's period, cold copy
-written at ingest; one default period per store (Q95a). Admin log store on
-every substrate = Loki in the cluster, data in object storage / a host
-directory, admin records also to `cold` (Q96 (2), Q96a: data outside, program
-may run inside). Grafana in the cluster is the viewer; a break-glass-only
-Grafana reader later (BACKLOG 6b). GLOSSARY: admin / diagnostic log store.
+1. Platform reframe: SPEC scope, README intro, CLAUDE.md "What this repo
+   is", GLOSSARY workload terms, ARCHITECTURE prose; confidential computing
+   becomes a guide, not the goal.
+2. ADR-0027 logs (Q77–Q102), ADR-0028 admin portal (Q107–Q114), ADR-0029
+   the vendored doctrine pin (Q103); their SPEC §3 lines; a report on
+   splitting older ADRs (a review agent is reading them).
+3. BACKLOG: one line per item, new order (Q120). **Done.**
+4. SCRATCHPAD: this. **Done.** Safe point to compact.
+5. LOCAL.md: the resource budget (sleipnir 32 GB, huginn 8 GB).
 
-**(Was) NEXT: pass 6** (Loki + Alloy on every substrate; the conductor's stdout
-shipped to Loki; then 6b break-glass mode). Pass 5 verified live 2026-10-13
-(5a run 202610131940; 5b runs 202610132037 + 202610132108, incl. `up` with no
-deploy key: the store kept it) — RETROSPECTIVE entry written; `pass-5b`
-merged to main. The local cluster follows branch `pass-5b` until the next
-30-gitops run from main. Open: the stdin rule for the bash doctrine (user's);
-GitHub App gate; pass 8 secret-store paths for dev/prod.
+The user reviews the branch as one diff; then merge to `main`.
 
-**(Design) pass 5 CLOSED (Q66–Q76).** Decisions: OpenBao runs OUTSIDE the cluster like Zot
-(container on brzl-local, volume, made in phase 10, kept on down; driver at
-127.0.0.1:8200, cluster at brzl-openbao:8200) — it mimics Secrets Manager:
-exists before the cluster, outlives it (Q66). File storage + static seal; the
-seal key is `var/secret-store/local/seal.key` (600, gitignored); lost key =
-purge (Q67). Init once; root token makes policy + `driver` token
-(`var/secret-store/local/driver.token`), root revoked (Q68). Five phases:
-10-substrate (Zot, OpenBao, cluster; transit test in check), 20-images (kiesei
-+ demo-app), 25-bootstrap (seed store incl. smoke value, project Argo repo
-credential from the store, conductor manifest), 30-gitops, 40-workloads (check
-compares the smoke hash) — 15-conductor removed (Q69). ClusterSecretStore
-`brzl-secrets`, per-env dir, `secret-store` app; ESO auth = Kubernetes auth
-against the k3d API over the docker network (Q70). Adapter `secret_put <path>
-<VAR>`: token via env, value on stdin (Q71). Transit key brzl-local (Q72).
-ESO upgrade FIRST as 5a, manifests to v1 (Q73/Q76). `BRZL_SECRET_STORE=openbao`,
-only openbao built (Q74). Pass 5 stores only the deploy key + smoke value;
-SECRETS.md rows (Q75). To confirm in docs before building: static seal
-config; k8s auth from outside the cluster.
+**Next after the round:** pass 5c, the admin portal (BACKLOG).
 
-**(Was) NEXT: pass 5** (OpenBao dev mode, Vault CE fallback by one env value; ESO
-read boundary + per-store write adapters; the `secrets` phase extends
-`25-bootstrap-secrets`; write-then-read smoke test in `up`). Pass 4 verified
-live 2026-10-13 (run 202610131623: all six phases; fast_on / apply / fast_off;
-guard accepted; Zot serves the injected paths) — RETROSPECTIVE entry written.
-Open from pass 4: the AWS bootstrap writes the new annotations but is untested
-until pass 8; GitHub App gate before leaving local.
+**Decisions of 2026-10-14 not yet in an ADR** (the round writes them):
 
-**(History) PARKED 2026-10-09 — pass 4 design round Q54–Q60.** No pass-4 code written. Facts found: the repo is PUBLIC (Argo can
-read it over HTTPS, no deploy key); the argo-cd chart pulls redis from
-`public.ecr.aws`, which Zot does not mirror yet (add a sixth mirror).
-Recommendations (➡️), not decisions:
+- Logs (Q84–Q102): workload / platform logs; admin log store (Loki, data
+  outside the cluster, flush 1m/5m) and diagnostic log store (Loki, in the
+  cluster); one node collector (OTel Collector, OTLP); routes in the
+  namespace annotation `brzl.dev/log-routes: drop|admin|diagnostic|cold`;
+  retention classes `brzl.dev/log-retention: 7d|30d|90d`; Grafana in the
+  cluster; UTC with Z; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`;
+  a logfmt header in each run-log. Spike verdict: branch `spike-logs`,
+  `spikes/logs/RESULTS.md`.
+- Admin portal (Q107, Q112–Q114): one nginx, a static page, relative paths
+  (`/argocd/`, `/grafana/`, `/apps/<workload>/`); TLS `letsencrypt` (owned
+  domain, certificate kept in the secret store) or `local-ca` (OpenBao PKI).
+- Q103: `driver/lib/{runlib,error}.sh` pinned to `ryderdain/bash` master, tag
+  `barzel-cluster/2026-10-14`.
+- Q115: chofesh becomes the example app; CNPG cluster moves into the app.
+- Q118: `promote platform`, `promote workloads`, `promote all` (separate).
+- Q119: one stack per substrate (`terraform/stack/<substrate>/<layer>/`);
+  "profile" meant substrate.
 
-- **Q54 One ApplicationSet or a local one?** ➡️ (a) local gets its own
-  `gitops/clusters/local/applicationset.yaml` (same shape and waves; apps:
-  argocd, cnpg, ESO, postgres, demo-app); dev/prod unchanged; merge in pass 8.
-  Alt (b): one shared ApplicationSet now (touches untestable AWS files).
-- **Q55 What does injection inject on local?** k3s mirrors already route the
-  upstreams through Zot, so only built images need a host. ➡️ (a) the phase
-  takes the host from `substrate_image_ref` and writes annotations
-  `brzl.dev/registry-host` + `brzl.dev/demo-app-tag` on the local cluster
-  Secret; the ApplicationSet builds the demo-app image (ADR-0016 pattern); no
-  fixed `localhost:5001` in the overlay. Alt (b): substitute at emit time.
-- **Q56 Which revision does local Argo follow?** ➡️ (b) the checked-out branch
-  at emit time; an exported `BRZL_GITOPS_REVISION` wins; recorded in the
-  run-log; stderr warning if the branch has unpushed commits. Alts: (a)
-  always `main`; (c) a value in `env/local.env`.
-- **Q57 How does fast mode stop Argo?** ➡️ (a) one annotation
-  `brzl.dev/auto-sync: "false"` on the cluster Secret; the template drops
-  `automated`; `fast_on`/`fast_off` change only that; `fast_off` = prune +
-  self-heal back to the pushed branch. Alts: (b) patch each Application +
-  `ignoreApplicationDifferences`; (c) scale the application controller to 0.
-- **Q58 Fast-mode "apply the working tree"?** ➡️ (a) new driver action
-  `driver.sh local apply`: render the kustomize apps (postgres, demo-app) from
-  the working tree, conductor applies; refuses when fast mode is off; helm
-  apps stay with Argo. Alt (b): also `helm template` the helm apps.
-- **Q59 Phase layout?** ➡️ 10-substrate (driver), 15-conductor (driver),
-  20-images (driver), 30-gitops (conductor: helm-install Argo; AppProject,
-  cluster Secret + annotations, ApplicationSet), 40-workloads (conductor,
-  check only: all Applications Synced/Healthy, pg healthy, demo-app rolled
-  out). Images before GitOps. Argo self-manages (wave -1); the conductor stays
-  outside Argo so it is never pruned.
-- **Q60 ADR?** ➡️ ADR-0025 "Argo CD on local: a cluster-Secret annotation
-  controls the registry host and auto-sync" + a SPEC §3 line.
-
-On return: get the answers, then write pass 4 (one commit), offline tests,
-user live run.
-
-**Answers 2026-10-12:** the repo is now **PRIVATE** (user, for production-like
-security) → Argo needs a repo credential on local too (new Q61). Q55 (a). Q56
-(b). Q59 agreed. Q60 yes. Q54 leaning (b) shared ApplicationSet, respecting
-ADR-0016, pending a check of how (prototype vs golden render). Q57 (a), user
-asked for a deeper explanation. Q58 open, user asked for the trade-offs.
-
-**Answers round 2 (2026-10-12):** Q54 (b) ACCEPTED, golden render test first
-(`driver/tests/appset-golden.sh`, disposable cluster `brzl-golden`). Q57 (a):
-the cluster-Secret annotation is a live switch (no commit). The user REFRAMES
-fast mode: an **emergency shutoff** for interventions (by agents), outside the
-developer's loop — conflicts with GLOSSARY "Fast mode" (local, cluster
-structure) → Q62 open. Q58 **(b)**: helm apps too, via the conductor; surface
-the risks (hooks, CRDs/SSA, Argo's own chart) in the human-facing docs. Q61
-(a): read-only deploy key `~/.ssh/sleipnir-brzl-deploy` (public key is in
-GitHub); bootstrap source `BRZL_REPO_DEPLOY_KEY`; GitHub App gate added to
-BACKLOG + SPEC decision 8.
-
-**Round 3 (2026-10-12):** Q62 (b) — **intervention mode** (all environments,
-emergencies, Argo holds, changes go through the conductor; actions `hold` /
-`release`) is a NEW mode beside fast mode, in GLOSSARY. Fast mode stays as
-planned: Q57 (a), Q58 (a) (kustomize apps only). The user REJECTS the golden
-test as built: a disposable cluster is fine for local only, and it adds manual
-steps for one narrow purpose → Q63 (replacement) and Q64 (where intervention
-mode goes) open.
-
-Settled design (Q1–Q45, user-confirmed 2026-10-07):
-
-- Local (sleipnir, k3d) = first env of local → dev → prod; harness for cluster-
-  structure iteration + future workloads (barzel container; demo-app = smoke).
-  k3s on every substrate for now (EKS/GKE/DOKS later, inside an adapter).
-- **kiesei** = the one image, two modes: **driver** (*kiesei nahag*, outside
-  the cluster: makes/removes clusters, sequences phases, collects outputs, owns
-  run-logs `var/run/<env>/<YYYYmmddHHMM>/`) and **conductor** (*kiesei bakar*,
-  warm pod in the cluster: runs run-logs detached, writes `.rc`, stdout → Loki,
-  idle self-stop). Substrate phases on the driver; cluster phases on the
-  conductor; a locus never removes/replaces itself. EC2 conductor retired.
-- `.rc` (Q44): the conductor's completion record of one phase; the driver
-  collects it into its run-log dir (the canonical copy). Lost with the pod if
-  not yet collected → the phase counts as "not done" and re-runs; so every
-  phase MUST be safe to run again (idempotent) — a doctrine rule.
-- Driver model: emit-style phase scripts + thin driver; emit → run-log → show
-  → approve → run; outputs between phases via files. One adapter per
-  substrate. Env definition = sourceable plain `VAR=value` list; exported value
-  wins + stderr warning; resolved values in the run-log; never flags.
-- Approval rule (REVISED 2026-10-09, Q53): no prompts — approval is running the
-  driver's output; off-machine/billable phases go one at a time (`next`), local-
-  only phases may go together (`up | bash`).
-- Local substrate: Zot (outside k3d, persistent) = pull-through + push
-  registry; OpenBao dev mode (KV + transit), Vault CE fallback via one env
-  value; ESO read boundary + per-store write adapters; bootstrap sources all
-  arrive as env vars; Loki + Alloy on every substrate; disposable cluster;
-  `fast_on`/`fast_off` toggle Argo auto-sync.
-- Doctrine: `ryderdain/bash` canonical; emitted streams
-  → REVISED 2026-10-08: `{ … }` groups as anonymous functions (reader first),
-  check only where re-running a block harms; `.ok` from a per-phase check is the
-  verdict, not the exit code (STYLE.md §1.2, §1.11). `CLAUDE.md`
-  only refers to `ryderdain/bash`. Platform layer assumes only conformant
-  Kubernetes + adapter outputs (Q45).
-
-Previous focus (2026-06-17), superseded for now:
-
-*(2026-06-17, opus — SESSION HANDOFF. User switched to another project; resume here.)*
-
-**▶ RESUME AT: the live test of the refactored stack** (item 3 is code+doc complete,
-offline-validated — nothing has been applied to AWS yet; this is greenfield). The live
-test is 💸 BILLABLE + cluster-mutating → **GUARDRAILS apply**: surface each command,
-saved-plan workflow, per-step confirm, scoped profile; the user drives every apply.
-
-**Item 3 (env realignment → model B) — DONE OFFLINE, committed:**
-- All six layers migrated to `terraform/stack/aws/<layer>/` (single source + per-env
-  `dev.tfvars`/`prod.tfvars`); 6/6 `tofu validate` clean, `tofu fmt` clean.
-- `platform.sh` wired to the stack: `_state_bucket` + `_set_backend_args` compose the
-  env-keyed S3 backend (`init -reconfigure`, key `<env>/<layer>/terraform.tfstate`,
-  bucket from account); phases pass `-var-file=<env>.tfvars`; `secrets()` →
-  `40-ecr/credentials.auto.tfvars`. shellcheck clean.
-- Old `environments/{dev,prod}` layer trees REMOVED (kept `dev/00-conductor` + its
-  backend.hcl). Docs swept (BOOTSTRAP/RECOVERY/UPGRADE/TEARDOWN/README/SECURITY/SECRETS)
-  + **ADR-0020** added (supersedes ADR-0019's per-env-dir layout). SPEC §3/§9 + GUIDANCE
-  already carry the design. Last commits: 0d4b171 (docs+ADR) ← ca892f1 (rm trees) ←
-  5368045 (driver) ← 9fd3911/fd02e4a/8293125/7488dec (layers).
-
-**THE LIVE-TEST PLAN (next session):**
-1. **Bring-up** from the conductor (or laptop apply-role): `ENV=dev bash
-   gitops/tools/platform.sh bootstrap` — exercises the composed backend + per-env tfvars
-   for the first time. Watch the **first-run-under-new-layout** risks: backend init
-   -reconfigure composing the right key; `credentials.auto.tfvars` auto-load in 40-ecr;
-   the 40-ecr toolbox build; 50-compute placement + (dev) NLB off. Then prod (`ENV=prod`).
-2. **Teardown loose ends** (the user named these): orphaned-resource handling in
-   TEARDOWN; build the **end-to-end AUTOMATED full-teardown sweep** (driver teardown →
-   leak sweep §4 → finishers §3a — today by hand); fix any small issues the test surfaces.
-3. Each fix/finding is an **aroni episode** (log to RETROSPECTIVE on user-verify; the
-   aroni inbox already holds Episodes A/B/C from the design phase).
-4. On green: write the RETROSPECTIVE entry (item 1 + item 3 graduate, user-verified).
-
-**THEN (separate, post-live-test): the conductor / multi-account major pass** — SPEC §9
-is the spec (per-account temporary conductor; clone+pipe delivery; one fine-grained PAT;
-optional least-priv cross-account shared-services for a central scan regime; dual-mode
-ECR pull-default/push-for-hotfix). Re-assess the plan with the user before running it.
-
----
-*(earlier handoff, 2026-06-14 — aroni machinery + the two-session split; kept for context)*
-
-aroni's machinery is complete through
-the second order; the user is opening two new sessions: **(a) an aroni session**
-to keep open and tweak; **(b) a barzel session for a major refactor**, which aroni
-should help drive.
-
-**aroni state (full picture in RETROSPECTIVE 2026-06-14 entries):**
-- **4 admitted notes** (cand-001 masked-failure /4 children, cand-002 env-coupling,
-  cand-003 doc-rot, cand-004 SSOT). **17 episodes, 5 decision passes** (vault at
-  aroni `b5744e3`). Self-contained + portable + shared (hooks, `init_project`).
-- **Doctrine (METHOD):** subordinating generalizations; **failure-driven** narrowing;
-  the **seam test** (one-question seam/source classifier); the **intersection test**
-  (2nd-order gate = seam-boundary AND ≥1 *demonstrated* co-firing; lift demoted to a
-  sanity check); **co-fire re-evaluation** (shared new child → re-gate subordinates,
-  wire/narrow/merge — verified Hebbian). 
-- **The loop is CLOSED + enforced:** `vault_check` fails any pass that lands a
-  co-firing unless both notes acknowledge it in `cofires:`; `intersections.py
-  --work-order` emits the re-gate tasks. Code detects+enforces; the model judges.
-- **cand-005 "context-seam"** (first 2nd-order note) is **HELD** — passes the seam
-  boundary but has **zero demonstrated intersections** yet (the instrument caught my
-  over-reach). It admits when a real co-firing appears.
-- **Next aroni move:** ingest the 3 new surprise-0 RETROSPECTIVE episodes (barzel
-  RETRO grew); run a normal cycle. Watch for the **first co-firing** — that's the
-  event that could finally admit cand-005 and exercise the closed loop for real.
-
-**barzel refactor (next session):** a major refactor is coming — see BACKLOG items
-1–4 (automation overhaul vs GUIDANCE; env DRY/consolidation; multi-account CI). aroni
-should assist: as you hit decisions/failures, they become episodes (log them in
-RETROSPECTIVE / a build ledger) → consolidation. Expect the refactor to *generate*
-the corpus that grows aroni — the flywheel.
-
-## Refactor item 1 — pass 1 LANDED (pending live verify), 2026-06-14 (opus)
-
-The "fix carried bugs first" entry to the automation overhaul. Four changes, all
-offline-validated (bash -n + shellcheck clean; `_run_phases` resume hint tested in
-BOTH direct-run and sourced modes incl. the `if ! cmd; rc=$?` negation-capture bug,
-now fixed):
-
-1. **`operator()` no longer lies.** New `gitops/bootstrap/install-ebs-csi.sh`
-   (emit-style, sourceable) renders the SAME committed `ebs-csi/values.yaml` the
-   ApplicationSet wave 0 uses → the standalone DR path can't drift from GitOps.
-   `operator()` previews→confirms→pipes it, then asserts the `gp3` class exists.
-2. **`preflight()` backend guard** — warns if any layer lacks `backend "s3"`
-   (missing = silent LOCAL state).
-3. **`_run_phases`** — on any phase failure prints the stopped phase + exact resume
-   command + phases not reached. Dual-mode (EXIT trap direct / return-catch sourced).
-4. **`generate-inventory.sh` → `generate-inventory.sh`** (snake_case); live callers
-   updated, `notes/` history untouched.
-
-**Not yet RETROSPECTIVE** — needs a live `platform.sh restore` (or at least
-`operator`) run to user-verify before it graduates (RETROSPECTIVE = verified+immutable).
-
-### aroni hook for the parallel session — a real CO-FIRING to ingest
-The `operator()` bug is a genuine co-firing of **cand-001 (masked-failure)** ×
-**cand-003 (doc-rot)**: an honest-looking comment + a hedge `end_function` message
-*claimed* a storage install the body never did, masking a DR failure (PVCs hang
-Pending) that only fires in the recover path. This is the kind of demonstrated
-intersection the intersection-test wants — possibly the event that admits
-**cand-005 (context-seam)**. Episode lives here until the work is verified + lands
-in RETROSPECTIVE; the aroni session can ingest from there.
-
-## Refactor item 3 — env realignment, REFRAMED + pass 1 LANDED, 2026-06-14 (opus)
-
-**Reframing (user):** env-DRY does NOT mean collapsing dev/prod. Parallel
-same-root-structure trees are the *point* of dev→staging→prod — prove pre-prod
-before the reputation-exposed prod; collapsing them kills the promotion gate.
-Target = **fix accidental coupling/drift in shared code**, **keep intentional,
-independently-promotable per-env separation**. DRY lives in shared
-modules/templates (define once, instantiate per-env), not in merging instances.
-(Full statement in BACKLOG item 3.)
-
-**Pass 1 (de-pin the standalone/DR path) — offline-validated:** the prod
-ApplicationSet's `imageParams` already swap `brzl-dev-*`→`brzl-prod-*` per env, so
-the `brzl-dev-*` in shared `gitops/infrastructure/*/values.yaml` is a dead GitOps
-sentinel (overridden) — NOT a live bug there. It WAS a live latent bug for the two
-**standalone** consumers that read the committed files directly (no imageParams):
-- `install-ebs-csi.sh` (pass-1 new) now sed-swaps `brzl-dev-k8s`→`${NAME_PREFIX}-k8s`.
-- `render-recovery-manifest.sh` + `cluster-recovery.yaml` now carry a third sentinel
-  `__PULLTHROUGH_PREFIX__` (→ `$NAME_PREFIX`), so a PROD DR drill pulls the postgres
-  image from `brzl-prod-github`, not dev. Verified both prod + dev-default renders.
-GitOps `values.yaml` files left **pristine** (avoid GitOps churn under deferred
-validation; they're correctly overridden). This is exactly the *right* kind of
-env-DRY: make shared code env-agnostic so the SAME code is correct in any env —
-which *supports* the promotion model, doesn't collapse it.
-
-**Model B chosen + the terraform layer roll is DONE (offline).** Direction settled
-on **model B** (single source per layer + per-env tfvars; gate = separate instances).
-SPEC promoted to root as design SoT (§3 reconciled); CLAUDE delegates. All six layers
-migrated to `terraform/stack/aws/<layer>/` and `tofu validate` clean:
-10-network, 15-kms, 20-security, 30-iam, 40-ecr, 50-compute. Patterns proven:
-- driver-composed S3 backend (empty `backend "s3" {}`; bucket from account, key
-  `<env>/<layer>/terraform.tfstate`); the gitignored per-env `backend.hcl` is retired.
-- env-keyed `remote_state` (`key = "${var.env}/<lower>/terraform.tfstate"`).
-- per-env tfvars committed (gitignore exception for dev/prod.tfvars); secret ARNs →
-  gitignored `40-ecr/credentials.auto.tfvars` (+ committed `.example`).
-- intentional divergences expressed as inputs: 40-ecr toolbox (dev-only build),
-  50-compute placement (`public_nodes`) + capacity + the NLB (`enable_public_ingress`,
-  count-gated, dev off/prod on — flip to adopt).
-Old `environments/{dev,prod}` trees still present (untouched) until the driver works.
-
-**REMAINING for item 3:**
-1. ~~Wire `platform.sh` to the stack.~~ **DONE (5368045):** `_state_bucket` +
-   `_set_backend_args` compose the env-keyed S3 backend (bucket from account, key
-   `<env>/<layer>/terraform.tfstate`); `_tofu_layer`/`teardown` do `init -reconfigure`
-   + `-var-file=<env>.tfvars`; `secrets()` → `40-ecr/credentials.auto.tfvars`;
-   `cluster()` re-inits 50-compute per env; preflight reports the derived bucket;
-   conductor repointed to `conductor_dir` (legacy, untouched). kubeconfig_setup +
-   generate_inventory compute dir → stack/aws/50-compute. Offline-clean.
-2. **Remove** old `environments/{dev,prod}` LAYER trees (10/15/20/30/40/50) once
-   confirmed — **KEEP `environments/dev/00-conductor` + its backend.hcl** (conductor
-   is SPEC §9, not this pass).
-3. **Docs:** runbooks (BOOTSTRAP/RECOVERY/TEARDOWN/UPGRADE/ACCESS) + README + an ADR
-   for the env-layout + state-backend change (backend.hcl retirement).
-Then → **live test** (billable, gated) + teardown loose ends.
-Full live validation batched to the one live-pass (greenfield — nothing deployed).
-
-**Later (separate, needs design):** the gitops `clusters/{dev,prod}` ApplicationSet
-divergence — reduce the hand-maintained surface WITHOUT losing independent promotion
-(git-native; relates ADR-0019 root-app). Not this pass.
-
-## Conductor reframing + multi-account direction — UNDER DISCUSSION 2026-06-15
-
-*(User corrected my "fold 00-conductor into stack/aws" default. Withdrawn — the
-conductor is NOT a per-env layer. Direction captured here for durability; SPEC/GUIDANCE
-revisions PROPOSED, pending agreement before any write.)*
-
-**The conductor's real role:** a self-contained **CI-runner-like deploy primitive** —
-it orchestrates the bootstrap/deploy of *an* environment, constrained only by the IAM
-perimeter, sitting where it can see both private-VPC and public network changes. Today
-it deploys dev+prod because they share ONE account. It is a SIBLING of
-`terraform/bootstrap` + `terraform/identity` (account/perimeter primitives), not a
-`stack/aws/<layer>`. → for finishing item 3, leave it at `environments/dev/00-conductor`
-untouched; its relocation/refactor is the NEXT major pass.
-
-**Goals for the next major pass (conductor/multi-account) — forks now DECIDED (user 2026-06-17):**
-1. **n+1 accounts via the conductor pattern.** Conductor = **temporary, per-account,
-   single-purpose IaC distributor / bootstrap engine** (NOT hub-and-spoke — minimal IAM
-   footprint, disposable). Model B extends: per-env tfvars gain target account +
-   assume-role.
-2. **State: tie the conductor to its account's state.** Per-ACCOUNT state bucket (+CMK);
-   environments WITHIN an account separated by S3 object key (`<env>/<layer>/…`, e.g.
-   dev/stage/prod). Conductor composes the backend from its own caller identity. =
-   model B replicated per account (single-account today is the degenerate case).
-   Bootstrap state kept separate from targets.
-3. **Clean repo delivery + emit/pipe orchestration.** Replace the S3 tree-ship with a
-   scoped **git clone**. ONE dedicated GitHub fine-grained PAT carries ALL needed perms —
-   `read:packages` (GHCR pull-through) + Contents:read + Metadata:read (clone) — do NOT
-   split GHCR from repo (the earlier 403 was an *under-scoped* token, not a multi-purpose
-   one; refine GUIDANCE's "scope to job" lesson accordingly). Orchestration emits pipeable
-   streams to the conductor's bare bash; repo is CLONED (tofu/ansible are file-based — pipe
-   can't eliminate that); CI path non-interactive, laptop path interactive-gated.
-4. **Optional cross-account shared resources — least-priv central repo/cache NOW; broader
-   distribution next pass.** Rationale is a **unified vulnerability-scanning regime** (one
-   scan gate over centrally-cached images), not efficiency. **Trust-direction model
-   (who-reads-whom) chosen AT BOOTSTRAP**, recorded in SPEC. ECR distribution options
-   (next-pass detail): central pull-through + scan + **promote** + **registry replication**
-   to spokes (recommended — scan-gateable); or **cache-chaining** via a custom upstream
-   (spokes lazily mirror through the hub). Per-resource CMK cross-account grants.
-
-**SEQUENCING (user-set):**
-1. (now) settle SPEC/GUIDANCE revisions for the above → durable.
-2. **FINISH item 3** so it's testable: wire `platform.sh` to `stack/aws` (compose
-   backend + `-var-file`), repoint `secrets()` → `40-ecr/credentials.auto.tfvars`,
-   remove old `environments/{dev,prod}` trees, runbooks + ADR.
-3. **LIVE TEST** the refactored codebase (billable, gated, saved-plan, per-step confirm)
-   + **teardown loose ends**: orphaned-resource handling in TEARDOWN, an end-to-end
-   AUTOMATED full-teardown sweep (currently missing), + small issues the test surfaces.
-4. **Re-assess** the refactoring plan, then run the conductor/multi-account major pass.
-
-## Open considerations
-
-- First bring-up under the `brzl-*` names is unexercised: watch for any
-  stragglers the rename sweep couldn't reach (live-account values were all
-  retired, but conventions baked into helper scripts deserve a first-run eye).
-- **Env-coupling found (item 3):** `ebs-csi/values.yaml` hardcodes `brzl-dev-k8s`;
-  prod consumes it too. Recovery path is dev-pinned end-to-end. Park for item 3.
-
-## Session notes
-
-*(detail lives in `aroni/decisions/pass-008..012` + `_candidates/`; not restated
-here — Current focus is the live snapshot.)*
+**State to remember:** the local cluster follows branch `spike-logs` until a
+phase-30 run from `main`. `ryderdain/bash` has a local branch
+`backup/bash-doctrine-pre-squash`.
