@@ -55,7 +55,7 @@ Two standing rules the method turns on:
    belief, and that deferral is the method working, not a gap.
 
 ## What this repo is
-A GitOps-driven infrastructure platform for a Lead Infrastructure Engineer take-home (a confidential-computing vendor): Terraform provisions AWS infra, Ansible bootstraps k3s, ArgoCD syncs the cluster, CloudNativePG manages a stateful Postgres, and a demo REST app reads/writes it. Deliverable is a reproducible repo + docs + leadership answers.
+A **platform**: a general, secured Kubernetes cluster that runs on several substrates (k3d on a laptop, AWS, later GCP or DigitalOcean) with as few changes as possible, as the backbone of a CI/CD chain. It does not depend on any workload; an example app shows stateless and stateful workloads. Local is the first environment: a driver (kiesei) runs phases through run-logs, services that a cloud keeps outside the cluster (registry, secret store, log data) run outside it locally too, and Argo CD syncs the cluster. It began as a take-home for a confidential-computing company (AWS, k3s, CNPG); confidential computing is now a guide, not the goal (SPEC §1).
 
 ## Repo layout
 - `terraform/` — modules + `environments/{dev,prod}` (layered, per Lee Briggs IaC structure; read from <https://leebriggs.co.uk/blog/2023/08/17/structuring-iac>).

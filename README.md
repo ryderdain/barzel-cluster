@@ -1,11 +1,19 @@
-# barzel-cluster — GitOps Infrastructure Platform
+# barzel-cluster — a portable, secured Kubernetes platform
 
-A reproducible, GitOps-driven platform that provisions AWS infrastructure with
-Terraform, bootstraps a 3-node HA k3s cluster with Ansible, and uses ArgoCD to
-sync a CloudNativePG-managed Postgres plus a demo application — a Sefaria
-text-search web app — that reads/writes it.
+A general, secured Kubernetes cluster that runs on several substrates — k3d
+on a laptop, AWS, and later GCP or DigitalOcean — with as few changes as
+possible. It is the backbone of a CI/CD chain and does not depend on any
+workload: an example app shows stateless and stateful workloads, and any
+other app can take its place. GitOps with Argo CD; secrets from an external
+store through the External Secrets Operator; a driver that runs every
+change as a reviewed, recorded procedure.
 
-> **Status:** **complete — verified end-to-end on AWS** —
+> **Status (2026-10):** the **local environment** (k3d on a laptop) runs the
+> full platform: driver, registry and secret store outside the cluster, Argo
+> CD, ESO, CNPG and the example app — see [`docs/LOCAL.md`](docs/LOCAL.md).
+> The plan is in [`BACKLOG.md`](BACKLOG.md).
+>
+> **AWS substrate (as built, June 2026):** verified end-to-end —
 > `tofu apply` → Ansible k3s HA → ArgoCD sync → CloudNativePG 3-instance Postgres
 > → demo-app read/writes, with **failover validated** (kill primary →
 > standby promoted, zero data loss), the **DR restore drill passed**
@@ -38,6 +46,9 @@ the repo's own working discipline.
 
 ## Architecture at a glance
 
+The AWS substrate as built in June 2026 (the local environment is drawn in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §1):
+
 ```
 Terraform  ──>  AWS infra (VPC, SGs, IAM, ECR, KMS, 3x EC2 Graviton nodes)
 Ansible    ──>  base + security hardening + k3s HA (3 servers, embedded etcd)
@@ -48,8 +59,8 @@ demo-app   ──>  Sefaria search web app, reads/writes Postgres, /metrics scra
 
 Full write-up + decision rationale: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-**Scope — core vs. optional.** The **core platform** is exactly what a stateful
-GitOps deployment needs: Terraform infra → Ansible k3s → ArgoCD GitOps → the **CloudNativePG operator**
+**Scope — core vs. optional (the AWS build of June 2026).** The **core
+platform** of that build was what a stateful GitOps deployment needs: Terraform infra → Ansible k3s → ArgoCD GitOps → the **CloudNativePG operator**
 managing a production-shaped HA Postgres (failover, S3 backup/restore, monitoring,
 upgrades) → a demo app that uses it. The operator and its **lifecycle** are the
 centerpiece. Everything else is a clearly-labeled **optional differentiator** that
@@ -60,7 +71,7 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 ## Repository layout
 
 | Path | Purpose |
-|------|---------|
+| ------ | --------- |
 | [`terraform/`](terraform/) | Layered IaC: reusable `modules/` + the single-source layer stack [`stack/aws/`](terraform/stack/aws/) applied per env via committed `dev.tfvars`/`prod.tfvars` (ADR-0020), plus `bootstrap/` + `identity/` account primitives and the dev-only `environments/dev/00-conductor` |
 | [`ansible/`](ansible/) | `roles/{base,security,kubernetes}` + `playbooks/` (node config + k3s bootstrap) |
 | [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, monitoring values), `applications/`, `operators/postgres/`; `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + kiesei shell + `ui-forward.sh`) |
@@ -299,6 +310,7 @@ There are intentionally **no per-directory READMEs**; each area is described her
 and detailed in the documents below.
 
 **Design**
+
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the delivery-facing design doc:
   architecture, the rationale for each load-bearing choice (notably k3s over EKS),
   and the ADR index (one file per ADR in `docs/adr/`).
@@ -308,6 +320,7 @@ and detailed in the documents below.
   management, access control, and network exposure across the platform.
 
 **Operator runbooks** (`docs/`)
+
 - [`BOOTSTRAP.md`](docs/BOOTSTRAP.md) — zero → running platform, phase by phase.
 - [`ACCESS.md`](docs/ACCESS.md) — role/SSO onboarding, assume-role, offboarding.
 - [`UPGRADE.md`](docs/UPGRADE.md) — PostgreSQL / k3s / chart / app upgrades (GitOps).

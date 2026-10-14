@@ -32,7 +32,7 @@ _Avoid_: bastion, jump host, conductor instance
 
 **Substrate**:
 The thing that a cluster operates on. Examples: k3d on a laptop, AWS, GCP, or
-DigitalOcean.
+DigitalOcean. Each cloud provider is a separate substrate.
 _Avoid_: platform, provider, cloud (for this meaning)
 
 **Substrate adapter**:
@@ -52,14 +52,15 @@ The sequence of environments that a change must go through, from local to prod.
 _Avoid_: pipeline, release train
 
 **Workload**:
-A software application that the platform operates on a cluster. The barzel
-container is the primary workload.
+A software application that the platform operates on a cluster. The
+platform does not depend on any workload.
 _Avoid_: app, service (for this meaning)
 
-**Smoke workload**:
-A small workload whose only task is to show that a cluster operates
-correctly. The demo-app is the smoke workload.
-_Avoid_: demo, test app
+**Example app**:
+The workload that shows what the platform can run: a stateless web service
+with a stateful database. Any other workload can take its place. It is also
+the workload that the bring-up checks.
+_Avoid_: demo, test app, smoke workload
 
 **Environment definition**:
 The one shell script that tells all values for one environment. Each value is

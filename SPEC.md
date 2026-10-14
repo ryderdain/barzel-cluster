@@ -16,18 +16,32 @@
 
 ---
 
-## 1. Objective (from TASK.md)
+## 1. Objective
 
-A GitOps-driven, reproducible, secure-by-default platform that **provisions
-infrastructure (Terraform) → configures nodes & installs Kubernetes (Ansible) →
-deploys via GitOps (ArgoCD) → runs an operator-managed stateful service
-(CloudNativePG) → proves it with a demo REST app**, plus documentation and
-leadership answers. Single cloud chosen: **AWS** (`eu-central-1`).
+**(2026-10-14, user)** barzel-cluster is a **platform**: a general, fully
+featured, secured Kubernetes cluster that runs on any substrate (k3d on a
+laptop, AWS, GCP, DigitalOcean, …) with as few changes as possible. It is
+the backbone of a CI/CD chain, and it does not depend on any workload. An
+example app (BACKLOG pass 5d) shows stateless and stateful workloads; any
+other app can take its place. Keep it simple: the plainest working shape
+wins.
 
-Framing note: the task is written for the person who will **lead a team of 3
-DevOps engineers**. So the design favours choices that scale to a team and to
-the vendor's real substrate mix (bare metal / private / public clouds), not just
-a one-off demo.
+- **Local is the first environment** (ADR-0024). It mimics the cloud: a
+  service that a cloud keeps outside the cluster runs outside it locally too
+  (ADR-0023, ADR-0026).
+- **One adapter for each substrate**, with the same interface (ADR-0022,
+  §3 platform-layer portability). Each cloud provider is a substrate.
+- **Promotion** moves platform revisions and workload releases along the
+  chain of environments, separately (`promote platform`, `promote
+  workloads`; `promote all` when they depend on each other).
+- **Confidential computing is a guide, not the goal.** Support for an
+  operator-held trust boundary keeps the platform independent of any one
+  provider.
+
+*History.* The project began as a take-home brief (kept private): Terraform
+→ Ansible k3s → Argo CD → CloudNativePG → a demo REST app, on AWS
+(`eu-central-1`), for a confidential-computing company. §2 and §4–§9 keep
+that record.
 
 ---
 
@@ -157,7 +171,7 @@ Form factors:
 
 ### 4.3 Already-baked differentiators
 - Layered IaC (rate-of-change separation) — most submissions ship a flat root.
-- Graviton/arm64 end-to-end (cost + perf; vendor-relevant).
+- Graviton/arm64 end-to-end (cost + perf).
 - Backup **and verified restore** (not just backup config).
 - Consistent "cloud-native for the demo, portable OSS for prod" narrative:
   ECR→**Harbor**, AWS OIDC→**Ory**, cloud-init→**Packer**.
@@ -286,7 +300,7 @@ The 2026-06-03 targeted-destroy stopgap is retired by this move.
 - Skip Ory write-up depth.
 
 **Non-goals:**
-- No confidential-computing specifics. We *nod* to CC instance families + attestation in the security doc only.
+- No confidential-computing implementation. CC instance families and attestation stay a guide (§1).
 - prod = stubs that prove promotion is a diff, not a full second deployment. The cross-account `assume_role` seam (§7.4) is shown in code/docs but the second account is not created.
 
 ---

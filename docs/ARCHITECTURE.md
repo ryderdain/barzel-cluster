@@ -13,139 +13,139 @@ bottom.
 
 ## 1. What this is
 
-A GitOps-driven, reproducible, secure-by-default platform that takes a single
-cloud account from nothing to a running stateful service:
+barzel-cluster is a **platform**: a general, secured Kubernetes cluster that
+runs on several **substrates** (k3d on a laptop, AWS, and later GCP or
+DigitalOcean) with as few changes as possible. It is the backbone of a CI/CD
+chain, and it does not depend on any workload. An **example app** shows that
+it runs stateless and stateful workloads; any other app can take its place.
 
+The platform moves changes along a chain of environments, from local to a
+shared remote environment to production. The local environment is the first
+step, and it has the same shape as the others:
+
+```text
+ driver (kiesei, outside the cluster)
+   │  phases: 10-substrate → 20-images → 25-bootstrap → 30-gitops → 40-workloads
+   │  each phase: emit a run-log → run it → check it
+   ▼
+ services outside the cluster          the cluster
+ (exist before it, outlive it)         ┌────────────────────────────────────┐
+ ┌──────────────────────────┐          │ conductor (kiesei, warm pod)       │
+ │ registry       (Zot)     │◀─pull────│ Argo CD + one platform ApplicationSet
+ │ secret store   (OpenBao) │◀─ESO─────│ ESO, CNPG operator, workloads      │
+ │ admin log store data     │◀─logs────│ log collector, Grafana  (pass 6)   │
+ └──────────────────────────┘          │ admin portal: nginx    (pass 5c)   │
+                                       └────────────────────────────────────┘
 ```
-                 ┌─ admin (once) ─┐
-                 │  bootstrap:    │  state backend (S3 + DynamoDB lock)
-                 │  trust anchor  │  identity: IAM OIDC provider + scoped roles
-                 └───────┬────────┘
-                         │ assume scoped role (OIDC, no static creds)
-        ┌────────────────▼─────────────────┐
-        │  KIESEI CONTAINER / bootstrap VM │  tofu · ansible · kubectl · helm · git
-        └───────┬───────────────┬───────────┘
-        tofu apply (layers)     ansible (base → security → k3s HA)
-                │               │
-   AWS infra (VPC, SG, IAM, ECR, 3× m6g) ──> 3-node k3s HA (embedded etcd)
-                                                   │ ArgoCD app-of-apps (sync waves)
-                                   ┌───────────────┼────────────────┐
-                              EBS CSI / gp3   CloudNativePG op.   demo-app
-                                              3× PG + PVCs + failover
-                                              S3 backups (Barman, instance profile)
-                                              ServiceMonitor → Prometheus / Grafana
-```
 
-**Flow:** Terraform provisions and scaffolds infrastructure → Ansible configures
-nodes and installs Kubernetes → ArgoCD syncs the cluster from git → CloudNativePG
-runs an HA Postgres on real persistent volumes with object-store backups → a demo
-REST app reads/writes it. The division of labour is deliberate: **Terraform owns
-infrastructure, ArgoCD owns in-cluster state, Ansible is the thin bridge** that
-turns bare VMs into Kubernetes nodes.
+On a cloud, each local stand-in becomes the cloud's own service: the
+registry, the secret store and object storage. The **substrate adapter** for
+each cloud gives the same outputs to the same phases.
 
-## 2. Framing: why these choices, not just any choices
+**Division of labour:** OpenTofu owns the infrastructure, Argo CD owns the
+state in the cluster, and the driver sequences the phases that connect them.
+Ansible is the thin bridge that turns bare VMs into Kubernetes nodes where a
+substrate needs it.
 
-This platform is built for someone who will **lead a team operating across a
-mixed substrate — bare metal, private clouds, and public clouds**,
-much of it confidential-computing capable. So the design is biased toward choices
-that are **portable, reproducible, and operable by a small team**, over choices
-that are merely the fastest path on one provider. That single bias explains most
-of what follows — most visibly the Kubernetes distribution.
+## 2. Framing: why these choices
 
-## 3. Why k3s, not EKS
+The platform must be **portable, reproducible and operable by a small team**,
+and **simple**: the plainest working shape wins over the fastest path on one
+provider. Three rules follow from this, and they explain most of what follows:
 
-**Decision: run a self-managed, CNCF-conformant k3s HA cluster (3 servers,
-embedded etcd) on EC2, rather than a managed control plane (EKS).** This is the
-most consequential choice in the platform, so it gets the most rationale.
+- **Local first.** Every change runs on the local environment before it goes
+  further. Local mimics the cloud: a service that is outside the cluster on a
+  cloud is also outside the cluster on local (ADR-0023, ADR-0026).
+- **One interface for each substrate.** The platform layer assumes only
+  conformant Kubernetes plus the adapter's outputs (SPEC §3).
+- **The platform does not know its workloads.** Workloads bring their own
+  manifests, secrets and databases; the platform gives them capabilities.
 
-### Portability is the whole point
-k3s is a single Go binary that installs a fully conformant Kubernetes on
-*anything* that runs Linux — bare metal, a private-cloud VM, a public-cloud
-instance, or an edge box. The exact same Ansible role that stands the cluster up
-here on Graviton EC2 stands it up on a confidential-computing bare-metal host
-with no AWS APIs in the loop. **EKS is AWS-only**: its control plane is an AWS
-service you cannot lift onto bare metal or a private cloud. For a company whose
-substrate is explicitly *not* "always AWS," betting the platform on a control
-plane that only exists in one provider is the wrong default.
+**Confidential computing as a guide.** The project started on a design brief
+for a confidential-computing company. Confidential computing is no longer the
+goal, but support for it stays a useful test: a platform that can run with an
+operator-held trust boundary, on owned or attested hosts, is a platform that
+does not depend on one provider. This is one reason for a self-managed
+control plane (§3).
 
-### Confidential computing wants a control plane you own
-Confidential computing means running on hosts (or instance families) where the
-*operator* — not the cloud provider — holds the trust boundary. A managed control
-plane is, by construction, run by the provider outside that boundary. k3s lets the
-control plane itself live on hardware/instances you fully control and can attest,
-which is the posture a CC-focused platform ultimately needs. We don't implement
-attestation here (it's a documented non-goal), but the choice keeps the door open;
-EKS closes it.
+## 3. Why k3s, not a managed control plane
 
-### Cost, at PoC scale and at fleet scale
+**Decision: run a self-managed, CNCF-conformant k3s cluster on each
+substrate, not a managed control plane such as EKS** (ADR-0001). The SPEC §3
+portability rule keeps the option open to replace k3s with a managed control
+plane inside one substrate adapter later.
+
+### Portability
+
+k3s is a single binary that installs conformant Kubernetes on any Linux host:
+bare metal, a private-cloud VM, a public-cloud instance, or a container on a
+laptop (k3d). The same installation works on every substrate. A managed
+control plane exists only in its provider.
+
+### An operator-held trust boundary
+
+With k3s, the control plane runs on hosts that the operator controls and can
+attest. A managed control plane runs outside that boundary. The platform does
+not implement attestation, but this choice keeps it possible.
+
+### Cost, for one cluster and for many
+
 - **EKS** bills **$0.10/hr per cluster control plane (~$73/mo)** *before* any
   worker nodes — and the "operate many small clusters / per-customer or
   per-edge-site clusters" pattern multiplies that.
-- **k3s** runs its control plane *on the three EC2 nodes we already pay for* —
-  **$0 incremental control-plane cost**. For a PoC, and for the many-small-clusters
-  topology a CC company tends toward, k3s is dramatically cheaper.
+- **k3s** runs its control plane *on the nodes we already pay for* —
+  **$0 incremental control-plane cost**. For the many-small-clusters topology,
+  k3s is much cheaper.
 
 ### It proves the team can operate Kubernetes, not just consume it
+
 Standing up HA embedded-etcd, owning the upgrade cadence, and recovering the
 control plane are exactly the skills a team running Kubernetes on owned substrate
-needs — and exactly what a managed offering hides. Demonstrating them is a
-leadership signal, not incidental.
+needs — and exactly what a managed offering hides.
 
 ### Reproducibility
+
 The entire cluster is reproducible from Terraform + Ansible against any Linux
 host. EKS ties reproduction to AWS-specific resources (the EKS control plane,
 managed node groups, the AWS VPC CNI, IRSA), which is fine until you need to
 reproduce it somewhere that isn't AWS.
 
 ### Footprint
+
 k3s is batteries-included (containerd, CoreDNS, flannel, local-path, metrics,
 and a bundled traefik/servicelb) in one lightweight binary — a good fit for
 Graviton and for edge. We disable the bundled traefik so ingress is GitOps-owned;
 flannel VXLAN is the default CNI (and the security-group rules are opened for it).
 
-### The vendor angle: managed control planes aren't automatically off the table
-A core part of the vendor's value proposition is running **secure/confidential
-workloads in public cloud even on managed services** — including, plausibly,
-hardening or attesting the control-plane nodes that a managed offering like EKS
-operates. In other words, "managed control plane" and "operator-held trust
-boundary" are not necessarily mutually exclusive *if* there's a path to securing
-the managed nodes. That makes EKS-plus-confidential-hardening a legitimate future
-consideration, not a dead end — and worth keeping in view as the product matures.
-
-For **this** project, k3s is still the correct choice for two concrete reasons:
-
-1. **Time/scope.** A self-managed k3s cluster is reproducible end-to-end within
-   the timebox; standing up and validating a hardened managed control plane is not.
-2. **k3s *is* a likely vendor target in its own right.** A lightweight,
-   self-managed, portable distribution running on owned/CC substrate is exactly
-   the kind of thing the vendor's software secures — so building on it is aligned
-   with the product, not a detour.
-
 ### Honest tradeoffs — when EKS *is* the right call
+
 This is a judgement, not dogma. **Pick EKS** when: you are an AWS-only shop with
 no portability requirement; you want the provider to own control-plane HA,
 patching, and upgrades; you need deep, first-party AWS IAM integration (IRSA) and
 AWS support SLAs; you're scaling one very large cluster where managed scaling
-earns its keep; or — per the vendor angle above — you have a way to harden/attest
-the managed control-plane nodes and want the operational offload anyway. The cost
-of k3s is that **we** own control-plane upgrades, patching, and etcd
-backup/restore — work EKS would absorb. We accept that cost deliberately because
-portability and substrate-independence are the higher-order requirement here.
+earns its keep. The cost of k3s is that **we** own control-plane upgrades,
+patching, and etcd backup/restore — work EKS would absorb. We accept that
+cost deliberately, because portability and substrate-independence are the
+higher-order requirement here.
 
 ### Alternatives considered (besides EKS)
+
 | Option | Why not (for this) |
-|--------|--------------------|
+| -------- | -------------------- |
 | **kubeadm** | More moving parts to assemble and maintain; k3s gives the same conformance with far less operational surface. |
-| **Talos** | Excellent immutable, API-driven OS — a strong *future* hardening direction (especially for CC). Heavier to adopt in the timebox; noted as a prod-hardening path. |
-| **RKE2** | k3s's security-hardened sibling (FIPS, CIS-benchmarked). The natural **"harden k3s for prod / CC"** upgrade path — same operational model, so adopting it later is low-friction. |
+| **Talos** | Excellent immutable, API-driven OS — a strong *future* hardening direction. Heavier to adopt; noted as a prod-hardening path. |
+| **RKE2** | k3s's security-hardened sibling (FIPS, CIS-benchmarked). The natural **"harden k3s for prod"** upgrade path — same operational model, so adopting it later is low-friction. |
 
-This mirrors the repo's consistent thread: **cloud-native for the demo, portable
-OSS for production** (ECR → Harbor, AWS OIDC → Ory, cloud-init → Packer, and here
-k3s → RKE2/Talos for hardened substrate).
+This mirrors the repo's consistent thread: **cloud-native where it is the
+simplest path, portable OSS where portability matters** (ECR → Harbor, AWS
+OIDC → Ory, cloud-init → Packer, and here k3s → RKE2/Talos for a hardened
+substrate).
 
-## 4. Key design choices
+## 4. Key design choices on the AWS substrate (as built, June 2026)
 
-Each is recorded formally in the [ADR index](#architecture-decision-records-adrs);
+These choices describe the AWS substrate as it was built and verified in June
+2026. Pass 8 (BACKLOG) turns it into the AWS substrate adapter; some choices
+change then. Each is recorded formally in the [ADR index](#architecture-decision-records-adrs);
 this is the at-a-glance summary.
 
 - **Layered Terraform state (Lee-Briggs).** State is split per *rate of change*
@@ -185,8 +185,8 @@ this is the at-a-glance summary.
   `local-path` only as a documented descope lever.
 - **Backups: CloudNativePG → S3 via Barman Cloud**, authenticated by the **EC2
   instance profile** — no second IAM user. The backup bucket lives in the
-  persistent `15-kms` layer (survives compute teardown) and is **SSE-KMS** with a
-  customer-managed key. Backup *and* verified restore.
+  persistent `15-kms` layer (survives compute teardown) and is **SSE-KMS**
+  with a customer-managed key. Backup *and* verified restore.
 - **GitOps: ArgoCD app-of-apps with sync waves** so operators (CloudNativePG)
   land before the applications that depend on them.
 - **Single AWS account for the PoC**, with **account-per-environment /
@@ -194,9 +194,10 @@ this is the at-a-glance summary.
   cross-account `assume_role` seam is shown in the identity HCL (a `prod` provider
   alias), so promotion is a diff, not a rebuild.
 
-## 5. Cost & lifecycle posture
+## 5. Cost & lifecycle posture (AWS)
 
-This is a **PoC: bring up → demo → tear down**, not a standing system. Setup is
+On AWS, an environment is brought up, used and torn down; it is not a
+standing system. Setup is
 ~$0 (IAM/OIDC free, state bucket ~$0, CMKs ~$1/mo each). The per-hour meter is
 dominated by **3× compute** (`m6g.large` on-demand ≈ $0.27/hr; spot ≈ ~70% less
 for iteration) and the **managed NAT gateway** (≈ $0.05/hr + data — the sneaky
@@ -211,9 +212,8 @@ window so retired CMKs stop billing sooner. Realized in [`TEARDOWN.md`](TEARDOWN
 
 ## 6. Non-goals & descope levers
 
-**Non-goals:** no confidential-computing implementation (we nod to CC instance
-families + attestation in the security narrative only — "works now ⇒ works with
-CC"); prod is stubs that prove promotion is a diff, not a second live deployment.
+**Non-goals:** no confidential-computing implementation (attestation and CC
+instance families stay a guide, §2); no dependency on any one workload.
 
 **Descope levers (documented tradeoffs):** compute market (spot ↔ on-demand);
 networking (managed NAT → NAT instance → public-subnet/no-NAT); node size
@@ -229,7 +229,7 @@ decision, and its consequences at the time it was made. ADRs are
 append-only: a superseded ADR is marked, not deleted.
 
 | ADR | Decision | Status |
-|-----|----------|--------|
+| ----- | ---------- | -------- |
 | [ADR-0001](adr/0001-kubernetes-distribution-self-managed-k3s-not-eks.md) | Kubernetes distribution: self-managed k3s, not EKS | Accepted |
 | [ADR-0002](adr/0002-layered-terraform-state-lee-briggs-not-a-single.md) | Layered Terraform state (Lee-Briggs), not a single root | Accepted |
 | [ADR-0003](adr/0003-graviton-arm64-end-to-end.md) | Graviton / arm64 end-to-end | Accepted |
