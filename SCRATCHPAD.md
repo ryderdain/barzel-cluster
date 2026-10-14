@@ -6,6 +6,7 @@ user can see (and correct) the working memory at any time. Works **in tandem**
 with the agent's internal cycles, not instead of them.
 
 **Contract:**
+
 - Freely written and rewritten during a session; stale content is pruned, not
   preserved. Nothing here is a record — durable outcomes graduate to
   [RETROSPECTIVE.md](RETROSPECTIVE.md) once user-verified; planned work moves
