@@ -39,13 +39,20 @@ change-of-image-source steps.
 5. **OpenBao (Vault CE fallback) + ESO + `secrets` phase + store adapters**,
    with a write-then-read smoke test in `up`. *(DONE — 5a and 5b verified
    live 2026-10-13; ADR-0026: the store runs OUTSIDE the cluster, like Zot.)*
-6. **Loki + Alloy + conductor log shipping.**
+6. **Logs: admin log store + diagnostic log store** (design in progress
+   2026-10-14, Q77 and Q84–Q96; the spike on branch `spike-logs` chooses the
+   products; "Loki + Alloy" is no longer fixed). One node collector, OTLP.
 6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
    environment, on the auto-sync switch that pass 4 builds; the procedure for
    an operator or an agent to change the cluster through the conductor
    (including helm apps); a record of each use in Loki; the risks in the
    human-facing docs (helm hooks, large CRDs need server-side apply, a change
    to Argo CD's own chart while it holds).
+   Also (user, 2026-10-14, Q94): a standalone Grafana that reads the admin log
+   store and **runs only while break-glass mode is on**, so the admin logs
+   stay readable when the cluster (and its Grafana) is down.
+6c. **Cold log storage + CNPG backups** (Q92): the `cold` route; on local a
+   directory on the host is enough, on AWS S3.
 7. **`promote` phase** (digest + env-definition values along the chain).
 8. *(AWS unfreezes)* AWS phases of `platform.sh` → the AWS adapter.
    Pass 8 also: the AWS secret-store adapter (Secrets Manager) behind the same
@@ -55,6 +62,9 @@ change-of-image-source steps.
    8):** migrate Argo CD's repo credential from a read-only deploy key to a
    **GitHub App** (user decision 2026-10-12, Q61). Local uses the deploy key
    `sleipnir-brzl-deploy` until then.
+   Pass 8 also: the upstream CloudWatch Logs exporter is **alpha** (contrib
+   0.162.0); and the admin log store on AWS (Q96, user leans to the same
+   product on every substrate, data in S3, CloudWatch at most a backup copy).
 
 Standing concerns (check in every pass, do not lose):
 

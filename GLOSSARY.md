@@ -93,6 +93,31 @@ _Avoid_: fast mode, intervention mode, emergency mode
 The recorded commands of one phase in one environment, as they operated.
 _Avoid_: transcript, history
 
+### Logs
+
+**Workload logs**:
+The logs that the workloads write. Their readers are the people who develop
+the workloads.
+_Avoid_: app logs, application logs
+
+**Platform logs**:
+The logs of everything that is not a workload: Kubernetes, the platform
+applications, the driver and the conductor. Their readers are the operators
+and the auditors.
+_Avoid_: system logs, infrastructure logs, cluster logs
+
+**Admin log store**:
+The log store for operation and audit. It keeps the bootstrap, control-plane
+and access records of an environment. It is external to the cluster and
+outlives it.
+_Avoid_: external log store, audit store, central logging
+
+**Diagnostic log store**:
+The log store for detailed logs, from workloads and from the platform
+applications, that operators read to find a fault. It is lost with the
+cluster unless its logs are also sent to another store.
+_Avoid_: cluster log store, workload log store, debug store
+
 ### Secrets
 
 **Bootstrap secret source**:
