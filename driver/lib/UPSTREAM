@@ -1,8 +1,10 @@
-# Vendored from ryderdain/bash (the canonical Bash doctrine).
-# Kept byte-identical to upstream; check with: bash driver/lib/upstream-check.sh
-# Vendored only while the `bash-doctrine` branch of ryderdain/bash is unmerged
-# (decision Q49, 2026-10-09). After the merge, source upstream directly.
+# Vendored from ryderdain/bash (the canonical Bash doctrine), pinned to one
+# commit on master and kept byte-identical to it. The kiesei image and the
+# conductor need their own copy, and a pin keeps each run reproducible
+# (decision Q103, 2026-10-14; replaces Q49's plan to source upstream directly).
+# Check with: bash driver/lib/upstream-check.sh
 repo=ryderdain/bash
-branch=bash-doctrine
-commit=02e3308
+branch=master
+tag=barzel-cluster/2026-10-14
+commit=e3666df
 files=includes/runlib.sh includes/error.sh
