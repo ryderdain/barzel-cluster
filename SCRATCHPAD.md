@@ -23,7 +23,28 @@ session; passes 0–8 in [BACKLOG.md](BACKLOG.md). Vocabulary is in
 [GLOSSARY.md](GLOSSARY.md). The AWS live test below is DEFERRED — AWS is frozen
 until the driver refactor + local are solid.)*
 
-**▶ NEXT: pass 6** (Loki + Alloy on every substrate; the conductor's stdout
+**▶ IN DESIGN: pass 6, logs (2026-10-14).** Q77 reopened by the user: two
+concerns. Settled: GLOSSARY terms *workload logs* / *platform logs* (Q84).
+Thin platform logs go to an external store; detailed logs (workload AND
+platform-app detail) stay in an in-cluster store, with optional export (Q85).
+One node collector owned by the platform, two outputs, plus a host-side
+shipper for `var/run/` (Q86). Records travel as OTLP (Q87 b). External store
+gets six sources: run-logs, k3s server log, API audit log (metadata), OpenBao
+audit log, k8s events, later break-glass (Q90). Per-namespace export label,
+value names the destination explicitly (`drop`, not `none`; Q91, open on
+product-vs-purpose values). Cold storage: separate pass with CNPG backups; a
+local directory is enough (Q92, confirming). Store names by purpose, not
+location (Q93, open: "Admin log store" + ?). Spike accepted (Q89): throwaway
+branch `spike-logs`, `spikes/logs/`, OTel Collector vs Alloy × Loki+Grafana vs
+VictoriaLogs; user runs it, verdict committed, branch never merged (Q88). Later: routes `drop|admin|diagnostic|cold` in a namespace annotation, a
+combination = all at once (Q91a, Q95); aging = each store's period, cold copy
+written at ingest; one default period per store (Q95a). Admin log store on
+every substrate = Loki in the cluster, data in object storage / a host
+directory, admin records also to `cold` (Q96 (2), Q96a: data outside, program
+may run inside). Grafana in the cluster is the viewer; a break-glass-only
+Grafana reader later (BACKLOG 6b). GLOSSARY: admin / diagnostic log store.
+
+**(Was) NEXT: pass 6** (Loki + Alloy on every substrate; the conductor's stdout
 shipped to Loki; then 6b break-glass mode). Pass 5 verified live 2026-10-13
 (5a run 202610131940; 5b runs 202610132037 + 202610132108, incl. `up` with no
 deploy key: the store kept it) — RETROSPECTIVE entry written; `pass-5b`

@@ -42,6 +42,13 @@ change-of-image-source steps.
 6. **Logs: admin log store + diagnostic log store** (design in progress
    2026-10-14, Q77 and Q84–Q96; the spike on branch `spike-logs` chooses the
    products; "Loki + Alloy" is no longer fixed). One node collector, OTLP.
+   Also in pass 6: **time in UTC, ISO 8601 with `Z`, everywhere** (Q100,
+   2026-10-14). Log lines (`_ts`, `error`) change first in `ryderdain/bash`.
+   Then the run directories: today `var/run/<env>/<YYYYmmddHHMM>[-down]` in
+   the host's local time, and fast-mode run-logs `fast-<what>-<HHMMSS>`. They
+   change to UTC with `Z` and get a prefix that names the scope of the
+   directory (Q101). The driver finds runs through the `current` link, so
+   the names can change; old run directories keep their names.
 6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
    environment, on the auto-sync switch that pass 4 builds; the procedure for
    an operator or an agent to change the cluster through the conductor
