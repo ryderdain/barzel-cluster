@@ -1,6 +1,8 @@
 # ADR-0013 — GitOps: ArgoCD app-of-apps with sync waves; self-managed
 
-**Status:** Accepted · Partly superseded by ADR-0016 (app-of-apps root, sentinel render) · **Date:** 2026-06-03
+**Status:** Accepted · Split 2026-10-14: Argo CD self-managed → ADR-0031; the
+app-of-apps root and the sentinel render → superseded by ADR-0016; the
+repository credential → ADR-0032 · **Date:** 2026-06-03
 **Context.** The cluster config must be declarative, ordered (operators before the
 apps that depend on them), and reproducible by the team — not a pile of imperative
 `kubectl apply`s. ArgoCD itself needs to be installed before it can manage

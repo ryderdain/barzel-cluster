@@ -1,6 +1,7 @@
 # ADR-0024 — Local is the first environment in the promotion chain
 
-**Status:** Accepted · **Date:** 2026-10-07 · **Supersedes:** ADR-0015
+**Status:** Accepted · The "k3s stays on each substrate" line is superseded by
+ADR-0030 · **Date:** 2026-10-07 · **Supersedes:** ADR-0015
 **Context.** ADR-0015 made the local k3d cluster a laptop exception that is
 not in the promotion chain. It used `kubectl apply -k` and its own overlay,
 with no Argo CD, and `platform.sh` refused it. At this time, the local

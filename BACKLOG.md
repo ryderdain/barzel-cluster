@@ -57,7 +57,17 @@ Order of work (Q120):
     CloudWatch Logs exporter is alpha; the live test of model B
     (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
     `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and
-    multi-account direction (SPEC §9).
+    multi-account direction (SPEC §9). Driver credentials (user,
+    2026-10-14): `driver/kiesei.sh` mounts only the engine socket and the
+    repo and passes `BRZL_*`; no `~/.aws`, no `AWS_PROFILE`. Either mount
+    `~/.aws` read-only and pass `AWS_PROFILE` (AWS SSO keeps its session
+    cache in `~/.aws/sso/cache`), or export short-lived credentials into
+    the container (`aws configure export-credentials`). A wrong-account
+    guard: a phase-10 check compares the caller's identity with a marker
+    the environment expects (an account alias or a tag, not a committed
+    account ID, which would break the derive-at-runtime rule). SSO login:
+    an expired session stops the phase with a fix line (`aws sso login
+    --profile …`) instead of a credential error in the middle of a run-log.
 11. **9. `promote workloads`** and **`promote all`** (a platform and workload
     change that depend on each other) (Q118).
 
@@ -81,6 +91,9 @@ Standing concerns (check in every pass):
   published history).
 - **Port the seed's §1.10** ("a script's claims are part of its contract") to
   `ryderdain/bash` STYLE.md.
+- **Before going public on GitHub** (user, 2026-10-14): redraw the ASCII
+  diagrams in ARCHITECTURE and README as Mermaid; a cosmetics pass on the
+  docs. Last thing, not now.
 - **Markdown lint debt**: about 600 older errors (mostly MD013) in SPEC,
   SCRATCHPAD and the runbooks. Clean a file when a pass edits it. Do not
   change RETROSPECTIVE entries without asking.

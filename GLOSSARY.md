@@ -91,8 +91,15 @@ recorded and reviewed afterwards. It is not for usual work.
 _Avoid_: fast mode, intervention mode, emergency mode
 
 **Run-log**:
-The recorded commands of one phase in one environment, as they operated.
-_Avoid_: transcript, history
+The file of commands that one phase emitted for one environment. The driver
+records it before it runs it, and keeps it afterwards, so it is the exact
+record of what ran. The conductor runs the run-logs that the driver sends.
+_Avoid_: transcript, history, script (for this meaning), log (for its output)
+
+**Run-log output**:
+The recorded output of a run-log as it ran, kept beside the run-log with its
+exit status. The admin log store receives it.
+_Avoid_: log, transcript, run-log (for this meaning)
 
 ### Access
 

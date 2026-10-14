@@ -1,6 +1,6 @@
-# barzel-cluster — a portable, secured Kubernetes platform
+# barzel-cluster — a portable, GitOps-driven, secured Kubernetes platform
 
-A general, secured Kubernetes cluster that runs on several substrates — k3d
+A general, secured, GitOps-driven Kubernetes cluster that runs on several substrates — k3d
 on a laptop, AWS, and later GCP or DigitalOcean — with as few changes as
 possible. It is the backbone of a CI/CD chain and does not depend on any
 workload: an example app shows stateless and stateful workloads, and any

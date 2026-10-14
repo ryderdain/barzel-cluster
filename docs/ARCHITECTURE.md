@@ -42,6 +42,40 @@ On a cloud, each local stand-in becomes the cloud's own service: the
 registry, the secret store and object storage. The **substrate adapter** for
 each cloud gives the same outputs to the same phases.
 
+**Flow: how a change reaches a cluster.** Two kinds of change travel two
+separate roads, and Argo CD in each cluster is where they meet:
+
+```text
+  barzel-cluster (this repo)                 a workload's repo (e.g. chofesh)
+  the platform: ApplicationSet + manifests   manifests + source
+         │ push a branch                            │ CI builds the image
+         ▼                                          ▼ push → registry (digest)
+  ┌─ local ─────────────────────────┐        ┌────────────────────┐
+  │ Argo CD follows the branch the  │◀─pull──│ Zot / ECR / …      │
+  │ driver checked out              │        └────────────────────┘
+  │ (fast mode: the working tree)   │
+  └───────────────┬─────────────────┘
+                  │ promote platform (pass 7): the platform revision,
+                  ▼ one environment at a time
+  ┌─ dev ────────────┐      ┌─ prod ───────────┐   each cluster's registration
+  │ revision = A     │ ───▶ │ revision = A     │   (its cluster Secret) names the
+  │ workload digests │      │ workload digests │   revision Argo CD follows and
+  └──────────────────┘      └──────────────────┘   the images it deploys
+                  promote workloads (pass 9): a workload's image digest
+                  and values, one environment at a time, from its own CI
+```
+
+A **platform change** is a commit here. Argo CD renders the one platform
+ApplicationSet (ADR-0025) from the revision named in the cluster's
+registration. Local follows the branch the driver checked out (GitOps mode)
+or applies the working tree directly (fast mode, ADR-0024). `promote
+platform` moves that revision to the next environment. A **workload change**
+is a commit in the workload's repo plus an image in the registry; the
+ApplicationSet has one entry for each workload, pointing at its manifests.
+`promote workloads` moves the workload's image digest and values along the
+chain. In both cases Argo CD, not an operator, applies the change; break-glass
+mode (pass 6b) is the audited exception.
+
 **Division of labour:** OpenTofu owns the infrastructure, Argo CD owns the
 state in the cluster, and the driver sequences the phases that connect them.
 Ansible is the thin bridge that turns bare VMs into Kubernetes nodes where a
@@ -230,7 +264,7 @@ append-only: a superseded ADR is marked, not deleted.
 
 | ADR | Decision | Status |
 | ----- | ---------- | -------- |
-| [ADR-0001](adr/0001-kubernetes-distribution-self-managed-k3s-not-eks.md) | Kubernetes distribution: self-managed k3s, not EKS | Accepted |
+| [ADR-0001](adr/0001-kubernetes-distribution-self-managed-k3s-not-eks.md) | Kubernetes distribution: self-managed k3s, not EKS | Partly superseded by ADR-0030 |
 | [ADR-0002](adr/0002-layered-terraform-state-lee-briggs-not-a-single.md) | Layered Terraform state (Lee-Briggs), not a single root | Partly superseded by ADR-0020 |
 | [ADR-0003](adr/0003-graviton-arm64-end-to-end.md) | Graviton / arm64 end-to-end | Accepted |
 | [ADR-0004](adr/0004-node-access-via-ssm-ssh-over-ssm-no-inbound-22.md) | Node access via SSM SSH-over-SSM, no inbound :22 | Accepted |
@@ -242,20 +276,26 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0010](adr/0010-cnpg-backups-via-the-ec2-instance-profile-no.md) | CNPG backups via the EC2 instance profile, no second IAM user | Partly superseded by ADR-0016, ADR-0025 |
 | [ADR-0011](adr/0011-single-aws-account-for-the-poc-account-per-env.md) | Single AWS account for the PoC; account-per-env/customer for prod | Accepted |
 | [ADR-0012](adr/0012-managed-nat-gateway-spot-on-demand-capacity-toggle.md) | Managed NAT gateway; spot/on-demand capacity toggle | Accepted |
-| [ADR-0013](adr/0013-gitops-argocd-app-of-apps-with-sync-waves-self.md) | GitOps: ArgoCD app-of-apps with sync waves; self-managed | Partly superseded by ADR-0016 |
+| [ADR-0013](adr/0013-gitops-argocd-app-of-apps-with-sync-waves-self.md) | GitOps: ArgoCD app-of-apps with sync waves; self-managed | Split: ADR-0031, ADR-0016, ADR-0032 |
 | [ADR-0014](adr/0014-in-cluster-secret-projection-via-external-secrets.md) | In-cluster secret projection via External Secrets Operator | Accepted |
 | [ADR-0015](adr/0015-local-dev-parity-via-k3d-built.md) | Local-dev parity via k3d (built) | Superseded by ADR-0024 |
 | [ADR-0016](adr/0016-account-id-free-gitops-applicationset-host.md) | Account-id-free GitOps: ApplicationSet host injection at render | Partly superseded by ADR-0025 |
-| [ADR-0017](adr/0017-observability-kube-prometheus-stack-trimmed-port.md) | Observability: kube-prometheus-stack, trimmed, port-forward access | Partly superseded by ADR-0027, ADR-0028 |
-| [ADR-0018](adr/0018-operator-sso-gateway-dex-github-local-first.md) | Operator SSO gateway (Dex→GitHub), local-first | Partly superseded by ADR-0028 |
+| [ADR-0017](adr/0017-observability-kube-prometheus-stack-trimmed-port.md) | Observability: kube-prometheus-stack, trimmed, port-forward access | Split: ADR-0033, ADR-0028, ADR-0034 |
+| [ADR-0018](adr/0018-operator-sso-gateway-dex-github-local-first.md) | Operator SSO gateway (Dex→GitHub), local-first | Split: ADR-0035, ADR-0028 |
 | [ADR-0019](adr/0019-prod-environment-private-subnet-placement-nlb-only.md) | Prod environment: private-subnet placement, NLB-only ingress | Layout superseded in part by ADR-0020 |
 | [ADR-0020](adr/0020-single-source-environment-stack-model-b-driver.md) | Single-source environment stack (model B) + driver-composed state backend | Accepted |
 | [ADR-0021](adr/0021-kiesei-driver-and-conductor.md) | Kiesei: one operator image, driver and conductor modes | Accepted |
-| [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs | Accepted |
+| [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs | Accepted; adapter interface → ADR-0030 |
 | [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Partly superseded by ADR-0026 |
-| [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted |
+| [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted; k3s line → ADR-0030 |
 | [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted |
 | [ADR-0026](adr/0026-local-secret-store-outside-the-cluster.md) | The local cluster secret store runs outside the cluster | Accepted |
 | [ADR-0027](adr/0027-logs-admin-and-diagnostic-stores.md) | Logs: an admin log store and a diagnostic log store | Accepted (design; pass 6) |
 | [ADR-0028](adr/0028-admin-portal.md) | The admin portal: one nginx, a static page, a path for each service | Accepted (design; pass 5c) |
 | [ADR-0029](adr/0029-vendored-doctrine-helpers-pinned.md) | The Bash doctrine helpers are vendored, pinned to a tagged commit | Accepted |
+| [ADR-0030](adr/0030-substrate-adapter-interface.md) | One substrate adapter interface; the platform layer assumes only conformant Kubernetes | Accepted |
+| [ADR-0031](adr/0031-argocd-manages-itself.md) | Argo CD manages itself (from ADR-0013) | Accepted |
+| [ADR-0032](adr/0032-argocd-repository-credential.md) | The Argo CD repository credential: deploy key now, GitHub App before leaving local (from ADR-0013) | Accepted; to be superseded in pass 8 |
+| [ADR-0033](adr/0033-metrics-kube-prometheus-stack.md) | Metrics: kube-prometheus-stack, trimmed (from ADR-0017) | Accepted (AWS substrate) |
+| [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh); the platform depends on no workload | Accepted (design; pass 5d) |
+| [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted (design; pass 6a) |

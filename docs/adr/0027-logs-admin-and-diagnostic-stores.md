@@ -8,7 +8,7 @@
 "Loki + Alloy" on every substrate, but no design existed. Logs have two
 concerns with different readers. **Workload logs** serve the people who
 develop a workload. **Platform logs** serve operators and auditors: the
-run-logs, the control plane, the access records and, later, the break-glass
+run-log outputs, the control plane, the access records and, later, the break-glass
 records. An audit record that is stored in the cluster it audits is lost
 with that cluster. A spike (branch `spike-logs`, `spikes/logs/RESULTS.md`)
 tested the design in two rounds before the build.
@@ -35,13 +35,14 @@ tested the design in two rounds before the build.
   of admin records; with the early flush, the spike lost the newest 4 of
   5362.
 - **One node collector, owned by the platform, with one output for each
-  destination** (Q86). A collector beside the cluster reads the driver's
-  run-logs from `var/run/` (Q106, local only for now).
-- **The admin log store gets six sources** (Q90): the driver and conductor
-  run-logs, the k3s server log, the Kubernetes API audit log (metadata
-  level), the OpenBao audit log, the Kubernetes events, and later the
-  break-glass records. These routes are fixed in the collector's
-  configuration, not in an annotation, so a workload cannot remove them.
+  destination** (Q86). A collector beside the cluster reads the run-log
+  outputs from `var/run/` (Q106, local only for now).
+- **The admin log store gets six sources** (Q90): the run-log outputs of
+  the driver and the conductor, the k3s server log, the Kubernetes API
+  audit log (metadata level), the OpenBao audit log, the Kubernetes events,
+  and later the break-glass records. These routes are fixed in the
+  collector's configuration, not in an annotation, so a workload cannot
+  remove them.
 - **Each namespace chooses where its detailed logs go**, with the annotation
   `brzl.dev/log-routes`: a comma-separated list of `drop`, `admin`,
   `diagnostic` and `cold` (Q91, Q95). A record goes to every store it names,
@@ -56,11 +57,12 @@ tested the design in two rounds before the build.
 - **Time is UTC, ISO 8601 with `Z`, everywhere** (Q100): log lines, run
   directories (`cluster-<UTC>Z`, `teardown-<UTC>Z`, Q101) and fast-mode
   run-logs.
-- **Each run-log starts with a header line** in logfmt (Q102), for example
+- **Each run-log output starts with a header line** in logfmt (Q102), for
+  example
   `# brzl run-log env=local run=cluster-20261014T1425Z phase=25-bootstrap
   start=2026-10-14T14:25:18Z`. The collector identifies a file by its first
-  bytes, and in the spike it skipped five one-line run-logs that had the same
-  content as another file.
+  bytes, and in the spike it skipped five one-line outputs that had the
+  same content as another file.
 - **Grafana in the cluster is the viewer**, with one data source for each
   store (Q94). A break-glass reader, outside the cluster, reads the admin
   data when the cluster is down (BACKLOG pass 6b).
@@ -76,7 +78,7 @@ tested the design in two rounds before the build.
   audit policy) need one `down` and `up`.
 - Open for pass 8: the admin log store on AWS (Q96: the same product, data
   in S3; CloudWatch at most a backup copy; its OpenTelemetry exporter is
-  alpha), and how the driver's run-logs reach it from outside local (Q106).
+  alpha), and how the driver's run-log outputs reach it from outside local (Q106).
 - *Alternatives considered.* Alloy as the collector: its OTLP file reader is
   a preview, it has no OTLP events receiver and no CloudWatch exporter.
   VictoriaLogs as a store: one retention period and local disk only. One

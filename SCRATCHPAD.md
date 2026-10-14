@@ -36,8 +36,19 @@ plan in [BACKLOG.md](BACKLOG.md), the records in
 4. SCRATCHPAD: this. **Done.**
 5. LOCAL.md: the resource budget (sleipnir 32 GB, huginn 8 GB). **Done.**
 
-Steps 1 and 2 **done** (169fb27, 05f2eff). Open: the user decides on the ADR
-splits below and the restated supply-chain rule; then merge to `main`.
+**Round DONE 2026-10-14** and merged to `main`. Q122 (b): ADR-0030..0035
+written (adapter interface; Argo CD self-managed; repo credential; metrics;
+example app; sign-on), old Status lines point at them. Q123: supply-chain
+rule restated in SPEC §3. User review items done: "GitOps-driven" back in
+README; GLOSSARY separates *run-log* (the commands) from *run-log output*;
+ARCHITECTURE §1 has the Flow diagram (platform road vs workload road, both
+through Argo CD; `promote platform` / `promote workloads`); pass-8 driver
+credential items and the Mermaid touch-up are in BACKLOG. Lint debt left as
+found: SPEC 86, README 29, ADR-0018 body.
+
+**▶ NEXT: pass 5c, the admin portal** (ADR-0028; BACKLOG). Start with a
+short design round on the build (nginx image, the page, the node port, the
+certificate flow in phase 25), then build.
 
 The user reviews the branch as one diff; then merge to `main`.
 

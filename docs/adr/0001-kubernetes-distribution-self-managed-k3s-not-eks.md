@@ -1,6 +1,7 @@
 # ADR-0001 — Kubernetes distribution: self-managed k3s, not EKS
 
-**Status:** Accepted · **Date:** 2026-06-01
+**Status:** Accepted · Partly superseded by ADR-0030 (a managed control plane
+may replace k3s inside one substrate adapter) · **Date:** 2026-06-01
 **Context.** The platform must be portable across the vendor's substrate mix (bare
 metal / private / public cloud, CC-capable) and reproducible by a small team. A
 managed control plane (EKS) is AWS-only and runs outside an operator-held trust

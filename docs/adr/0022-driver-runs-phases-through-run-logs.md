@@ -1,6 +1,7 @@
 # ADR-0022 — The driver runs phases through run-logs
 
-**Status:** Accepted · **Date:** 2026-10-07
+**Status:** Accepted · The substrate-adapter interface moved to ADR-0030 ·
+**Date:** 2026-10-07
 **Context.** `gitops/tools/platform.sh` operates its commands directly. Thus
 an operator cannot see a full phase before it starts. Its trap logic, which
 starts a phase again, breaks easily. Its 700 lines mix substrate work and

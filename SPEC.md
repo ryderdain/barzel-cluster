@@ -107,7 +107,7 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   Kubernetes auth on local). Smoke: phase 25 writes a random value, phase 40
   compares hashes. One adapter per store type (`driver/secret-stores/`).
 - **Logs: an admin log store and a diagnostic log store (2026-10-14,
-  ADR-0027).** Platform logs that audit the environment (run-logs, k3s
+  ADR-0027).** Platform logs that audit the environment (run-log outputs, k3s
   server, API audit, OpenBao audit, events, break-glass) go to the **admin
   log store**, whose data is outside the cluster (object storage; local: a
   host directory) and flushes within minutes. Detailed logs go to the
@@ -115,13 +115,19 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   two Loki installations, Grafana. Each namespace routes its logs with
   `brzl.dev/log-routes` (`drop|admin|diagnostic|cold`) and chooses a
   retention class with `brzl.dev/log-retention` (`7d|30d|90d`). Time is UTC,
-  ISO 8601 with `Z`, everywhere; each run-log starts with a logfmt header.
+  ISO 8601 with `Z`, everywhere; each run-log output starts with a logfmt
+  header.
 - **The admin portal (2026-10-14, ADR-0028).** One nginx in the cluster
   serves a static page and passes each path to its service (`/argocd/`,
   `/grafana/`, `/apps/<workload>/`): one host name, one certificate, the
   same page on every environment, the same URL for HTTP CLI tools. TLS
   `letsencrypt` (owned domain; the certificate kept in the secret store) or
   `local-ca` (OpenBao PKI). Sign-on, later, leads to it.
+- **Supply chain of the kiesei image (restated 2026-10-14, from ADR-0007).**
+  Every tool that the image downloads is pinned to a version and verified,
+  by checksum or GPG signature, before it is installed; a build that cannot
+  verify a tool fails. ADR-0021 replaced the toolbox image with kiesei and
+  did not restate this rule. It stands (`containers/kiesei/`).
 - **The Bash doctrine helpers are vendored and pinned (2026-10-14,
   ADR-0029).** `driver/lib/{runlib,error}.sh` are byte-identical to a tagged
   commit of `ryderdain/bash` master; `upstream-check.sh` enforces it.
