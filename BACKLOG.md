@@ -52,6 +52,11 @@ change-of-image-source steps.
    a `down`; fast-mode run-logs `fast-apply-142512Z.sh`. The driver finds runs
    through the `current` link, so the names can change; old run directories
    keep their names.
+   Also in pass 6 (Q102): the driver writes a header as the first line of
+   each `.out`, in logfmt, for example `# brzl run-log env=local
+   run=cluster-20261014T1425Z phase=25-bootstrap start=2026-10-14T14:25:18Z`.
+   The spike showed that the collector skips a file whose first bytes match
+   another file's (five one-line fast-mode run-logs were lost).
 6b. **Break-glass mode** (Q62–Q65, 2026-10-12): `hold` / `release` in every
    environment, on the auto-sync switch that pass 4 builds; the procedure for
    an operator or an agent to change the cluster through the conductor
