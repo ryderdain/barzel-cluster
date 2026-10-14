@@ -60,6 +60,23 @@ The user reviews the branch as one diff; then merge to `main`.
 - Q119: one stack per substrate (`terraform/stack/<substrate>/<layer>/`);
   "profile" meant substrate.
 
+**ADR review (agent report, 2026-10-14), for step 2 — splits proposed, ask
+the user before doing any:**
+
+- Worth splitting (new ADRs supersede part; old text unchanged): 0013 →
+  Argo CD self-managed / app-of-apps (dead) / repo credential (GitHub App
+  later); 0017 → metrics stack (pass 6) / UI access (pass 5c) / Sefaria
+  demo-app (workload); 0018 → identity (Dex, oauth2-proxy, kube-API OIDC;
+  kept by 6a) / edge (per-host proxies, Traefik, FreeDNS; replaced by 5c);
+  the substrate-adapter interface out of 0022 + SPEC §3 portability into one
+  new ADR (the main decision of the reframe; partly supersedes 0001 and the
+  k3s line in 0024). Borderline: 0003 arm64 vs `m6g` (DigitalOcean has no
+  arm64 Droplets, unverified) — only when DigitalOcean comes.
+- 0007 superseded by 0021, but the supply-chain checks (checksum/GPG of
+  vendored binaries) were not carried over: restate them.
+- Index Status column out of date for 0002, 0008, 0010, 0013, 0016, 0019,
+  0023 (all "partly superseded" by 0016/0020/0025/0026).
+
 **State to remember:** the local cluster follows branch `spike-logs` until a
 phase-30 run from `main`. `ryderdain/bash` has a local branch
 `backup/bash-doctrine-pre-squash`.
