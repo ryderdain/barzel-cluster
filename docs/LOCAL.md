@@ -13,6 +13,15 @@ cluster, applied through a thin
 - Internet access. The images come from the upstream registries, through the
   local Zot cache.
 - No AWS account, profile, or credentials.
+- Enough memory for the container engine. The reference hosts:
+
+  | Host | Hardware | Note |
+  | --- | --- | --- |
+  | sleipnir | Apple M5, 10 cores, 32 GB | The main host. Docker Desktop's VM had 7.75 GiB on 2026-10-14; that is a setting, and you can increase it. |
+  | huginn | Apple M2, 8 cores, 8 GB | Tight for the full stack. |
+
+  The log stack (BACKLOG pass 6) adds about 0.8 GiB beside the cluster
+  (ADR-0027). Pass 6 measures the full total and records it here.
 
 The other tools (`k3d`, `kubectl`, `helm`, `jq`) are in the kiesei image. Make
 the image one time, and again after a change to `containers/kiesei/`:

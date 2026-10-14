@@ -33,8 +33,11 @@ plan in [BACKLOG.md](BACKLOG.md), the records in
    the vendored doctrine pin (Q103); their SPEC §3 lines; a report on
    splitting older ADRs (a review agent is reading them).
 3. BACKLOG: one line per item, new order (Q120). **Done.**
-4. SCRATCHPAD: this. **Done.** Safe point to compact.
-5. LOCAL.md: the resource budget (sleipnir 32 GB, huginn 8 GB).
+4. SCRATCHPAD: this. **Done.**
+5. LOCAL.md: the resource budget (sleipnir 32 GB, huginn 8 GB). **Done.**
+
+Steps 1 and 2 **done** (169fb27, 05f2eff). Open: the user decides on the ADR
+splits below and the restated supply-chain rule; then merge to `main`.
 
 The user reviews the branch as one diff; then merge to `main`.
 
