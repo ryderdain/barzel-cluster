@@ -70,7 +70,9 @@ spec:
                   serverSideApply: "true"
                   chartRepo: https://argoproj.github.io/argo-helm
                   chart: argo-cd
-                  chartVersion: "7.7.0"
+                  # 7.7.23 = Argo CD v2.13.4: its UI strips the base href from
+                  # the login return_url (v2.13.0 doubled it under /argocd/).
+                  chartVersion: "7.7.23"
                   valueFile: gitops/infrastructure/argocd/values.yaml
                   imageParams:
                     - name: global.image.repository

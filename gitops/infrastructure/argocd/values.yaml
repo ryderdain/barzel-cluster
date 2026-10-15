@@ -1,4 +1,4 @@
-# argo-cd Helm values (chart 7.7.0). Non-HA single-replica PoC footprint; the
+# argo-cd Helm values (chart 7.7.23, Argo CD v2.13.4). Non-HA single-replica PoC footprint; the
 # replica knobs below are the scale-up levers for prod.
 #
 # __ECR_REGISTRY_HOST__ is a sentinel: the account-bearing ECR host

@@ -91,10 +91,10 @@ Order of work (Q120):
     Drafts so far: [Kustomize](docs/guide/kustomize.md),
     [cert-manager](docs/guide/cert-manager.md),
     [kiesei](docs/guide/kiesei.md).
-13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.0 (v2.13.0) to the
-    current chart (10.x, v3.5); then test the login `return_url` bug and
-    remove the `/argocd/argocd/` redirect in the portal's nginx if it is
-    gone. Also aligns the server with the `argocd` CLI in kiesei (3.4.3).
+13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.23 (v2.13.4; the
+    patch that fixed the login `return_url` under a base href, taken in
+    pass 5c) to the current chart (10.x, v3.5). Aligns the server with the
+    `argocd` CLI in kiesei (3.4.3).
 14. **After pass 5c merges** (user, 2026-10-15): on sleipnir, remove the CA
     trust entry and `/etc/resolver/local.barzel.sh`, set
     `BRZL_PORTAL_HOST=brzl-local.localhost`, run `up`, and verify the
