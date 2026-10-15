@@ -22,7 +22,10 @@
 #   - every exported BRZL_* variable, so a one-off override reaches the phase
 #     emitters that run inside;
 #   - the admin portal's host name mapped to 127.0.0.1 (--add-host), so the
-#     CLI tools reach the portal without any DNS inside the container.
+#     CLI tools reach the portal without any DNS inside the container;
+#   - the store's CA certificate (local-ca mode, BRZL_SECRET_STORE_DIR/ca.crt)
+#     in the container's trust store, so argocd, curl and kubectl trust the
+#     portal without a flag.
 #
 # Execution-locus script (neither emit nor generator: like `bash`, it runs what
 # it is given). Inputs: BRZL_KIESEI_IMAGE (exported, or from env/local.env).
@@ -35,9 +38,11 @@ repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
 
 image="${BRZL_KIESEI_IMAGE:-}"
 portal_host="${BRZL_PORTAL_HOST:-}"
+store_dir="${BRZL_SECRET_STORE_DIR:-}"
 while IFS='=' read -r key value; do
   [[ "$key" == BRZL_KIESEI_IMAGE && -z "$image" ]] && image="$value"
   [[ "$key" == BRZL_PORTAL_HOST && -z "$portal_host" ]] && portal_host="$value"
+  [[ "$key" == BRZL_SECRET_STORE_DIR && -z "$store_dir" ]] && store_dir="$value"
 done < "$repo_root/env/local.env"
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -57,6 +62,14 @@ done < <(env)
 
 [[ -n "$portal_host" ]] && env_args+=(--add-host "$portal_host:127.0.0.1")
 
+# The CA, when the store is one (after phase 25): mounted where Debian's
+# update-ca-certificates picks it up; `prelude` runs that at start.
+prelude=:
+if [[ -n "$store_dir" && -s "$repo_root/$store_dir/ca.crt" ]]; then
+  env_args+=(-v "$repo_root/$store_dir/ca.crt:/usr/local/share/ca-certificates/brzl-${portal_host:-local}.crt:ro")
+  prelude='update-ca-certificates >/dev/null 2>&1'
+fi
+
 # BRZL_HOST_OS: the checks print steps for the operator's machine, and inside
 # the container uname says Linux.
 if [[ "${1:-}" == shell ]]; then
@@ -67,7 +80,7 @@ if [[ "${1:-}" == shell ]]; then
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$repo_root:$repo_root" -w "$repo_root" \
     "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
-    "$image" -l
+    "$image" -c "$prelude; exec bash -l"
 fi
 exec docker run --rm -i \
   --network host \
@@ -75,4 +88,4 @@ exec docker run --rm -i \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$repo_root:$repo_root" -w "$repo_root" \
   "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
-  "$image" -s
+  "$image" -c "$prelude; exec bash -s"
