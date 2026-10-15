@@ -286,3 +286,39 @@ store, the store unsealed on its own after the cluster was remade.
   stdin, so the old driver fails 2 cases. Rule parked for the bash doctrine.
 - **Also**: a `bao()` prelude at the top of a run-log, so lines read as plain
   procedure; ESO's `oci.external-secrets.io` mirror removed from Zot.
+
+## 2026-10-15 — local-first refactor, pass 5c: the admin portal
+
+User-verified on sleipnir (run `202610151255`, branch `pass-5c-portal`).
+`https://local.barzel.sh/` opens with no certificate warning. Argo CD under
+`/argocd/` logs in and lands on its applications page. The demo-app under
+`/apps/demo-app/` runs a search and stores it. `bash driver/kiesei.sh
+shell` gives `argocd login` through the portal. Phase 40's check proves the
+chain from the driver: `200` from the page and from `/argocd/`, through the
+store's CA.
+
+- **The design round (Q126–Q140) changed the first plan twice**, both times
+  from the user. A driver-run `renew` suited only a local cluster (Q130).
+  So cert-manager renews on every substrate, and the TLS mode is a
+  `ClusterIssuer` for each environment (ADR-0036). A person must be able to
+  try the platform with nothing public (Q134). So a `.localhost` name is
+  the default, and the DNS stand-in serves only a chosen name (Q140). The
+  user also asked for the guidebook (`docs/guide/`, one draft when a tool
+  arrives: Kustomize, cert-manager, kiesei), for operator steps that stand
+  out (the boxed block, for the driver machine's OS), and for a flat host
+  name (Q137: password managers fail on `sub.sub.domain.tld`).
+- **Live runs found four things the static checks could not.** The deploy
+  key must prefix the right side of the pipe (the agent's own command was
+  wrong). The OpenBao role signs EC keys only, and cert-manager made RSA:
+  one line in the `Certificate`, after which cert-manager backs off for an
+  hour. The checks run in kiesei, which has no `dig` and cannot see macOS.
+  They now verify what they can and print the rest. Argo CD v2.13's UI
+  doubles its base path in the login `return_url`: one nginx redirect, to be
+  removed with the Argo CD upgrade (BACKLOG).
+- **Facts established for later.** macOS resolves every `*.localhost` name
+  to `127.0.0.1` at the system level. Docker Desktop lets a container use
+  the Mac's `/etc/resolver` entries. glibc in the container does not resolve
+  `*.localhost`, so `kiesei.sh` maps the portal host itself and mounts the
+  CA into the container's trust store.
+- **Also:** k3s runs without Traefik and its service load balancer. The
+  `driver` policy of an existing store had to be remade once (purge).

@@ -294,7 +294,7 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted |
 | [ADR-0026](adr/0026-local-secret-store-outside-the-cluster.md) | The local cluster secret store runs outside the cluster | Accepted |
 | [ADR-0027](adr/0027-logs-admin-and-diagnostic-stores.md) | Logs: an admin log store and a diagnostic log store | Accepted (design; pass 6) |
-| [ADR-0028](adr/0028-admin-portal.md) | The admin portal: one nginx, a static page, a path for each service | Accepted (design; pass 5c) |
+| [ADR-0028](adr/0028-admin-portal.md) | The admin portal: one nginx, a static page, a path for each service | Accepted; built in pass 5c |
 | [ADR-0029](adr/0029-vendored-doctrine-helpers-pinned.md) | The Bash doctrine helpers are vendored, pinned to a tagged commit | Accepted |
 | [ADR-0030](adr/0030-substrate-adapter-interface.md) | One substrate adapter interface; the platform layer assumes only conformant Kubernetes | Accepted |
 | [ADR-0031](adr/0031-argocd-manages-itself.md) | Argo CD manages itself (from ADR-0013) | Accepted |

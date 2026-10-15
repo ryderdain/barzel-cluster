@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (design; built in BACKLOG pass 5c) · **Date:**
+Accepted; built in pass 5c (2026-10-15) · **Date:**
 2026-10-14 · **Supersedes in part:** ADR-0017 (UI access by port-forward),
 ADR-0018 (the per-host edge with Traefik `IngressRoute`; its sign-on part
 stays for pass 6a) · **Amended by:** ADR-0036 (cert-manager renews the
