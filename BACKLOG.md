@@ -100,7 +100,15 @@ Order of work (Q120):
     `BRZL_PORTAL_HOST=brzl-local.localhost`, run `up`, and verify the
     `*.localhost` default with no step; then return to `local.barzel.sh`
     if wanted (the chosen-name case stays the reference).
-15. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
+15. **The ApplicationSet itself is not in GitOps** (found 2026-10-15): phase
+    30 applies `gitops/platform/applicationset.yaml`; a change to it (a
+    chart version, a new element) reaches the cluster only when phase 30
+    runs again, while the values files and manifests it points at follow
+    git. Options: Argo CD manages the ApplicationSet from git (an
+    Application for `gitops/platform/`), or the driver says so plainly.
+    Decide with pass 7 (`promote platform`), which is about moving the
+    platform revision.
+16. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
     does not (cert-manager, ADR-0036).
