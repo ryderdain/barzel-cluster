@@ -49,8 +49,13 @@ resolve them, with services that stand in for the public ones consistently.
 - **nginx reads the certificate at each TLS handshake**, because its
   certificate paths hold a variable. A renewed Secret is served without a
   reload, a sidecar or a reloader.
-- **A local DNS stand-in.** Public DNS has no entry for a laptop, so the k3d
-  adapter runs one small CoreDNS container beside Zot and OpenBao. It
+- **A `.localhost` name by default, a DNS stand-in for a chosen name**
+  (Q140). The default host of a local environment is `brzl-<env>.localhost`:
+  macOS and browsers resolve every `*.localhost` name to `127.0.0.1` with
+  no step at all, and `kiesei.sh` maps the name itself (`--add-host`). A
+  casual test needs nothing. When the operator chooses another name, as if
+  it were public (`local.barzel.sh`, `local.example.com`), the k3d adapter
+  runs one small CoreDNS container beside Zot and OpenBao. It
   answers for the portal's host name only, with `127.0.0.1`, and the
   operating system is told to ask it for that name alone (macOS
   `/etc/resolver/<host>`, a line the driver prints). It has no link to the
@@ -58,11 +63,12 @@ resolve them, with services that stand in for the public ones consistently.
   stands in for the cloud's secret store.
 - **The host name is a value, not a pattern** (Q137). `BRZL_PORTAL_HOST` in
   the environment definition holds the full name, and no code builds it. The
-  convention is `<env>.barzel.sh` (for example `local.barzel.sh`), and an
-  environment on a second machine takes the host into the environment's
-  name (`local-huginn.barzel.sh`). Changing the name is cheap until sign-on
-  (pass 6a) fixes it in the kube-API server's issuer URL. A flat name also
-  suits password managers, which often fail on `sub.sub.domain.tld`.
+  convention for a chosen domain is `<env>.<domain>` (for example
+  `local.barzel.sh`), and an environment on a second machine takes the host
+  into the environment's name (`local-huginn`). Changing the name is cheap
+  until sign-on (pass 6a) fixes it in the kube-API server's issuer URL. A
+  flat name also suits password managers, which often fail on
+  `sub.sub.domain.tld`.
 
 ## Consequences
 

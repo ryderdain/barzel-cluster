@@ -5,6 +5,9 @@
 #
 #   bash driver/driver.sh local next | bash driver/kiesei.sh   # careful
 #   bash driver/driver.sh local up   | bash driver/kiesei.sh   # all at once
+#   bash driver/kiesei.sh shell                                # an interactive
+#                                 shell in the image, for the CLI tools (argocd,
+#                                 kubectl, helm, cnpg, ...); docs/guide/kiesei.md
 #
 # Compare `| bash`, which runs the same stream with the host's tools. The stream
 # is identical either way: the locus is chosen by the pipe, not by the script.
@@ -17,7 +20,9 @@
 #     same inside and out, and run sheets land in the host's var/run/;
 #   - user root, because the engine socket in the engine's VM is root-only;
 #   - every exported BRZL_* variable, so a one-off override reaches the phase
-#     emitters that run inside.
+#     emitters that run inside;
+#   - the admin portal's host name mapped to 127.0.0.1 (--add-host), so the
+#     CLI tools reach the portal without any DNS inside the container.
 #
 # Execution-locus script (neither emit nor generator: like `bash`, it runs what
 # it is given). Inputs: BRZL_KIESEI_IMAGE (exported, or from env/local.env).
@@ -29,11 +34,11 @@
 repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
 
 image="${BRZL_KIESEI_IMAGE:-}"
-if [[ -z "$image" ]]; then
-  while IFS='=' read -r key value; do
-    [[ "$key" == BRZL_KIESEI_IMAGE ]] && image="$value"
-  done < "$repo_root/env/local.env"
-fi
+portal_host="${BRZL_PORTAL_HOST:-}"
+while IFS='=' read -r key value; do
+  [[ "$key" == BRZL_KIESEI_IMAGE && -z "$image" ]] && image="$value"
+  [[ "$key" == BRZL_PORTAL_HOST && -z "$portal_host" ]] && portal_host="$value"
+done < "$repo_root/env/local.env"
 
 if ! command -v docker >/dev/null 2>&1; then
   printf 'error: docker CLI not found on PATH (the host needs only the engine and its CLI)\n' >&2
@@ -50,8 +55,20 @@ while IFS='=' read -r name _; do
   [[ "$name" == BRZL_* ]] && env_args+=(-e "$name")
 done < <(env)
 
+[[ -n "$portal_host" ]] && env_args+=(--add-host "$portal_host:127.0.0.1")
+
 # BRZL_HOST_OS: the checks print steps for the operator's machine, and inside
 # the container uname says Linux.
+if [[ "${1:-}" == shell ]]; then
+  tty_args=(-i); [[ -t 0 && -t 1 ]] && tty_args=(-it)   # a terminal, when there is one
+  exec docker run --rm "${tty_args[@]}" \
+    --network host \
+    --user 0:0 \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v "$repo_root:$repo_root" -w "$repo_root" \
+    "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
+    "$image" -l
+fi
 exec docker run --rm -i \
   --network host \
   --user 0:0 \

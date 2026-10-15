@@ -133,8 +133,9 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   outside the cluster; the default for a local environment) or
   `letsencrypt` (ACME DNS-01; the default on a cloud, pass 8). On a laptop
   a small CoreDNS container stands in for public DNS: it answers for the
-  portal's host name only. The host name is a value in the environment
-  definition (`<env>.barzel.sh` by convention), never built from a pattern.
+  portal's host name only, when that name is one the operator chose; the
+  default, `brzl-<env>.localhost`, resolves by itself. The host name is a
+  value in the environment definition, never built from a pattern.
 - **Supply chain of the kiesei image (restated 2026-10-14, from ADR-0007).**
   Every tool that the image downloads is pinned to a version and verified,
   by checksum or GPG signature, before it is installed; a build that cannot

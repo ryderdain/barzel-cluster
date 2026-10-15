@@ -89,8 +89,18 @@ Order of work (Q120):
     operator or controller that the platform adds. **Write a draft when a
     pass first uses a tool or decides to add it**; the run completes them.
     Drafts so far: [Kustomize](docs/guide/kustomize.md),
-    [cert-manager](docs/guide/cert-manager.md).
-13. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
+    [cert-manager](docs/guide/cert-manager.md),
+    [kiesei](docs/guide/kiesei.md).
+13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.0 (v2.13.0) to the
+    current chart (10.x, v3.5); then test the login `return_url` bug and
+    remove the `/argocd/argocd/` redirect in the portal's nginx if it is
+    gone. Also aligns the server with the `argocd` CLI in kiesei (3.4.3).
+14. **After pass 5c merges** (user, 2026-10-15): on sleipnir, remove the CA
+    trust entry and `/etc/resolver/local.barzel.sh`, set
+    `BRZL_PORTAL_HOST=brzl-local.localhost`, run `up`, and verify the
+    `*.localhost` default with no step; then return to `local.barzel.sh`
+    if wanted (the chosen-name case stays the reference).
+15. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
     does not (cert-manager, ADR-0036).

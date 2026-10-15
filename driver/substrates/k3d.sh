@@ -37,11 +37,14 @@
 # §3 portability), and a cloud gives no ingress for free either. The admin
 # portal's NodePort is mapped to a host port instead (ADR-0028).
 #
-# Public DNS has a local stand-in (ADR-0036): a CoreDNS container beside Zot
-# that answers for the portal's host name only (127.0.0.1), from
-# driver/substrates/k3d-dns.Corefile. The operating system must be told to
-# ask it for that name; the check prints the line. This copy has no link to
-# the cluster's own CoreDNS.
+# Public DNS has a local stand-in (ADR-0036), used only when the portal's host
+# name is not under .localhost (a name the operator chose, as if public): a
+# CoreDNS container beside Zot that answers for that one name (127.0.0.1),
+# from driver/substrates/k3d-dns.Corefile. The operating system must be told
+# to ask it for that name; the check prints the line. This copy has no link
+# to the cluster's own CoreDNS. A .localhost name (the default,
+# brzl-<env>.localhost) resolves to 127.0.0.1 by itself on macOS and in
+# browsers, so it needs no stand-in.
 #
 # Sourced by driver/phases/*.sh, never run on its own. Inputs: BRZL_K3D_*,
 # BRZL_K3S_IMAGE, BRZL_DOCKER_NETWORK, BRZL_ZOT_*, BRZL_DNS_*, BRZL_PORTAL_*
@@ -115,10 +118,14 @@ substrate_up() {
   printf '}\n'
 }
 
+# dns_needed — is the portal's host name one the stand-in must answer for?
+dns_needed() { [[ "$BRZL_PORTAL_HOST" != *.localhost ]]; }
+
 # dns_up — EMIT: the local DNS stand-in (see the header). The container is
 # replaced when the Corefile or the host name changes; it has no data.
 dns_up() {
   local name="$BRZL_DNS_NAME" config sha state
+  dns_needed || return 0
   config="$repo_root/driver/substrates/k3d-dns.Corefile"
   sha="$(cat "$config" <(printf '%s' "$BRZL_PORTAL_HOST") | sha256sum)"; sha="${sha%% *}"
   state="$(container_state "$name" dev.brzl.dns-config-sha256 "$sha")"
@@ -145,6 +152,10 @@ dns_up() {
 # printed as information. Never a failure: it is the operator's machine.
 dns_check() {
   local answer resolver="/etc/resolver/$BRZL_PORTAL_HOST"
+  if ! dns_needed; then
+    printf 'portal host %s is under .localhost: it resolves to 127.0.0.1 by itself (no DNS stand-in)\n' "$BRZL_PORTAL_HOST"
+    return 0
+  fi
   if [[ "$(docker inspect --format '{{ .State.Running }}' "$BRZL_DNS_NAME" 2>/dev/null)" != true ]]; then
     printf 'fix: the local DNS stand-in %s is not running; see: docker logs %s\n' "$BRZL_DNS_NAME" "$BRZL_DNS_NAME" >&2
     return 1

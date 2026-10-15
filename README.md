@@ -330,3 +330,7 @@ and detailed in the documents below.
 - [`RECOVERY.md`](docs/RECOVERY.md) — backups, restore/PITR, failover, state recovery.
 - [`TEARDOWN.md`](docs/TEARDOWN.md) — decommission + the mandatory cost-leak sweep.
 - [`LOCAL.md`](docs/LOCAL.md) — run the CNPG + demo-app stack locally on **k3d**, no AWS (the portability proof); `--with-sso` adds the operator SSO gateway.
+- [`guide/`](docs/guide/) — the guidebook: one short file for each tool the
+  platform uses ([Kustomize](docs/guide/kustomize.md),
+  [cert-manager](docs/guide/cert-manager.md), [kiesei](docs/guide/kiesei.md));
+  drafts, completed after the last passes.

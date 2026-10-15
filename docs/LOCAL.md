@@ -197,21 +197,30 @@ The next `up` makes a new store. Then give the deploy key again.
 
 ## Use it
 
-The admin portal is the one place to start: `https://local.barzel.sh/`
-(ADR-0028). It links to Argo CD (`/argocd/`) and to the example app
+The admin portal is the one place to start: `https://<host>/` (ADR-0028).
+It links to Argo CD (`/argocd/`) and to the example app
 (`/apps/demo-app/`), and lists the CLI commands. The host name and the port
 are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
 adapter maps the port to the portal's NodePort when it makes the cluster.
 
-Two one-time steps on your machine, which the checks of phases 10 and 25
-print in a boxed block (ADR-0036), for the operating system of the machine
-that runs the driver. A check that runs in kiesei cannot see your machine, so
-it prints them every time. A check that runs on the host prints them only
-until they are done:
+**The host name** (ADR-0036). The default is `brzl-local.localhost`: every
+`*.localhost` name resolves to `127.0.0.1` on macOS and in browsers, so a
+first test needs no DNS step. You can choose a name as if it were public,
+for example `local.barzel.sh`. Then a small DNS stand-in beside the cluster
+answers for that one name, and step 1 below tells macOS to ask it. The
+reference setup on sleipnir uses `local.barzel.sh`.
 
-1. **Resolve the name.** A small DNS stand-in beside the cluster answers
-   `local.barzel.sh` with `127.0.0.1` on `127.0.0.1:1053`. Tell macOS to ask
-   it for that name only:
+The checks of phases 10 and 25 print one or two one-time steps for your
+machine, in a boxed block. The steps are for the operating system of the
+machine that runs the driver. A check that runs in kiesei cannot see your
+machine, so it prints them every time. A check that runs on the host prints
+them only until they are done:
+
+1. **Resolve the name** (only for a chosen name, not for `*.localhost`).
+   The DNS stand-in answers `local.barzel.sh` with `127.0.0.1` on
+   `127.0.0.1:1053`. Tell macOS to ask it for that name only. The directory
+   `/etc/resolver` is macOS's own, and the file in it must carry the host
+   name:
 
    ```sh
    sudo mkdir -p /etc/resolver
@@ -228,9 +237,10 @@ until they are done:
      -k ~/Library/Keychains/login.keychain-db var/secret-store/local/ca.crt
    ```
 
-The CLI tools:
+The CLI tools are in the kiesei image ([docs/guide/kiesei.md](guide/kiesei.md)):
 
 ```sh
+bash driver/kiesei.sh shell
 export KUBECONFIG=var/run/local/current/kubeconfig
 argocd login local.barzel.sh --grpc-web-root-path argocd --username admin
 kubectl -n argocd get secret argocd-initial-admin-secret \
