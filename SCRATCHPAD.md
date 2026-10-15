@@ -23,14 +23,26 @@ with the agent's internal cycles, not instead of them.
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 5c DONE and user-verified** (RETROSPECTIVE 2026-10-15; branch
-`pass-5c-portal` merged to `main`). The cluster follows `main` after the
-next phase-30 run, or at once if `brzl.dev/revision` is updated; today it
-follows `pass-5c-portal`, which equals `main`.
+**Pass 5c DONE and user-verified**, merged to `main` (RETROSPECTIVE
+2026-10-15, two entries). The portal is at `https://local.barzel.sh/`
+(Argo CD `/argocd/`, demo-app `/apps/demo-app/`); Argo CD v2.13.4 (chart
+7.7.23); cert-manager v1.21.2 with the `vault` issuer to OpenBao's PKI;
+default local host `brzl-<env>.localhost`, the DNS stand-in only for a
+chosen name (ADR-0036); `bash driver/kiesei.sh shell` for the CLI tools;
+operator steps print in a boxed block (`operator_step`, `BRZL_HOST_OS`).
+The cluster follows `main` (run `202610151255` and later). Guidebook drafts:
+`docs/guide/{kustomize,cert-manager,kiesei}.md` (BACKLOG item 12).
+
+**Facts to keep in mind:** the ApplicationSet file is applied by phase 30,
+not followed from git (BACKLOG 15); an old store must be purged when the
+`driver` policy changes; checks run in kiesei (Linux, no `dig`, cannot see
+macOS); the demo-app's `/apps/demo-app/` uses an nginx `sub_filter` until
+5d replaces it.
 
 **▶ NEXT: pass 5d, the example app** (chofesh; ADR-0034; BACKLOG item 3,
-"keep it short"). Before it, BACKLOG item 14 when the user wants: the
-`*.localhost` default test on sleipnir (clear the CA trust and the resolver
-file, set `BRZL_PORTAL_HOST=brzl-local.localhost`, `up`). Open: the Argo CD
-upgrade (item 13), `spike-logs` may be deleted once the cluster follows
-`main`.
+"keep it short" — user). Start with a short design round: the server mode
+of `ryderdain/chofesh` (the demo-app's REST API, a small page, Postgres),
+its sub-path setting for `/apps/chofesh/`, the Postgres cluster moving
+into the app, the ApplicationSet element and registry image, what of
+`apps/demo-app` and `gitops/applications/demo-app` goes. The user switches
+to Opus 5.5 for this pass.

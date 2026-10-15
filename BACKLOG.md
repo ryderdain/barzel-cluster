@@ -95,11 +95,8 @@ Order of work (Q120):
     patch that fixed the login `return_url` under a base href, taken in
     pass 5c) to the current chart (10.x, v3.5). Aligns the server with the
     `argocd` CLI in kiesei (3.4.3).
-14. **After pass 5c merges** (user, 2026-10-15): on sleipnir, remove the CA
-    trust entry and `/etc/resolver/local.barzel.sh`, set
-    `BRZL_PORTAL_HOST=brzl-local.localhost`, run `up`, and verify the
-    `*.localhost` default with no step; then return to `local.barzel.sh`
-    if wanted (the chosen-name case stays the reference).
+14. **The `*.localhost` default test** — done 2026-10-15 (RETROSPECTIVE);
+    sleipnir is back on `local.barzel.sh`, the reference chosen-name case.
 15. **The ApplicationSet itself is not in GitOps** (found 2026-10-15): phase
     30 applies `gitops/platform/applicationset.yaml`; a change to it (a
     chart version, a new element) reaches the cluster only when phase 30

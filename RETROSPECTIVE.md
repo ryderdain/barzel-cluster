@@ -322,3 +322,17 @@ store's CA.
   CA into the container's trust store.
 - **Also:** k3s runs without Traefik and its service load balancer. The
   `driver` policy of an existing store had to be remade once (purge).
+
+## 2026-10-15 — pass 5c follow-up: the `*.localhost` default, Argo CD v2.13.4
+
+User-verified on sleipnir. With the CA trust and the resolver file removed
+and `BRZL_PORTAL_HOST=brzl-local.localhost`, `up` printed no DNS step, the
+portal opened (with the expected certificate warning, the CA untrusted),
+and the login worked. Argo CD chart 7.7.23 (v2.13.4) fixed the login
+`return_url` under a base href. The nginx redirect, which never caught a
+client-side route change, is gone. Then back to `local.barzel.sh` with the
+two printed one-time steps: no warning.
+
+- **Found:** phase 30 applies the ApplicationSet file, and Argo CD does not
+  follow it from git. So the chart bump reached the cluster only on the
+  next `up` (BACKLOG item 15, for pass 7).
