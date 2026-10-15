@@ -19,9 +19,15 @@
 #   secret_get <path>               EMIT: print the value at <path> on stdout,
 #                                   for a pipe into its consumer
 #   secret_exists <path>            EMIT: succeed if <path> holds a value
+#   secret_store_pki_up <host>      EMIT: a CA in the store (PKI engine, root
+#                                   made once), a role that signs <host>, and
+#                                   the auth role cert-manager logs in with;
+#                                   the CA certificate to <dir>/ca.crt (ADR-0036)
 #   secret_store_check              GENERATOR: unsealed, driver token valid,
 #                                   transit round trip
 #   secret_store_has <path>         GENERATOR: does <path> hold a value?
+#   secret_store_pki_check <host>   GENERATOR: CA, role and auth role exist;
+#                                   warns if this machine does not trust the CA
 #
 # Trust on the driver side, all under $BRZL_SECRET_STORE_DIR (gitignored, 600):
 #   seal.key      32 bytes (hex); the static seal's key. Lost = the store is
@@ -44,9 +50,14 @@ path "transit/encrypt/*"      { capabilities = ["update"] }
 path "transit/decrypt/*"      { capabilities = ["update"] }
 path "auth/kubernetes/config" { capabilities = ["create", "update", "read"] }
 path "auth/kubernetes/role/*" { capabilities = ["create", "update", "read"] }
-path "auth/token/lookup-self" { capabilities = ["read"] }'
+path "auth/token/lookup-self" { capabilities = ["read"] }
+path "sys/mounts"             { capabilities = ["read"] }
+path "sys/mounts/pki"         { capabilities = ["create", "update", "read"] }
+path "pki/*"                  { capabilities = ["create", "read", "update", "delete", "list"] }'
 openbao_policy_eso_reader='path "secret/data/*"     { capabilities = ["read"] }
 path "secret/metadata/*" { capabilities = ["read", "list"] }'
+# cert-manager may only ask the portal role to sign (ADR-0036).
+openbao_policy_pki_issuer='path "pki/sign/portal" { capabilities = ["update"] }'
 
 # openbao_config — the server config (JSON: the image writes BAO_LOCAL_CONFIG to
 # /openbao/config/local.json). The seal key comes from the container's
@@ -130,6 +141,7 @@ secret_store_up() {
   printf '    root_bao() { BAO_TOKEN="$root" docker exec -i -e BAO_TOKEN -e BAO_ADDR=http://127.0.0.1:8200 %q bao "$@"; }\n' "$name"
   printf "    root_bao policy write driver - <<'EOF'\n%s\nEOF\n" "$openbao_policy_driver"
   printf "    root_bao policy write eso-reader - <<'EOF'\n%s\nEOF\n" "$openbao_policy_eso_reader"
+  printf "    root_bao policy write pki-issuer - <<'EOF'\n%s\nEOF\n" "$openbao_policy_pki_issuer"
   printf '    root_bao secrets enable -version=2 -path=secret kv\n'
   printf '    root_bao secrets enable transit\n'
   printf '    root_bao write -f transit/keys/%q\n' "$BRZL_OPENBAO_TRANSIT_KEY"
@@ -190,6 +202,56 @@ EOF
   printf '    bound_service_account_names=brzl-secrets-reader bound_service_account_namespaces=external-secrets \\\n'
   printf '    token_policies=eso-reader token_ttl=1h audience=openbao\n'
   printf '}\n'
+}
+
+# The PKI engine is the CA of local-ca mode (ADR-0036): the root is made once
+# and outlives the cluster, like the rest of the store. The role allows the
+# portal's host and names under it; certificates last at most 90 days
+# (cert-manager renews them). The CA certificate (public) is written beside
+# the trust files, for the operator to trust once and for the checks.
+secret_store_pki_up() {
+  local host="$1" dir="$BRZL_SECRET_STORE_DIR" bao
+  bao="$(openbao_bao)"
+  printf '{ # PKI in the store (local-ca, ADR-0036): the engine, the root CA (once), the portal role, the issuer auth role\n'
+  printf '  %s secrets list -format=json | jq -e '"'"'."pki/"'"'"' >/dev/null 2>&1 \\\n' "$bao"
+  printf '    || %s secrets enable -max-lease-ttl=87600h pki\n' "$bao"
+  printf '  %s read -field=certificate pki/cert/ca >/dev/null 2>&1 \\\n' "$bao"
+  printf '    || %s write -field=serial_number pki/root/generate/internal common_name=%q ttl=87600h key_type=ec key_bits=256\n' \
+    "$bao" "brzl CA for $host"
+  printf '  %s write pki/roles/portal allowed_domains=%q allow_bare_domains=true allow_subdomains=true \\\n' "$bao" "$host"
+  printf '    max_ttl=2160h key_type=ec key_bits=256 >/dev/null\n'
+  printf '  %s write auth/kubernetes/role/cert-manager \\\n' "$bao"
+  printf '    bound_service_account_names=brzl-pki-client bound_service_account_namespaces=cert-manager \\\n'
+  printf '    token_policies=pki-issuer token_ttl=1h audience=openbao\n'
+  printf '  %s read -field=certificate pki/cert/ca > %q\n' "$bao" "$dir/ca.crt"
+  printf '}\n'
+}
+
+secret_store_pki_check() {
+  local host="$1" ca="$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt" caps
+  caps="$(openbao_run_bao token capabilities pki/roles/portal 2>/dev/null)"
+  if [[ "$caps" != *update* ]]; then
+    printf 'fix: the driver token predates the PKI engine (no update on pki/roles/portal): purge the store (docs/LOCAL.md) and run again\n' >&2
+    return 1
+  fi
+  if ! openbao_run_bao read -field=certificate pki/cert/ca >/dev/null 2>&1 \
+      || ! openbao_run_bao read pki/roles/portal >/dev/null 2>&1 \
+      || ! openbao_run_bao read auth/kubernetes/role/cert-manager >/dev/null 2>&1; then
+    printf 'fix: the store has no CA, portal role or cert-manager auth role; run the 25-bootstrap phase again\n' >&2
+    return 1
+  fi
+  if [[ ! -s "$ca" ]]; then
+    printf 'fix: no CA certificate at %s; run the 25-bootstrap phase again\n' "$ca" >&2
+    return 1
+  fi
+  printf 'the store is a CA for %s (role portal; cert-manager may ask it to sign); CA certificate: %s\n' \
+    "$host" "$BRZL_SECRET_STORE_DIR/ca.crt"
+  if [[ "$(uname)" == Darwin ]] \
+      && ! security find-certificate -c "brzl CA for $host" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+    printf 'warning: this machine does not trust the CA yet (the browser warns); once:\n' >&2
+    printf '  security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db %q\n' \
+      "$BRZL_SECRET_STORE_DIR/ca.crt" >&2
+  fi
 }
 
 secret_put() {

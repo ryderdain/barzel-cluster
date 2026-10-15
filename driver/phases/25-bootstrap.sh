@@ -10,7 +10,12 @@
 #   3. Argo CD's repository credential is written into the cluster FROM THE
 #      STORE, so the deploy key is given once: the store keeps it;
 #   4. the conductor (driver/conductor/conductor.yaml, rendered with the kiesei
-#      image that phase 20 pushed and the idle limit).
+#      image that phase 20 pushed and the idle limit);
+#   5. in local-ca mode (BRZL_PORTAL_TLS), the store becomes the CA that
+#      cert-manager asks to sign the admin portal's certificate (ADR-0036):
+#      PKI engine, a root made once, a role for the portal's host, and the
+#      auth role cert-manager logs in with. The CA certificate goes to
+#      BRZL_SECRET_STORE_DIR/ca.crt; the check prints how to trust it once.
 # Locus: the driver, because a secret resolves where the run sheet runs, and only
 # the driver has the operator's environment and the store's driver token; and
 # because a locus never installs itself (ADR-0021). Later the deploy key gives
@@ -45,6 +50,11 @@ phase_up() {
   local env="$1" run_dir="$2" url image manifest
   phase_init "$env" || end_function "$?" 'environment definition'
   [[ -n "${BRZL_SECRET_STORE:-}" ]] || end_function 1 'this phase needs a cluster secret store (BRZL_SECRET_STORE)'
+  case "${BRZL_PORTAL_TLS:-}" in
+    local-ca) ;;
+    letsencrypt) end_function 1 'BRZL_PORTAL_TLS=letsencrypt is not built yet (BACKLOG pass 8); use local-ca' ;;
+    *) end_function 1 "BRZL_PORTAL_TLS must be local-ca or letsencrypt (got '${BRZL_PORTAL_TLS:-}')" ;;
+  esac
   url="$(gitops_repo_url)" || end_function "$?" 'repo URL from the ApplicationSet'
   image="$(substrate_image_ref "kiesei:${BRZL_KIESEI_IMAGE##*:}")"
   manifest="$(<"$repo_root/driver/conductor/conductor.yaml")" \
@@ -58,6 +68,7 @@ phase_up() {
   printf '  kubectl create namespace brzl-system --dry-run=client -o yaml | kubectl apply -f -\n'
   printf '}\n'
   secret_store_bind_cluster
+  secret_store_pki_up "$BRZL_PORTAL_HOST"
   printf '{ # seed the store: the deploy key, when given (the store keeps it; later runs need no key)\n'
   printf '  if [[ -n "${BRZL_REPO_DEPLOY_KEY:-}" ]]; then\n'
   printf '    %s\n' "$(secret_put repo-deploy-key BRZL_REPO_DEPLOY_KEY)"
@@ -104,6 +115,9 @@ phase_check() {
   if ! openbao_run_bao read -format=json auth/kubernetes/config >/dev/null 2>&1; then
     printf 'fix: the store has no Kubernetes auth config; run the 25-bootstrap phase again\n' >&2
     rc=1
+  fi
+  if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+    secret_store_pki_check "$BRZL_PORTAL_HOST" || rc=1
   fi
   type="$(kubectl -n argocd get secret "$secret_name" \
     -o jsonpath='{.metadata.labels.argocd\.argoproj\.io/secret-type}' 2>/dev/null)"

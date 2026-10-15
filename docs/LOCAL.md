@@ -169,6 +169,12 @@ Phase 10 makes them the first time. They are not in git:
   store is lost. Purge it and start again.
 - `driver.token`: the token the driver writes with.
 - `recovery.key`: to make a new root token if `driver.token` is lost.
+- `ca.crt` (not a credential): the certificate of the CA that the store is
+  for the admin portal (ADR-0036). Phase 25 writes it.
+
+A store made before 2026-10-15 has a driver token without the PKI
+capabilities. The check of phase 25 says so; purge the store (below) and
+run `up` again.
 
 To write one secret into the store yourself, use the `bao` CLI in the
 container. The value goes on stdin, and the token in the environment:
@@ -191,9 +197,41 @@ The next `up` makes a new store. Then give the deploy key again.
 
 ## Use it
 
+The admin portal is the one place to start: `https://local.barzel.sh/`
+(ADR-0028). It links to Argo CD (`/argocd/`) and to the example app
+(`/apps/demo-app/`), and lists the CLI commands. The host name and the port
+are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`); the k3d
+adapter maps the port to the portal's NodePort when it makes the cluster.
+
+Two one-time steps on your machine, which the checks of phases 10 and 25
+print as warnings until they are done (ADR-0036):
+
+1. **Resolve the name.** A small DNS stand-in beside the cluster answers
+   `local.barzel.sh` with `127.0.0.1` on `127.0.0.1:1053`. Tell macOS to ask
+   it for that name only:
+
+   ```sh
+   sudo mkdir -p /etc/resolver
+   printf 'nameserver 127.0.0.1\nport 1053\n' \
+     | sudo tee /etc/resolver/local.barzel.sh
+   ```
+
+   On Linux, add `127.0.0.1 local.barzel.sh` to `/etc/hosts` instead.
+2. **Trust the CA.** The store is the CA (`local-ca` mode). Until you trust
+   it, the browser warns, and that is acceptable:
+
+   ```sh
+   security add-trusted-cert -r trustRoot \
+     -k ~/Library/Keychains/login.keychain-db var/secret-store/local/ca.crt
+   ```
+
+The CLI tools:
+
 ```sh
 export KUBECONFIG=var/run/local/current/kubeconfig
-kubectl -n demo port-forward svc/demo-app 8088:80   # → http://localhost:8088
+argocd login local.barzel.sh --grpc-web-root-path argocd --username admin
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
 ```
 
 k3d also adds the cluster to your default kubeconfig, as the context

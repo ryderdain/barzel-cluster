@@ -28,7 +28,7 @@ controller:
 server:
   replicas: 1
   service:
-    type: ClusterIP # no cloud LoadBalancer (cost); reach via port-forward
+    type: ClusterIP # no cloud LoadBalancer (cost); reached through the admin portal
 repoServer:
   replicas: 1
 applicationSet:
@@ -36,8 +36,13 @@ applicationSet:
 
 configs:
   params:
-    # TLS is terminated at the port-forward / future ingress, not in-pod.
+    # TLS ends at the admin portal's nginx (ADR-0028), not in-pod.
     server.insecure: true
+    # The portal passes /argocd/ here unchanged; Argo CD serves itself under
+    # that path (UI, API and the CLI's gRPC-web: `argocd login <host>
+    # --grpc-web-root-path argocd`).
+    server.basehref: /argocd
+    server.rootpath: /argocd
     # Let the platform ApplicationSet set its own applicationsSync policy
     # (create-update: it never deletes an Application; ADR-0025). Without this
     # flag some Argo CD versions ignore the per-ApplicationSet policy.

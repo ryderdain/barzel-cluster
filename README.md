@@ -10,8 +10,11 @@ change as a reviewed, recorded procedure.
 
 > **Status (2026-10):** the **local environment** (k3d on a laptop) runs the
 > full platform: driver, registry and secret store outside the cluster, Argo
-> CD, ESO, CNPG and the example app — see [`docs/LOCAL.md`](docs/LOCAL.md).
-> The plan is in [`BACKLOG.md`](BACKLOG.md).
+> CD, ESO, CNPG, cert-manager, the admin portal and the example app — see
+> [`docs/LOCAL.md`](docs/LOCAL.md). You need no public DNS zone and no
+> account at a provider: the local environment has a stand-in for each
+> public service, and still has the shape of a production environment
+> (ADR-0036). The plan is in [`BACKLOG.md`](BACKLOG.md).
 >
 > **AWS substrate (as built, June 2026):** verified end-to-end —
 > `tofu apply` → Ansible k3s HA → ArgoCD sync → CloudNativePG 3-instance Postgres

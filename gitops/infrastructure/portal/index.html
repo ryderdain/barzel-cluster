@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>barzel-cluster — admin portal</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 48rem; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { font-size: 1.5rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+  code, pre { font: .9rem/1.4 ui-monospace, monospace; background: #f4f4f4; }
+  code { padding: .1rem .3rem; } pre { padding: .6rem .8rem; overflow-x: auto; }
+  .soon { color: #888; }
+</style>
+</head>
+<body>
+<h1>barzel-cluster — admin portal</h1>
+<p>One place to start for every service of this environment. The links are
+relative: the same page serves each environment under its own host name.</p>
+
+<h2>Services</h2>
+<table>
+  <tr><th>Service</th><th>Where</th><th>Notes</th></tr>
+  <tr><td><a href="argocd/">Argo CD</a></td><td><code>/argocd/</code></td>
+      <td>GitOps: what is deployed, from which revision. The admin password is
+      the <code>argocd-initial-admin-secret</code> Secret until sign-on (pass 6a).</td></tr>
+  <tr><td><a href="apps/demo-app/">demo-app</a></td><td><code>/apps/demo-app/</code></td>
+      <td>The example workload (until pass 5d replaces it with chofesh).</td></tr>
+  <tr class="soon"><td>Grafana</td><td><code>/grafana/</code></td><td>Logs and metrics; pass 6.</td></tr>
+</table>
+
+<h2>Command line</h2>
+<p>The HTTP tools use this same host; <code>kubectl</code> and <code>bao</code>
+keep their own endpoints (the kubeconfig in the run directory; the store's
+port on the driver's machine).</p>
+<pre># Argo CD CLI, through the portal
+argocd login HOST --grpc-web-root-path argocd --username admin
+
+# the admin password, until sign-on
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+
+# the cluster
+export KUBECONFIG=var/run/ENV/current/kubeconfig
+kubectl get applications -n argocd
+
+# the cluster secret store (local: OpenBao beside the cluster)
+BAO_ADDR=http://127.0.0.1:8200 bao status</pre>
+<p>Replace <code>HOST</code> with this page's host name and <code>ENV</code>
+with the environment's name.</p>
+</body>
+</html>

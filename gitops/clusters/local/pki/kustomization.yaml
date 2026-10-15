@@ -1,0 +1,8 @@
+# The TLS mode of this environment (ADR-0036): local-ca. The ClusterIssuer
+# `brzl-portal` that the portal's Certificate names points at the PKI engine
+# of OpenBao, outside the cluster; phase 25-bootstrap made that engine and its
+# role. An environment in letsencrypt mode has an ACME issuer here instead.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - issuer.yaml

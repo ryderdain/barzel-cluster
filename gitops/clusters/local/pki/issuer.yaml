@@ -1,0 +1,54 @@
+# cert-manager presents this service account to OpenBao (Kubernetes auth, role
+# `cert-manager`, policy `pki-issuer`: it may only ask the `portal` role to
+# sign). A ClusterIssuer reads its service account from cert-manager's own
+# namespace, so the account lives there; the Role lets cert-manager mint
+# tokens for it and for nothing else.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brzl-pki-client
+  namespace: cert-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: brzl-pki-client-token
+  namespace: cert-manager
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["brzl-pki-client"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: brzl-pki-client-token
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: brzl-pki-client-token
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager
+    namespace: cert-manager
+---
+# The issuer type is "vault" because OpenBao has Vault's API; the server is
+# OpenBao on the environment's container network (as ESO reaches it).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: brzl-portal
+spec:
+  vault:
+    server: http://brzl-openbao:8200
+    path: pki/sign/portal
+    auth:
+      kubernetes:
+        mountPath: /v1/auth/kubernetes
+        role: cert-manager
+        serviceAccountRef:
+          name: brzl-pki-client
+          audiences:
+            - openbao

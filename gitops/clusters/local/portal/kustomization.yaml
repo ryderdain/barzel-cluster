@@ -1,0 +1,19 @@
+# The admin portal on local: the base, reached through a fixed NodePort that
+# the k3d adapter maps to a host port when it makes the cluster
+# (BRZL_PORTAL_NODE_PORT / BRZL_PORTAL_PORT in env/local.env; ADR-0028).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../infrastructure/portal
+patches:
+  - target:
+      version: v1
+      kind: Service
+      name: portal
+    patch: |-
+      - op: add
+        path: /spec/type
+        value: NodePort
+      - op: add
+        path: /spec/ports/0/nodePort
+        value: 30443

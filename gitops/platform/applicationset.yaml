@@ -18,12 +18,14 @@
 #     brzl.dev/demo-app-image      demo-app repository under the host
 #     brzl.dev/demo-app-tag        demo-app tag
 #     brzl.dev/backup-bucket       CNPG backup bucket (AWS only; absent = no backup patch)
+#     brzl.dev/portal-host         the admin portal's host name (its certificate)
 #     brzl.dev/revision            git revision to follow (absent = main)
 #     brzl.dev/auto-sync           "false" = Argo CD holds: fast mode on local,
 #                                  break-glass mode anywhere (absent = sync)
 #
 # A kustomize element's path may carry __ENV__, replaced by the env label: the
-# `secret-store` app renders gitops/clusters/<env>/secret-store (ADR-0026).
+# `secret-store` app renders gitops/clusters/<env>/secret-store (ADR-0026),
+# and `pki` renders gitops/clusters/<env>/pki, the TLS mode's issuer (ADR-0036).
 #
 # Two matrices, unioned: every cluster gets the common apps; only clusters
 # labelled brzl.dev/substrate=aws get the AWS-only ones.
@@ -36,7 +38,9 @@
 # would leave a live Application without an element.
 #
 # Sync waves (annotation, per element): -1 argocd self-manage, 0 ebs-csi+gp3,
-# 1 operators (cnpg, external-secrets, monitoring), 2 postgres Cluster, 3 demo-app.
+# 1 operators (cnpg, external-secrets, cert-manager, monitoring), 2 postgres
+# Cluster, secret-store, pki, 3 demo-app, 4 the admin portal (nginx names the
+# Services it passes to, so they must exist first).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -104,6 +108,28 @@ spec:
                     - name: certController.image.repository
                       upstream: github
                       path: external-secrets/external-secrets
+                - appName: cert-manager
+                  kind: helm
+                  wave: "1"
+                  namespace: cert-manager
+                  serverSideApply: "true"
+                  chartRepo: https://charts.jetstack.io
+                  chart: cert-manager
+                  chartVersion: "v1.21.2"
+                  valueFile: gitops/infrastructure/cert-manager/values.yaml
+                  imageParams:
+                    - name: image.repository
+                      upstream: quay
+                      path: jetstack/cert-manager-controller
+                    - name: webhook.image.repository
+                      upstream: quay
+                      path: jetstack/cert-manager-webhook
+                    - name: cainjector.image.repository
+                      upstream: quay
+                      path: jetstack/cert-manager-cainjector
+                    - name: acmesolver.image.repository
+                      upstream: quay
+                      path: jetstack/cert-manager-acmesolver
                 - appName: secret-store
                   kind: kustomize
                   wave: "2"
@@ -112,6 +138,14 @@ spec:
                   # __ENV__ becomes the cluster's brzl.dev/env label: each
                   # environment keeps its own store definition (ADR-0026).
                   path: gitops/clusters/__ENV__/secret-store
+                - appName: pki
+                  kind: kustomize
+                  wave: "2"
+                  namespace: cert-manager
+                  serverSideApply: "false"
+                  # The environment's TLS mode: the ClusterIssuer the portal's
+                  # Certificate names (ADR-0036).
+                  path: gitops/clusters/__ENV__/pki
                 - appName: postgres
                   kind: kustomize
                   wave: "2"
@@ -126,6 +160,13 @@ spec:
                   serverSideApply: "false"
                   path: gitops/applications/demo-app
                   localPath: gitops/clusters/local/demo-app
+                - appName: portal
+                  kind: kustomize
+                  wave: "4"
+                  namespace: portal
+                  serverSideApply: "false"
+                  path: gitops/infrastructure/portal
+                  localPath: gitops/clusters/local/portal
     - matrix:
         generators:
           - clusters:
@@ -268,6 +309,22 @@ spec:
                     path: /spec/ports/0/nodePort
                     value: 30080
             {{- end }}
+            {{- else if eq .appName "portal" }}
+            images:
+              - "nginxinc/nginx-unprivileged={{ $host }}/{{ index $ann "brzl.dev/prefix-docker-hub" }}/nginxinc/nginx-unprivileged"
+            patches:
+              - target:
+                  group: cert-manager.io
+                  version: v1
+                  kind: Certificate
+                  name: portal
+                patch: |-
+                  - op: replace
+                    path: /spec/commonName
+                    value: {{ index $ann "brzl.dev/portal-host" }}
+                  - op: replace
+                    path: /spec/dnsNames/0
+                    value: {{ index $ann "brzl.dev/portal-host" }}
             {{- else if eq .appName "postgres" }}
             {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
             patches:

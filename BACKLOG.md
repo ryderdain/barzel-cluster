@@ -30,6 +30,10 @@ Order of work (Q120):
    `local-ca` ([ADR-0028](docs/adr/0028-admin-portal.md)). Q126: a `portal`
    element in the platform ApplicationSet. Q127: host port 443 to a node
    port; Traefik and the service load balancer of k3s turned off.
+   Q128–Q137 ([ADR-0036](docs/adr/0036-cert-manager-and-local-stand-ins-for-public-services.md)):
+   cert-manager renews; the issuer is the environment's TLS mode;
+   `local-ca` on local, `letsencrypt` in pass 8; a CoreDNS stand-in for
+   public DNS; `BRZL_PORTAL_HOST` is a value (`local.barzel.sh`).
 3. **5d. Example app** — `ryderdain/chofesh` gains a server mode (the
    demo-app's REST API), a small web page and Postgres, and keeps its Go CLI;
    it replaces `apps/demo-app`. The Postgres cluster moves into the app; the
@@ -54,6 +58,9 @@ Order of work (Q120):
 10. **8. Substrate adapters** — one pass for each: first the shared interface
     and AWS, then others. Open items for AWS: the secret-store adapter
     (Secrets Manager) and `gitops/clusters/{dev,prod}/secret-store/`; the
+    `letsencrypt` TLS mode (an ACME `ClusterIssuer` with DNS-01 at FreeDNS
+    in `gitops/clusters/<env>/pki/`; whether a cloud needs the store copy of
+    the certificate; ADR-0036); the
     admin log store (Q96: same product, data in S3); shipping the driver's
     run sheets (Q106); exposing nginx through the Gateway API (Q113); the
     CloudWatch Logs exporter is alpha; the live test of model B
@@ -81,7 +88,12 @@ Order of work (Q120):
     nginx, the log stack (OpenTelemetry Collector, Loki, Grafana), and each
     operator or controller that the platform adds. **Write a draft when a
     pass first uses a tool or decides to add it**; the run completes them.
-    Drafts so far: [Kustomize](docs/guide/kustomize.md).
+    Drafts so far: [Kustomize](docs/guide/kustomize.md),
+    [cert-manager](docs/guide/cert-manager.md).
+13. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
+    finished cluster, with the conductor install in a phase of its own
+    (Q130 b). **Only in case a later pass needs it**; certificate renewal
+    does not (cert-manager, ADR-0036).
 
 Standing concerns (check in every pass):
 

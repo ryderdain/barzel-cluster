@@ -129,10 +129,13 @@ git.
 whole local stack into one directory. Only the legacy SSO bring-up
 (`gitops/clusters/local/k3d-up.sh --with-sso`) uses it. The driver does not.
 
-**Next use (pass 5c).** The admin portal is a Kustomize directory: a
-Deployment of nginx, a Service, and a `configMapGenerator` that makes the
-ConfigMap from `nginx.conf` and `index.html`. A change to the page then
-starts new nginx pods by itself.
+**The admin portal (pass 5c)** is a Kustomize directory,
+`gitops/infrastructure/portal/`: a Deployment of nginx, a Service, a
+Certificate, and a `configMapGenerator` that makes the ConfigMap from
+`nginx.conf` and `index.html`. A change to the page starts new nginx pods
+by itself. The local overlay, `gitops/clusters/local/portal/`, only makes
+the Service a NodePort; the ApplicationSet patches the certificate's host
+name in from the cluster's registration.
 
 ## Try it
 

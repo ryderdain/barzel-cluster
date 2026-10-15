@@ -1,0 +1,16 @@
+# The local stand-in for public DNS (ADR-0036). On a cloud, the environment's
+# host name is a public record; on a laptop there is none, so this one small
+# DNS server answers for that name and nothing else: it maps the portal host
+# of the environment to 127.0.0.1. The operating system is told to ask it for
+# that name only (macOS: /etc/resolver/<host>; the driver prints the line).
+#
+# It is CoreDNS, the same program the cluster uses inside for service names,
+# but this copy has no link to the cluster: it serves the operator's machine.
+# {$BRZL_PORTAL_HOST} comes from the container's environment (the k3d adapter
+# passes it from the environment definition).
+. {
+    hosts {
+        127.0.0.1 {$BRZL_PORTAL_HOST}
+    }
+    errors
+}

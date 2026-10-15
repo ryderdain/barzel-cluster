@@ -1,0 +1,24 @@
+# The portal's certificate, kept renewed by cert-manager (ADR-0036) from the
+# ClusterIssuer `brzl-portal` that each environment defines in
+# gitops/clusters/<env>/pki/ (local-ca: OpenBao's PKI; letsencrypt: ACME).
+# The host name here is a placeholder: the platform ApplicationSet replaces it
+# with the cluster's brzl.dev/portal-host annotation, so the environment
+# definition stays the one source of the name.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: portal
+spec:
+  secretName: portal-tls
+  commonName: portal.invalid
+  dnsNames:
+    - portal.invalid
+  duration: 2160h    # 90 days
+  renewBefore: 720h  # renew 30 days before the end
+  privateKey:
+    rotationPolicy: Always
+  usages:
+    - server auth
+  issuerRef:
+    name: brzl-portal
+    kind: ClusterIssuer

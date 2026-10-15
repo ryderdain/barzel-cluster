@@ -1,0 +1,29 @@
+# cert-manager Helm values (chart v1.21.2; ADR-0036). It renews the admin
+# portal's certificate (ADR-0028) from the issuer each environment defines in
+# gitops/clusters/<env>/pki/. The image repositories are injected by the
+# platform ApplicationSet (quay.io/jetstack/* through the environment's
+# registry); nothing account-bearing is here.
+
+crds:
+  enabled: true
+  keep: true
+
+# The post-install check is a Job that needs its own image and RBAC; Argo CD's
+# health check on the Deployments does the same job.
+startupapicheck:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+webhook:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+cainjector:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi

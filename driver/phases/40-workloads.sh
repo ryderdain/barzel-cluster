@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# 40-workloads.sh — phase 40: wait until Argo CD has brought up the platform
-# and the smoke workload from git, then check them. It applies nothing: phase
-# 30-gitops handed the cluster to Argo CD. Locus: the conductor.
+# 40-workloads.sh — phase 40: wait until Argo CD has brought up the platform,
+# the admin portal and the example app from git, then check them. It applies
+# nothing: phase 30-gitops handed the cluster to Argo CD. Locus: the conductor.
 #
 # Emit + generator, one function each:
 #   bash driver/phases/40-workloads.sh phase_up <env> <run_dir>     # EMIT
@@ -10,8 +10,9 @@
 # In fast mode Argo CD does not sync, so this phase waits until its timeout and
 # its check fails: run it in GitOps mode (fast_off first).
 #
-# Inputs: <run_dir>/kubeconfig from phase 10 (for the check). Needs kubectl. No
-# credentials.
+# Inputs: <run_dir>/kubeconfig from phase 10 (for the check); BRZL_PORTAL_*
+# and, in local-ca mode, the CA certificate in BRZL_SECRET_STORE_DIR. Needs
+# kubectl, curl. No credentials.
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
@@ -66,9 +67,36 @@ phase_check() {
     printf 'fix: demo-app is not rolled out; see: kubectl -n demo describe deploy/demo-app\n' >&2
     rc=1
   fi
-  (( rc == 0 )) && printf 'demo stack is up; open it: kubectl --kubeconfig %q -n demo port-forward svc/demo-app 8088:80\n' \
-    "$run_dir/kubeconfig"
+  portal_check || rc=1
   return "$rc"
+}
+
+# portal_check — the admin portal answers over TLS at its host name, from this
+# machine, and passes /argocd/ through. The name is resolved here (--resolve),
+# so the check does not depend on the operating system's resolver; the CA is
+# the store's in local-ca mode.
+portal_check() {
+  local url="https://$BRZL_PORTAL_HOST" code
+  local -a curl=(curl -sS -o /dev/null -w '%{http_code}' --max-time 10
+                 --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
+  [[ "$BRZL_PORTAL_PORT" == 443 ]] || url+=":$BRZL_PORTAL_PORT"
+  [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]] && curl+=(--cacert "$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt")
+  if ! kubectl -n portal rollout status deploy/portal --timeout=180s >/dev/null; then
+    printf 'fix: the admin portal is not rolled out; see: kubectl -n portal describe deploy/portal; kubectl -n portal describe certificate portal\n' >&2
+    return 1
+  fi
+  code="$("${curl[@]}" "$url/" 2>&1)"
+  if [[ "$code" != 200 ]]; then
+    printf 'fix: the admin portal does not answer at %s/ (%s); see: kubectl -n portal logs deploy/portal; docker ps (host port %s)\n' \
+      "$url" "$code" "$BRZL_PORTAL_PORT" >&2
+    return 1
+  fi
+  code="$("${curl[@]}" "$url/argocd/" 2>&1)"
+  if [[ "$code" != 200 ]]; then
+    printf 'fix: the portal does not pass /argocd/ through (%s); see: kubectl -n argocd logs deploy/argocd-server\n' "$code" >&2
+    return 1
+  fi
+  printf 'the admin portal answers at %s/ and passes /argocd/ through\n' "$url"
 }
 
 if [[ "$is_sourced" == false ]]; then

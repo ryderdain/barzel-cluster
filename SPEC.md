@@ -28,7 +28,11 @@ wins.
 
 - **Local is the first environment** (ADR-0024). It mimics the cloud: a
   service that a cloud keeps outside the cluster runs outside it locally too
-  (ADR-0023, ADR-0026).
+  (ADR-0023, ADR-0026). A person must be able to try the platform on their
+  own machine with no public DNS zone and no account at a provider; at the
+  same time the local environment stands in for a production environment
+  with public endpoints. The laptop substrate alone resolves this, with a
+  local stand-in for each public service (DNS, a CA; ADR-0036).
 - **One adapter for each substrate**, with the same interface (ADR-0022,
   §3 platform-layer portability). Each cloud provider is a substrate.
 - **Promotion** moves platform revisions and workload releases along the
@@ -120,9 +124,17 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **The admin portal (2026-10-14, ADR-0028).** One nginx in the cluster
   serves a static page and passes each path to its service (`/argocd/`,
   `/grafana/`, `/apps/<workload>/`): one host name, one certificate, the
-  same page on every environment, the same URL for HTTP CLI tools. TLS
-  `letsencrypt` (owned domain; the certificate kept in the secret store) or
-  `local-ca` (OpenBao PKI). Sign-on, later, leads to it.
+  same page on every environment, the same URL for HTTP CLI tools. Sign-on,
+  later, leads to it.
+- **Certificates and the local stand-ins (2026-10-15, ADR-0036).**
+  cert-manager is a platform component on every substrate; it renews the
+  portal's certificate from the `ClusterIssuer` that each environment's
+  `gitops/clusters/<env>/pki/` defines: `local-ca` (OpenBao's PKI engine,
+  outside the cluster; the default for a local environment) or
+  `letsencrypt` (ACME DNS-01; the default on a cloud, pass 8). On a laptop
+  a small CoreDNS container stands in for public DNS: it answers for the
+  portal's host name only. The host name is a value in the environment
+  definition (`<env>.barzel.sh` by convention), never built from a pattern.
 - **Supply chain of the kiesei image (restated 2026-10-14, from ADR-0007).**
   Every tool that the image downloads is pinned to a version and verified,
   by checksum or GPG signature, before it is installed; a build that cannot
@@ -378,6 +390,10 @@ rather than replacing it.
 
 ## 10. Changelog
 
+- **v0.13 (2026-10-15):** §1 states the two goals of the local environment
+  (try it with nothing public; stand in for production). §3 gains the
+  certificate flow and the local stand-ins (ADR-0036); the admin portal line
+  loses the store copy of the certificate.
 - **v0.12 (2026-10-14):** The objective is a workload-independent platform on
   any substrate (§1; confidential computing a guide). Logs (Q77–Q102,
   ADR-0027, spike on branch `spike-logs`), the admin portal (Q107–Q114,

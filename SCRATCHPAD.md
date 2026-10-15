@@ -19,86 +19,45 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-14, opus. Pruned to the current state; the history is in git, the
-plan in [BACKLOG.md](BACKLOG.md), the records in
+*(2026-10-15, fable. Pruned to the current state; the history is in git,
+the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Branch `cleanup-docs`** (checked out in the user's tree). The cleanup round
-(Q121), docs only:
+**Branch `pass-5c-portal`** (checked out in the user's tree), from `main`
+84bb4b1. Pass 5c, the admin portal. Design round done: Q126–Q137
+([ADR-0028](docs/adr/0028-admin-portal.md) amended by
+[ADR-0036](docs/adr/0036-cert-manager-and-local-stand-ins-for-public-services.md)).
 
-1. Platform reframe: SPEC scope, README intro, CLAUDE.md "What this repo
-   is", GLOSSARY workload terms, ARCHITECTURE prose; confidential computing
-   becomes a guide, not the goal.
-2. ADR-0027 logs (Q77–Q102), ADR-0028 admin portal (Q107–Q114), ADR-0029
-   the vendored doctrine pin (Q103); their SPEC §3 lines; a report on
-   splitting older ADRs (a review agent is reading them).
-3. BACKLOG: one line per item, new order (Q120). **Done.**
-4. SCRATCHPAD: this. **Done.**
-5. LOCAL.md: the resource budget (sleipnir 32 GB, huginn 8 GB). **Done.**
+**Built (static checks pass, live test pending):**
 
-**Round DONE 2026-10-14** and merged to `main`. Q122 (b): ADR-0030..0035
-written (adapter interface; Argo CD self-managed; repo credential; metrics;
-example app; sign-on), old Status lines point at them. Q123: supply-chain
-rule restated in SPEC §3. User review items done: "GitOps-driven" back in
-README; GLOSSARY separates *run sheet* (the commands) from *run output*;
-ARCHITECTURE §1 has the Flow diagram (platform road vs workload road, both
-through Argo CD; `promote platform` / `promote workloads`); pass-8 driver
-credential items and the Mermaid touch-up are in BACKLOG. Lint debt left as
-found: SPEC 86, README 29, ADR-0018 body.
+- `gitops/infrastructure/portal/` (nginx-unprivileged 1.28, static page,
+  Certificate, configMapGenerator), `gitops/clusters/local/portal/`
+  (NodePort 30443), `gitops/clusters/local/pki/` (vault-type ClusterIssuer
+  to OpenBao + the issuer's service account), `gitops/infrastructure/
+  cert-manager/values.yaml` (chart v1.21.2). ApplicationSet: elements
+  `cert-manager` (wave 1), `pki` (2), `portal` (4); the Certificate's host
+  patched from `brzl.dev/portal-host`. Argo CD under `/argocd`
+  (`server.rootpath`, `basehref`).
+- Driver: `env/local.env` gains `BRZL_PORTAL_{HOST,TLS,PORT,NODE_PORT}`
+  (`local.barzel.sh`, `local-ca`, 443, 30443) and `BRZL_DNS_*`. k3d adapter:
+  host port 443 → NodePort, `--disable=traefik,servicelb`, a CoreDNS
+  stand-in container (`driver/substrates/k3d-dns.Corefile`, 127.0.0.1:1053)
+  with a resolver-file warning. OpenBao adapter: `secret_store_pki_up/
+  _check` (PKI engine, root CA once, role `portal`, auth role
+  `cert-manager`, policy `pki-issuer`; `ca.crt` beside the trust files);
+  the `driver` policy gains pki paths (an OLD STORE MUST BE PURGED once).
+  Phase 25 calls them; phase 30 writes the annotation; phase 40 checks
+  `https://local.barzel.sh/` and `/argocd/` with `--resolve` + `--cacert`.
+- Docs: ADR-0036; SPEC §1 (the two local goals) and §3; README status;
+  LOCAL.md "Use it" (resolver line, trust the CA, purge note); SECRETS
+  rows; ARCHITECTURE §1 diagram + index row; GLOSSARY (TLS mode, local
+  stand-in); guides `docs/guide/{kustomize,cert-manager}.md` (BACKLOG item
+  12, the guidebook); BACKLOG item 13 parks `again <phase>`.
 
-**After the round (2026-10-14):** ADRs use `## Status/Context/Decision/
-Consequences` headings (74800e5). *Run-log* retired: **run sheet** = the
-commands (accurate name: seder), **run output** = what it printed (Q124,
-Q125; ed91fb1). `ryderdain/bash` master = 83fdd41, tag
-`barzel-cluster/2026-10-14.2`; `driver/lib` pinned to it (7365b7a).
-Note for pass 6: the run-directory names in code still use the old local
-time stamp; Q101 changes them.
-
-**▶ NEXT: pass 5c, the admin portal** (ADR-0028; BACKLOG). Start with a
-short design round on the build (nginx image, the page, the node port, the
-certificate flow in phase 25), then build.
-
-The user reviews the branch as one diff; then merge to `main`.
-
-**Next after the round:** pass 5c, the admin portal (BACKLOG).
-
-**Decisions of 2026-10-14 not yet in an ADR** (the round writes them):
-
-- Logs (Q84–Q102): workload / platform logs; admin log store (Loki, data
-  outside the cluster, flush 1m/5m) and diagnostic log store (Loki, in the
-  cluster); one node collector (OTel Collector, OTLP); routes in the
-  namespace annotation `brzl.dev/log-routes: drop|admin|diagnostic|cold`;
-  retention classes `brzl.dev/log-retention: 7d|30d|90d`; Grafana in the
-  cluster; UTC with Z; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`;
-  a logfmt header in each run output. Spike verdict: branch `spike-logs`,
-  `spikes/logs/RESULTS.md`.
-- Admin portal (Q107, Q112–Q114): one nginx, a static page, relative paths
-  (`/argocd/`, `/grafana/`, `/apps/<workload>/`); TLS `letsencrypt` (owned
-  domain, certificate kept in the secret store) or `local-ca` (OpenBao PKI).
-- Q103: `driver/lib/{runlib,error}.sh` pinned to `ryderdain/bash` master, tag
-  `barzel-cluster/2026-10-14`.
-- Q115: chofesh becomes the example app; CNPG cluster moves into the app.
-- Q118: `promote platform`, `promote workloads`, `promote all` (separate).
-- Q119: one stack per substrate (`terraform/stack/<substrate>/<layer>/`);
-  "profile" meant substrate.
-
-**ADR review (agent report, 2026-10-14), for step 2 — splits proposed, ask
-the user before doing any:**
-
-- Worth splitting (new ADRs supersede part; old text unchanged): 0013 →
-  Argo CD self-managed / app-of-apps (dead) / repo credential (GitHub App
-  later); 0017 → metrics stack (pass 6) / UI access (pass 5c) / Sefaria
-  demo-app (workload); 0018 → identity (Dex, oauth2-proxy, kube-API OIDC;
-  kept by 6a) / edge (per-host proxies, Traefik, FreeDNS; replaced by 5c);
-  the substrate-adapter interface out of 0022 + SPEC §3 portability into one
-  new ADR (the main decision of the reframe; partly supersedes 0001 and the
-  k3s line in 0024). Borderline: 0003 arm64 vs `m6g` (DigitalOcean has no
-  arm64 Droplets, unverified) — only when DigitalOcean comes.
-- 0007 superseded by 0021, but the supply-chain checks (checksum/GPG of
-  vendored binaries) were not carried over: restate them.
-- Index Status column out of date for 0002, 0008, 0010, 0013, 0016, 0019,
-  0023 (all "partly superseded" by 0016/0020/0025/0026).
-
-**State to remember:** the local cluster follows branch `spike-logs` until a
-phase-30 run from `main`. `ryderdain/bash` has a local branch
-`backup/bash-doctrine-pre-squash`.
+**▶ NEXT: the live test** (the user runs it): purge the store, `down`,
+`up` through kiesei with `BRZL_REPO_DEPLOY_KEY`; then the resolver line and
+the CA trust; open `https://local.barzel.sh/`. Known risks to watch: Docker
+Desktop binding 127.0.0.1:443; the Argo CD readiness probe under
+`rootpath`; cert-manager's vault issuer over plain http; the nginx variable
+certificate path. After the test: RETROSPECTIVE entry, ADR-0028 status
+"built", merge to `main`; then pass 5d (chofesh).

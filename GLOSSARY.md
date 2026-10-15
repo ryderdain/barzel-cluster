@@ -111,6 +111,19 @@ the cluster and gives the matching CLI commands. It is available with or
 without sign-on; sign-on, when there is one, leads to it.
 _Avoid_: dashboard, homepage, launcher
 
+**TLS mode**:
+Where an environment's certificates come from: `letsencrypt` (a public CA;
+the environment has a public name) or `local-ca` (the cluster secret store
+is the CA; nothing public is needed). Each environment has one.
+_Avoid_: cert mode, issuer (for this meaning)
+
+**Local stand-in**:
+A small service beside a local cluster that takes the place of a public
+service the cloud would provide: the registry, the secret store, DNS, a CA.
+A local environment needs nothing public, and keeps the shape of a
+production environment.
+_Avoid_: mock, fake, shim
+
 ### Logs
 
 **Workload logs**:

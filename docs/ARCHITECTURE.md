@@ -33,14 +33,17 @@ step, and it has the same shape as the others:
  ┌──────────────────────────┐          │ conductor (kiesei, warm pod)       │
  │ registry       (Zot)     │◀─pull────│ Argo CD + one platform ApplicationSet
  │ secret store   (OpenBao) │◀─ESO─────│ ESO, CNPG operator, workloads      │
+ │   (also the local CA)    │◀─sign────│ cert-manager                       │
+ │ DNS stand-in   (CoreDNS) │          │ admin portal: nginx, one host name │
  │ admin log store data     │◀─logs────│ log collector, Grafana  (pass 6)   │
- └──────────────────────────┘          │ admin portal: nginx    (pass 5c)   │
-                                       └────────────────────────────────────┘
+ └──────────────────────────┘          └────────────────────────────────────┘
 ```
 
 On a cloud, each local stand-in becomes the cloud's own service: the
-registry, the secret store and object storage. The **substrate adapter** for
-each cloud gives the same outputs to the same phases.
+registry, the secret store, public DNS and a public CA, and object storage.
+The **substrate adapter** for each cloud gives the same outputs to the same
+phases. The local environment therefore needs nothing public to run, and
+still has the shape of a production environment (ADR-0036).
 
 **Flow: how a change reaches a cluster.** Two kinds of change travel two
 separate roads, and Argo CD in each cluster is where they meet:
@@ -299,3 +302,4 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0033](adr/0033-metrics-kube-prometheus-stack.md) | Metrics: kube-prometheus-stack, trimmed (from ADR-0017) | Accepted (AWS substrate) |
 | [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh); the platform depends on no workload | Accepted (design; pass 5d) |
 | [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted (design; pass 6a) |
+| [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |

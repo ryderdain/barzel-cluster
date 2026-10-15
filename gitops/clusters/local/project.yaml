@@ -21,6 +21,7 @@ spec:
     - https://argoproj.github.io/argo-helm
     - https://cloudnative-pg.github.io/charts
     - https://charts.external-secrets.io
+    - https://charts.jetstack.io
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

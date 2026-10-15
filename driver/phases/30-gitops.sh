@@ -25,7 +25,7 @@
 #   bash driver/phases/30-gitops.sh phase_up <env> <run_dir>     # EMIT
 #   bash driver/phases/30-gitops.sh phase_check <env> <run_dir>  # GENERATOR
 #
-# Inputs: env/<env>.env (BRZL_DEMO_APP_TAG); the substrate adapter (registry
+# Inputs: env/<env>.env (BRZL_DEMO_APP_TAG, BRZL_PORTAL_HOST); the substrate adapter (registry
 # host, upstream prefixes); gitops/platform/applicationset.yaml,
 # gitops/clusters/<env>/project.yaml, gitops/infrastructure/argocd/values.yaml;
 # <run_dir>/kubeconfig (for the check). Needs git, yq (kiesei). No credentials:
@@ -89,6 +89,7 @@ metadata:
     brzl.dev/demo-app-image: "${demo_ref%:*}"
     brzl.dev/demo-app-tag: "$BRZL_DEMO_APP_TAG"
     brzl.dev/revision: "$revision"
+    brzl.dev/portal-host: "$BRZL_PORTAL_HOST"
 EOF
   for upstream in quay k8s github docker-hub; do
     printf '    brzl.dev/prefix-%s: "%s"\n' "$upstream" "$(substrate_upstream_prefix "$upstream")" || return 1

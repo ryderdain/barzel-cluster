@@ -5,7 +5,9 @@
 Accepted (design; built in BACKLOG pass 5c) · **Date:**
 2026-10-14 · **Supersedes in part:** ADR-0017 (UI access by port-forward),
 ADR-0018 (the per-host edge with Traefik `IngressRoute`; its sign-on part
-stays for pass 6a)
+stays for pass 6a) · **Amended by:** ADR-0036 (cert-manager renews the
+certificate, the default TLS mode depends on the kind of substrate, the
+certificate is not copied into the store, and a local DNS stand-in)
 
 ## Context
 

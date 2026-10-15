@@ -1,0 +1,21 @@
+# The admin portal (ADR-0028): one nginx that serves the landing page and
+# passes each path to its service. The same files serve every environment:
+# the page has relative links only, nginx answers for any host name, and the
+# certificate's host name is patched in by the platform ApplicationSet from
+# the cluster's registration (brzl.dev/portal-host). The environment's overlay
+# (gitops/clusters/<env>/portal/) only changes how the Service is reached.
+#
+# The ConfigMap is generated from the two files, so a change to the page or
+# the config renames it and starts new pods.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: portal
+resources:
+  - deployment.yaml
+  - service.yaml
+  - certificate.yaml
+configMapGenerator:
+  - name: portal
+    files:
+      - nginx.conf
+      - index.html
