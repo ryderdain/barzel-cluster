@@ -81,8 +81,12 @@ portal_check() {
                  --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
   [[ "$BRZL_PORTAL_PORT" == 443 ]] || url+=":$BRZL_PORTAL_PORT"
   [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]] && curl+=(--cacert "$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt")
+  if ! kubectl -n portal wait --for=condition=Ready certificate/portal --timeout=180s >/dev/null 2>&1; then
+    printf 'fix: the admin portal has no ready certificate; see: kubectl -n portal describe certificate portal\n' >&2
+    return 1
+  fi
   if ! kubectl -n portal rollout status deploy/portal --timeout=180s >/dev/null; then
-    printf 'fix: the admin portal is not rolled out; see: kubectl -n portal describe deploy/portal; kubectl -n portal describe certificate portal\n' >&2
+    printf 'fix: the admin portal is not rolled out; see: kubectl -n portal describe deploy/portal\n' >&2
     return 1
   fi
   code="$("${curl[@]}" "$url/" 2>&1)"

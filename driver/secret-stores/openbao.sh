@@ -248,11 +248,15 @@ secret_store_pki_check() {
   printf 'the store is a CA for %s (role portal; cert-manager may ask it to sign); CA certificate: %s\n' \
     "$host" "$BRZL_SECRET_STORE_DIR/ca.crt"
   # Trust on the operator's machine can be checked only there; from kiesei
-  # the one-time step is printed for the operator's OS (BRZL_HOST_OS).
+  # the one-time step is printed for the operator's OS (BRZL_HOST_OS). The
+  # CA was made once, under the host name of that time: its subject is read
+  # from the file, not rebuilt from today's host.
+  local cn
+  cn="$(openssl x509 -in "$ca" -noout -subject -nameopt sep_multiline,utf8 2>/dev/null | sed -n 's/^ *CN=//p')"
   case "$(host_os)" in
     Darwin)
-      if [[ "$(uname)" == Darwin ]] \
-          && security find-certificate -c "brzl CA for $host" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+      if [[ "$(uname)" == Darwin && -n "$cn" ]] \
+          && security find-certificate -c "$cn" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
         return 0
       fi
       operator_step "so that the browser trusts the CA of $host (skip if done):" \
