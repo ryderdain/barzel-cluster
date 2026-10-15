@@ -24,10 +24,12 @@ Done (verified live; see [RETROSPECTIVE.md](RETROSPECTIVE.md)):
 
 Order of work (Q120):
 
-1. **Cleanup round** (now, branch `cleanup-docs`): docs only — the platform
-   reframe, ADR-0027..0029, this file, SCRATCHPAD, the resource budget.
-2. **5c. Admin portal** — nginx serves a static page and passes each path to
-   its service; TLS `letsencrypt` or `local-ca` ([ADR-0028](docs/adr/0028-admin-portal.md)).
+1. **Cleanup round** — done 2026-10-14.
+2. **5c. Admin portal** (now, branch `pass-5c-portal`) — nginx serves a
+   static page and passes each path to its service; TLS `letsencrypt` or
+   `local-ca` ([ADR-0028](docs/adr/0028-admin-portal.md)). Q126: a `portal`
+   element in the platform ApplicationSet. Q127: host port 443 to a node
+   port; Traefik and the service load balancer of k3s turned off.
 3. **5d. Example app** — `ryderdain/chofesh` gains a server mode (the
    demo-app's REST API), a small web page and Postgres, and keeps its Go CLI;
    it replaces `apps/demo-app`. The Postgres cluster moves into the app; the
@@ -71,6 +73,15 @@ Order of work (Q120):
 11. **9. `promote workloads`** and **`promote all`** (a platform and workload
     change that depend on each other) (Q118). Revisit the Flow diagram in
     ARCHITECTURE §1 then, for the workload repo's branches (user).
+12. **Documentation run: the guidebook** (after the last passes; user,
+    2026-10-15). One file for each tool or component in `docs/guide/`, for a
+    reader who is new to it: the basics, how it works, how this repo uses
+    it, with diagrams like those in ARCHITECTURE. For example: Kustomize,
+    Helm, OpenTofu, Ansible, Argo CD, OpenBao, ESO, CNPG, Zot, k3d/k3s,
+    nginx, the log stack (OpenTelemetry Collector, Loki, Grafana), and each
+    operator or controller that the platform adds. **Write a draft when a
+    pass first uses a tool or decides to add it**; the run completes them.
+    Drafts so far: [Kustomize](docs/guide/kustomize.md).
 
 Standing concerns (check in every pass):
 
