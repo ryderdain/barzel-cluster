@@ -139,27 +139,32 @@ dns_up() {
   printf '}\n'
 }
 
-# dns_check — GENERATOR: the stand-in answers; the operating system asks it
-# (a warning with the line to add, not a failure: it is the operator's machine).
+# dns_check — GENERATOR: the stand-in runs (and answers, where dig exists).
+# Whether the operator's machine asks it is checked only when the check runs
+# on that machine (macOS); from kiesei it cannot be, so the one-time line is
+# printed as information. Never a failure: it is the operator's machine.
 dns_check() {
   local answer resolver="/etc/resolver/$BRZL_PORTAL_HOST"
-  answer="$(dig +short +time=2 +tries=1 @127.0.0.1 -p "$BRZL_DNS_PORT" "$BRZL_PORTAL_HOST" 2>/dev/null)"
-  if [[ "$answer" != 127.0.0.1 ]]; then
-    printf 'fix: the local DNS stand-in does not answer %s on 127.0.0.1:%s; see: docker logs %s\n' \
-      "$BRZL_PORTAL_HOST" "$BRZL_DNS_PORT" "$BRZL_DNS_NAME" >&2
+  if [[ "$(docker inspect --format '{{ .State.Running }}' "$BRZL_DNS_NAME" 2>/dev/null)" != true ]]; then
+    printf 'fix: the local DNS stand-in %s is not running; see: docker logs %s\n' "$BRZL_DNS_NAME" "$BRZL_DNS_NAME" >&2
     return 1
   fi
-  printf 'local DNS stand-in answers %s -> 127.0.0.1 (port %s)\n' "$BRZL_PORTAL_HOST" "$BRZL_DNS_PORT"
-  if [[ "$(uname)" == Darwin ]]; then
-    if [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" != *'ip_address: 127.0.0.1'* ]]; then
-      printf 'warning: this machine does not resolve %s yet; once, as admin:\n' "$BRZL_PORTAL_HOST" >&2
-      printf '  sudo mkdir -p /etc/resolver && printf '"'"'nameserver 127.0.0.1\\nport %s\\n'"'"' | sudo tee %q >/dev/null\n' \
-        "$BRZL_DNS_PORT" "$resolver" >&2
+  if command -v dig >/dev/null 2>&1; then
+    answer="$(dig +short +time=2 +tries=1 @127.0.0.1 -p "$BRZL_DNS_PORT" "$BRZL_PORTAL_HOST" 2>/dev/null)"
+    if [[ "$answer" != 127.0.0.1 ]]; then
+      printf 'fix: the local DNS stand-in does not answer %s on 127.0.0.1:%s; see: docker logs %s\n' \
+        "$BRZL_PORTAL_HOST" "$BRZL_DNS_PORT" "$BRZL_DNS_NAME" >&2
+      return 1
     fi
-  elif ! getent hosts "$BRZL_PORTAL_HOST" >/dev/null 2>&1; then
-    printf 'warning: this machine does not resolve %s yet; add to /etc/hosts: 127.0.0.1 %s\n' \
-      "$BRZL_PORTAL_HOST" "$BRZL_PORTAL_HOST" >&2
   fi
+  printf 'local DNS stand-in %s runs: %s -> 127.0.0.1 on 127.0.0.1:%s\n' "$BRZL_DNS_NAME" "$BRZL_PORTAL_HOST" "$BRZL_DNS_PORT"
+  if [[ "$(uname)" == Darwin ]] \
+      && [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" == *'ip_address: 127.0.0.1'* ]]; then
+    return 0
+  fi
+  printf 'once, on your machine (macOS), so that it asks the stand-in for this name:\n' >&2
+  printf '  sudo mkdir -p /etc/resolver && printf '"'"'nameserver 127.0.0.1\\nport %s\\n'"'"' | sudo tee %q >/dev/null\n' \
+    "$BRZL_DNS_PORT" "$resolver" >&2
 }
 
 substrate_down() {

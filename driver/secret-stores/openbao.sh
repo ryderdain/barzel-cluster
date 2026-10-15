@@ -27,7 +27,8 @@
 #                                   transit round trip
 #   secret_store_has <path>         GENERATOR: does <path> hold a value?
 #   secret_store_pki_check <host>   GENERATOR: CA, role and auth role exist;
-#                                   warns if this machine does not trust the CA
+#                                   prints how to trust the CA on the operator's
+#                                   machine (checked only when run there)
 #
 # Trust on the driver side, all under $BRZL_SECRET_STORE_DIR (gitignored, 600):
 #   seal.key      32 bytes (hex); the static seal's key. Lost = the store is
@@ -246,12 +247,15 @@ secret_store_pki_check() {
   fi
   printf 'the store is a CA for %s (role portal; cert-manager may ask it to sign); CA certificate: %s\n' \
     "$host" "$BRZL_SECRET_STORE_DIR/ca.crt"
+  # Trust on the operator's machine can be checked only there (macOS); from
+  # kiesei the one-time command is printed as information.
   if [[ "$(uname)" == Darwin ]] \
-      && ! security find-certificate -c "brzl CA for $host" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
-    printf 'warning: this machine does not trust the CA yet (the browser warns); once:\n' >&2
-    printf '  security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db %q\n' \
-      "$BRZL_SECRET_STORE_DIR/ca.crt" >&2
+      && security find-certificate -c "brzl CA for $host" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+    return 0
   fi
+  printf 'once, on your machine (macOS), so that the browser trusts the CA:\n' >&2
+  printf '  security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db %q\n' \
+    "$BRZL_SECRET_STORE_DIR/ca.crt" >&2
 }
 
 secret_put() {

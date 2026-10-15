@@ -200,11 +200,13 @@ The next `up` makes a new store. Then give the deploy key again.
 The admin portal is the one place to start: `https://local.barzel.sh/`
 (ADR-0028). It links to Argo CD (`/argocd/`) and to the example app
 (`/apps/demo-app/`), and lists the CLI commands. The host name and the port
-are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`); the k3d
+are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
 adapter maps the port to the portal's NodePort when it makes the cluster.
 
 Two one-time steps on your machine, which the checks of phases 10 and 25
-print as warnings until they are done (ADR-0036):
+print (ADR-0036). A check that runs in kiesei cannot see your machine, so it
+prints them every time. A check that runs on the host prints them only until
+they are done:
 
 1. **Resolve the name.** A small DNS stand-in beside the cluster answers
    `local.barzel.sh` with `127.0.0.1` on `127.0.0.1:1053`. Tell macOS to ask
