@@ -158,13 +158,24 @@ dns_check() {
     fi
   fi
   printf 'local DNS stand-in %s runs: %s -> 127.0.0.1 on 127.0.0.1:%s\n' "$BRZL_DNS_NAME" "$BRZL_PORTAL_HOST" "$BRZL_DNS_PORT"
-  if [[ "$(uname)" == Darwin ]] \
-      && [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" == *'ip_address: 127.0.0.1'* ]]; then
-    return 0
-  fi
-  printf 'once, on your machine (macOS), so that it asks the stand-in for this name:\n' >&2
-  printf '  sudo mkdir -p /etc/resolver && printf '"'"'nameserver 127.0.0.1\\nport %s\\n'"'"' | sudo tee %q >/dev/null\n' \
-    "$BRZL_DNS_PORT" "$resolver" >&2
+  case "$(host_os)" in
+    Darwin)
+      if [[ "$(uname)" == Darwin ]] \
+          && [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" == *'ip_address: 127.0.0.1'* ]]; then
+        return 0
+      fi
+      operator_step "so that your machine asks the stand-in for $BRZL_PORTAL_HOST (skip if done):" \
+        "sudo mkdir -p /etc/resolver" \
+        "printf 'nameserver 127.0.0.1\\nport $BRZL_DNS_PORT\\n' | sudo tee $resolver >/dev/null"
+      ;;
+    *)
+      if [[ "$(uname)" != Darwin ]] && getent hosts "$BRZL_PORTAL_HOST" >/dev/null 2>&1; then
+        return 0
+      fi
+      operator_step "so that your machine resolves $BRZL_PORTAL_HOST (skip if done; /etc/resolver is macOS-only):" \
+        "printf '127.0.0.1 $BRZL_PORTAL_HOST\\n' | sudo tee -a /etc/hosts >/dev/null"
+      ;;
+  esac
 }
 
 substrate_down() {

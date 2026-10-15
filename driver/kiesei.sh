@@ -50,10 +50,12 @@ while IFS='=' read -r name _; do
   [[ "$name" == BRZL_* ]] && env_args+=(-e "$name")
 done < <(env)
 
+# BRZL_HOST_OS: the checks print steps for the operator's machine, and inside
+# the container uname says Linux.
 exec docker run --rm -i \
   --network host \
   --user 0:0 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$repo_root:$repo_root" -w "$repo_root" \
-  "${env_args[@]}" \
+  "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
   "$image" -s

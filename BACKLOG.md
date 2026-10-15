@@ -115,6 +115,11 @@ Standing concerns (check in every pass):
   published history).
 - **Port the seed's §1.10** ("a script's claims are part of its contract") to
   `ryderdain/bash` STYLE.md.
+- **Operator steps stand out** (user, 2026-10-15): a step the operator must
+  do by hand prints in a boxed block on stderr (`operator_step`,
+  `driver/lib/phase-common.sh`), for the driver machine's OS
+  (`BRZL_HOST_OS`, set by `driver/kiesei.sh`). Port the convention to
+  `ryderdain/bash` STYLE.md with §1.10.
 - **Before going public on GitHub** (user, 2026-10-14): redraw the ASCII
   diagrams in ARCHITECTURE and README as Mermaid; a cosmetics pass on the
   docs. Last thing, not now.

@@ -247,15 +247,23 @@ secret_store_pki_check() {
   fi
   printf 'the store is a CA for %s (role portal; cert-manager may ask it to sign); CA certificate: %s\n' \
     "$host" "$BRZL_SECRET_STORE_DIR/ca.crt"
-  # Trust on the operator's machine can be checked only there (macOS); from
-  # kiesei the one-time command is printed as information.
-  if [[ "$(uname)" == Darwin ]] \
-      && security find-certificate -c "brzl CA for $host" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
-    return 0
-  fi
-  printf 'once, on your machine (macOS), so that the browser trusts the CA:\n' >&2
-  printf '  security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db %q\n' \
-    "$BRZL_SECRET_STORE_DIR/ca.crt" >&2
+  # Trust on the operator's machine can be checked only there; from kiesei
+  # the one-time step is printed for the operator's OS (BRZL_HOST_OS).
+  case "$(host_os)" in
+    Darwin)
+      if [[ "$(uname)" == Darwin ]] \
+          && security find-certificate -c "brzl CA for $host" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+        return 0
+      fi
+      operator_step "so that the browser trusts the CA of $host (skip if done):" \
+        "security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db $BRZL_SECRET_STORE_DIR/ca.crt"
+      ;;
+    *)
+      operator_step "so that the system trusts the CA of $host (skip if done; Debian/Ubuntu shown; Firefox keeps its own store):" \
+        "sudo cp $BRZL_SECRET_STORE_DIR/ca.crt /usr/local/share/ca-certificates/brzl-$host.crt" \
+        "sudo update-ca-certificates"
+      ;;
+  esac
 }
 
 secret_put() {

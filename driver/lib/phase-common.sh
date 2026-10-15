@@ -14,6 +14,14 @@
 #                             for a run sheet that stops itself with `error 3`
 #                             (a run sheet runs as its own process, so it needs
 #                             its own copy; STYLE.md §1.2)
+#   operator_step <why> <command>...
+#                             print, on stderr, a step the operator must do by
+#                             hand on their own machine, in a block that stands
+#                             out from tool output; one command per argument
+#   host_os                   print the operating system of the driver's
+#                             machine: BRZL_HOST_OS when set (driver/kiesei.sh
+#                             sets it, because inside the container uname says
+#                             Linux), else uname
 #
 # Each phase script also defines phase_locus, which prints `driver` or
 # `conductor`; the driver reads it to choose how to run the phase.
@@ -58,6 +66,23 @@ phase_header() {
 
 phase_error_definition() {
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+}
+
+operator_step() {
+  local why="$1" command
+  shift
+  {
+    printf '\n'
+    printf '╔═ ONE-TIME STEP ON YOUR MACHINE (%s) ═══════════════════════════════\n' "$(host_os)"
+    printf '║ %s\n' "$why"
+    for command in "$@"; do printf '║   %s\n' "$command"; done
+    printf '╚══════════════════════════════════════════════════════════════════════\n'
+    printf '\n'
+  } >&2
+}
+
+host_os() {
+  if [[ -n "${BRZL_HOST_OS:-}" ]]; then printf '%s' "$BRZL_HOST_OS"; else uname; fi
 }
 
 gitops_repo_url() {
