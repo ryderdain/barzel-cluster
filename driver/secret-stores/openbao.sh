@@ -217,7 +217,7 @@ secret_store_pki_up() {
   printf '  %s secrets list -format=json | jq -e '"'"'."pki/"'"'"' >/dev/null 2>&1 \\\n' "$bao"
   printf '    || %s secrets enable -max-lease-ttl=87600h pki\n' "$bao"
   printf '  %s read -field=certificate pki/cert/ca >/dev/null 2>&1 \\\n' "$bao"
-  printf '    || %s write -field=serial_number pki/root/generate/internal common_name=%q ttl=87600h key_type=ec key_bits=256\n' \
+  printf '    || %s write -field=serial_number pki/root/generate/internal common_name=%q ttl=87600h key_type=ec key_bits=256 >/dev/null\n' \
     "$bao" "brzl CA for $host"
   printf '  %s write pki/roles/portal allowed_domains=%q allow_bare_domains=true allow_subdomains=true \\\n' "$bao" "$host"
   printf '    max_ttl=2160h key_type=ec key_bits=256 >/dev/null\n'
