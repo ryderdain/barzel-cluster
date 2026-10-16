@@ -25,8 +25,8 @@
 #   bash driver/phases/30-gitops.sh phase_up <env> <run_dir>     # EMIT
 #   bash driver/phases/30-gitops.sh phase_check <env> <run_dir>  # GENERATOR
 #
-# Inputs: env/<env>.env (BRZL_DEMO_APP_TAG, BRZL_PORTAL_HOST); the substrate adapter (registry
-# host, upstream prefixes); gitops/platform/applicationset.yaml,
+# Inputs: env/<env>.env (BRZL_EXAMPLE_APP_NAME/_TAG, BRZL_PORTAL_HOST); the
+# substrate adapter (registry host, upstream prefixes); gitops/platform/applicationset.yaml,
 # gitops/clusters/<env>/project.yaml, gitops/infrastructure/argocd/values.yaml;
 # <run_dir>/kubeconfig (for the check). Needs git, yq (kiesei). No credentials:
 # the repo credential is phase 25's.
@@ -69,10 +69,10 @@ gitops_revision() {
 # cluster_secret <env> <revision> — this cluster's registration, with the
 # labels and annotations the platform ApplicationSet reads.
 cluster_secret() {
-  local env="$1" revision="$2" host demo_ref upstream
+  local env="$1" revision="$2" host app_ref upstream
   host="$(substrate_registry_host)" || return 1
-  demo_ref="$(substrate_image_ref "demo-app:$BRZL_DEMO_APP_TAG")" || return 1
-  demo_ref="${demo_ref#"$host"/}"
+  app_ref="$(substrate_image_ref "$BRZL_EXAMPLE_APP_NAME:$BRZL_EXAMPLE_APP_TAG")" || return 1
+  app_ref="${app_ref#"$host"/}"
   cat <<EOF
 apiVersion: v1
 kind: Secret
@@ -86,8 +86,8 @@ metadata:
     brzl.dev/substrate: $BRZL_SUBSTRATE
   annotations:
     brzl.dev/registry-host: "$host"
-    brzl.dev/demo-app-image: "${demo_ref%:*}"
-    brzl.dev/demo-app-tag: "$BRZL_DEMO_APP_TAG"
+    brzl.dev/example-app-image: "${app_ref%:*}"
+    brzl.dev/example-app-tag: "$BRZL_EXAMPLE_APP_TAG"
     brzl.dev/revision: "$revision"
     brzl.dev/portal-host: "$BRZL_PORTAL_HOST"
 EOF
@@ -116,6 +116,13 @@ phase_up() {
   secret="$(cluster_secret "$env" "$revision")" || end_function "$?" 'cluster Secret'
   app_names="$(yq '.spec.generators[].matrix.generators[1].list.elements[].appName' "$repo_root/$appset_file")" \
     || end_function "$?" 'Application names'
+  # The example app is named in three places that must agree: the environment
+  # definition, the ApplicationSet element and the portal's location.
+  if ! grep -qx "$BRZL_EXAMPLE_APP_NAME" <<< "$app_names"; then
+    printf 'error: BRZL_EXAMPLE_APP_NAME=%s has no element in %s\n' "$BRZL_EXAMPLE_APP_NAME" "$appset_file" >&2
+    end_function 1 'example app element'
+    return 1
+  fi
 
   phase_header "$run_dir" conductor
   printf '# GitOps revision: %s\n' "$revision"

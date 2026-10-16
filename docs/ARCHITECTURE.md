@@ -300,6 +300,6 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0031](adr/0031-argocd-manages-itself.md) | Argo CD manages itself (from ADR-0013) | Accepted |
 | [ADR-0032](adr/0032-argocd-repository-credential.md) | The Argo CD repository credential: deploy key now, GitHub App before leaving local (from ADR-0013) | Accepted; to be superseded in pass 8 |
 | [ADR-0033](adr/0033-metrics-kube-prometheus-stack.md) | Metrics: kube-prometheus-stack, trimmed (from ADR-0017) | Accepted (AWS substrate) |
-| [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh); the platform depends on no workload | Accepted (design; pass 5d) |
+| [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh, from its own repo); the platform depends on no workload | Accepted; built (pass 5d) |
 | [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted (design; pass 6a) |
 | [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |

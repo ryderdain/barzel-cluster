@@ -7,8 +7,8 @@
 #   brzl.dev/registry-host       <account>.dkr.ecr.<region>.amazonaws.com
 #   brzl.dev/prefix-<upstream>   brzl-dev-quay, brzl-dev-k8s, brzl-dev-github,
 #                                brzl-dev-docker-hub (ECR pull-through prefixes)
-#   brzl.dev/demo-app-image      brzl-dev/demo-app
-#   brzl.dev/demo-app-tag        0.2.0
+#   brzl.dev/example-app-image   brzl-dev/chofesh   (pass 8: the app's own published image)
+#   brzl.dev/example-app-tag     0.2.0
 #   brzl.dev/backup-bucket       brzl-dev-cnpg-backups-<account>
 #
 # Selector label keeps this the ONLY cluster the generator matches (ArgoCD's

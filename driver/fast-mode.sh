@@ -14,11 +14,13 @@
 # changes. fast_off gives the cluster back to git: Argo CD prunes and
 # self-heals to the pushed branch, so unpushed fast-mode changes go away.
 #
-# fast_apply renders the kustomize apps (postgres, demo-app) from the WORKING
-# TREE with the same images and patches that Argo CD injects — read from each
-# live Application, not copied from the template — and the run sheet applies the
-# result; the driver runs it on the conductor. The helm apps change only
-# through a pushed branch (Q58).
+# fast_apply renders every kustomize app from the WORKING TREE with the same
+# images and patches that Argo CD injects — read from each live Application,
+# not copied from the template — and the run sheet applies the result; the
+# driver runs it on the conductor. An app from another repo (the example app,
+# ADR-0034) renders from its checkout beside this repo (BRZL_EXAMPLE_APP_SRC),
+# so the loop "edit the app, apply, look" needs no push. The helm apps change
+# only through a pushed branch (Q58).
 #
 # Only for an environment whose definition sets BRZL_FAST_MODE_ALLOWED=true
 # (local). Inputs: <run_dir>/kubeconfig; the live cluster Secret and
@@ -34,6 +36,9 @@ source "$repo_root/driver/lib/runlib.sh" || exit 1
 source "$repo_root/driver/lib/phase-common.sh" || exit 1
 
 appset_file=gitops/platform/applicationset.yaml
+# The platform's own repo, as the ApplicationSet names it; any other repoURL
+# is a workload's (ADR-0034).
+platform_repo=git@github.com:ryderdain/barzel-cluster.git
 
 fast_init() {
   local env="$1" run_dir="$2"
@@ -90,10 +95,12 @@ fast_check() {
   return 1
 }
 
-# kustomization_for <application-json> <dir> — a kustomization, to be written
-# in <dir> (relative to the repo root), that puts the live Application's images
-# and patches over its path in the working tree. kustomize takes only relative
-# resource paths, so the path climbs from <dir> to the repo root.
+# kustomization_for <application-json> <dir> <label_key> — a kustomization, to
+# be written in <dir> (relative to the repo root), that puts the live
+# Application's images and patches over its path in the working tree: this
+# repo's for the platform repo, the example app's checkout
+# (BRZL_EXAMPLE_APP_SRC) for any other. kustomize takes only relative resource
+# paths, so the path climbs from <dir> to the repo root first.
 #
 # It also adds Argo CD's tracking label <label_key>=<app>, as Argo CD does when
 # it syncs (the "label" tracking method; fast_apply refuses any other). The key
@@ -103,9 +110,18 @@ fast_check() {
 # even when its spec is unchanged. The label goes on metadata only, never into
 # selectors.
 kustomization_for() {
-  local app_json="$1" dir="$2" label_key="$3" path up='' i image name ref new_name new_tag
+  local app_json="$1" dir="$2" label_key="$3" path repo up='' i image name ref new_name new_tag
   local -a part
   path="$(jq -r '(.spec.sources // [.spec.source])[0].path' <<< "$app_json")" || return 1
+  repo="$(jq -r '(.spec.sources // [.spec.source])[0].repoURL' <<< "$app_json")" || return 1
+  if [[ "$repo" != "$platform_repo" ]]; then
+    if [[ ! -d "$repo_root/$BRZL_EXAMPLE_APP_SRC/$path" ]]; then
+      printf 'error: %s renders from %s, but %s/%s is not a directory (clone the example app beside this repo)\n' \
+        "$(jq -r '.metadata.name' <<< "$app_json")" "$repo" "$BRZL_EXAMPLE_APP_SRC" "$path" >&2
+      return 1
+    fi
+    path="$BRZL_EXAMPLE_APP_SRC/$path"
+  fi
   IFS=/ read -ra part <<< "$dir"
   for (( i = 0; i < ${#part[@]}; i++ )); do up+='../'; done
   printf 'apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\n'

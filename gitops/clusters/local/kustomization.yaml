@@ -1,30 +1,9 @@
-# The whole local stack as ONE kustomization, for the legacy SSO bring-up only
-# (gitops/clusters/local/k3d-up.sh --with-sso, docs/LOCAL.md). The driver does
-# not use this file: on local, the platform ApplicationSet deploys the two
-# overlays below (postgres/, demo-app/) and injects their images (ADR-0025).
-#
-# For k3d-up.sh, the images are what it provides: the demo-app it imports
-# (demo-app:local) and the upstream Postgres image.
+# The legacy SSO bring-up only (gitops/clusters/local/k3d-up.sh --with-sso,
+# docs/LOCAL.md). The driver does not use this file. Since pass 5d the example
+# app (chofesh) comes from its own repo (ADR-0034), so this file carries only
+# the namespaces; the legacy path is stale until pass 6a replaces it.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
   - namespaces.yaml
-  - postgres
-  - demo-app
-
-images:
-  - name: __ECR_REGISTRY_HOST__/brzl-dev/demo-app
-    newName: demo-app
-    newTag: local
-
-patches:
-  - target:
-      group: postgresql.cnpg.io
-      version: v1
-      kind: Cluster
-      name: pg
-    patch: |-
-      - op: replace
-        path: /spec/imageName
-        value: ghcr.io/cloudnative-pg/postgresql:17.2

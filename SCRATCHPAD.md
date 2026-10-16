@@ -19,30 +19,41 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-15, fable. Pruned to the current state; the history is in git,
+*(2026-10-16, fable. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 5c DONE and user-verified**, merged to `main` (RETROSPECTIVE
-2026-10-15, two entries). The portal is at `https://local.barzel.sh/`
-(Argo CD `/argocd/`, demo-app `/apps/demo-app/`); Argo CD v2.13.4 (chart
-7.7.23); cert-manager v1.21.2 with the `vault` issuer to OpenBao's PKI;
-default local host `brzl-<env>.localhost`, the DNS stand-in only for a
-chosen name (ADR-0036); `bash driver/kiesei.sh shell` for the CLI tools;
-operator steps print in a boxed block (`operator_step`, `BRZL_HOST_OS`).
-The cluster follows `main` (run `202610151255` and later). Guidebook drafts:
-`docs/guide/{kustomize,cert-manager,kiesei}.md` (BACKLOG item 12).
+**Pass 5d BUILT, live test pending** (branch `pass-5d`, chofesh `main` at
+`c9acf6a`, pushed). Decisions Q141–Q147 are in BACKLOG item 3 and ADR-0034
+"As built". What changed in chofesh: `serve`, a Dockerfile,
+`deploy/{base,local,aws}`. What changed here: the `chofesh` ApplicationSet
+element with its own `repo` and `revision`, and `BRZL_EXAMPLE_APP_{NAME,SRC,TAG}`.
+Phase 20 builds from `../chofesh`. Phase 30 writes
+`brzl.dev/example-app-image/-tag` and checks that the element exists. Phase
+40 checks `chofesh/pg`, `deploy/chofesh` and `/apps/chofesh/`. kiesei mounts
+the checkout, and fast mode renders it. The portal passes `/apps/chofesh/`
+with no rewrite. The demo-app and postgres bases and overlays are deleted. Static
+checks passed: go test, the image build, the kustomize renders, nginx -t,
+the phase emits in kiesei, the fast-mode render.
 
-**Facts to keep in mind:** the ApplicationSet file is applied by phase 30,
-not followed from git (BACKLOG 15); an old store must be purged when the
-`driver` policy changes; checks run in kiesei (Linux, no `dig`, cannot see
-macOS); the demo-app's `/apps/demo-app/` uses an nginx `sub_filter` until
-5d replaces it.
+**Live test (user runs):**
 
-**▶ NEXT: pass 5d, the example app** (chofesh; ADR-0034; BACKLOG item 3,
-"keep it short" — user). Start with a short design round: the server mode
-of `ryderdain/chofesh` (the demo-app's REST API, a small page, Postgres),
-its sub-path setting for `/apps/chofesh/`, the Postgres cluster moving
-into the app, the ApplicationSet element and registry image, what of
-`apps/demo-app` and `gitops/applications/demo-app` goes. The user switches
-to Opus 5.5 for this pass.
+1. The old Applications must go first, or phase 30 stops (`error 3`, the
+   element guard): `kubectl -n argocd delete application demo-app postgres`
+   (cascades: the Cluster and its PVC go), then
+   `kubectl delete namespace demo cnpg-demo`.
+2. `bash driver/driver.sh local up | bash driver/kiesei.sh` on branch
+   `pass-5d`.
+3. Open `https://local.barzel.sh/apps/chofesh/` and search. Argo CD shows
+   `chofesh`.
+4. Optional loop: `fast_on`, edit `../chofesh`, `apply`, `fast_off`.
+
+**After verification:** RETROSPECTIVE entry, BACKLOG item 3 "done", merge
+`pass-5d` to `main` (fast-forward), LLM-CONDUCT. Then **▶ NEXT: pass 6,
+logs** (ADR-0027, spike on branch `spike-logs`).
+
+**Facts to keep in mind:** phase 30 applies the ApplicationSet file, and
+Argo CD does not follow it from git (BACKLOG 15). Purge an old store when
+the `driver` policy changes. Checks run in kiesei (Linux, no `dig`, cannot see
+macOS). kiesei mounts the repo and `BRZL_EXAMPLE_APP_SRC` at their host
+paths. The example app's name lives in three places (env, element, nginx).

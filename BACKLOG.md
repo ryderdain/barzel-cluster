@@ -34,10 +34,17 @@ Order of work (Q120):
    cert-manager renews; the issuer is the environment's TLS mode;
    `local-ca` on local, `letsencrypt` in pass 8; a CoreDNS stand-in for
    public DNS; `BRZL_PORTAL_HOST` is a value (`local.barzel.sh`).
-3. **5d. Example app** — `ryderdain/chofesh` gains a server mode (the
-   demo-app's REST API), a small web page and Postgres, and keeps its Go CLI;
-   it replaces `apps/demo-app`. The Postgres cluster moves into the app; the
-   CNPG operator stays a platform capability. **Keep it short** (user).
+3. **5d. Example app** — built 2026-10-16 on branch `pass-5d`, live test
+   pending. `ryderdain/chofesh` gained `chofesh serve`, a Dockerfile and
+   `deploy/{base,local,aws}`. The demo-app and postgres bases and overlays
+   and `apps/demo-app` left this repo
+   ([ADR-0034](docs/adr/0034-example-app-is-a-separate-workload.md)).
+   Decisions: Q141 (b), phase 20 builds the image from the checkout beside
+   the repo until pass 8. Q142/Q146, the manifests live in chofesh, Argo CD
+   reads them from the public repo at `main`, fast mode from the checkout.
+   Q143/Q147, the credential stays CNPG's, in the app's namespace. Q144,
+   relative links and no base-path flag. Q145, git in chofesh is delegated
+   like this repo.
 4. **6. Logs** — collector, admin and diagnostic Loki, Grafana; UTC
    everywhere; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`; a header
    line in each run output; API and OpenBao audit logs; `driver.sh <env> state`
@@ -45,6 +52,11 @@ Order of work (Q120):
    ([ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md)).
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
+   Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
+   the admin services. A workload is not behind it unless it has a
+   management UI of its own (chofesh has none). The legacy local SSO path
+   (`gitops/clusters/local/{k3d-up.sh,sso/,kustomization.yaml}`) still
+   names the demo-app and is stale since pass 5d. This pass replaces it.
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
@@ -58,6 +70,12 @@ Order of work (Q120):
 10. **8. Substrate adapters** — one pass for each: first the shared interface
     and AWS, then others. Open items for AWS: the secret-store adapter
     (Secrets Manager) and `gitops/clusters/{dev,prod}/secret-store/`; the
+    example app publishes its own image from its own CI (`ghcr.io`, Q141 a),
+    phase 20 stops building it, and a laptop keeps a local-build escape;
+    the AWS runbooks and the legacy AWS scripts (`platform.sh`,
+    `bootstrap-argocd.sh`, `seed-demo-data.sh`, the Terraform ingress) still
+    name the demo-app and `gitops/operators/postgres`, where only the DR
+    recovery artifacts remain; the
     `letsencrypt` TLS mode (an ACME `ClusterIssuer` with DNS-01 at FreeDNS
     in `gitops/clusters/<env>/pki/`; whether a cloud needs the store copy of
     the certificate; ADR-0036); the
@@ -79,7 +97,9 @@ Order of work (Q120):
     --profile …`) instead of a credential error in the middle of a run.
 11. **9. `promote workloads`** and **`promote all`** (a platform and workload
     change that depend on each other) (Q118). Revisit the Flow diagram in
-    ARCHITECTURE §1 then, for the workload repo's branches (user).
+    ARCHITECTURE §1 then, for the workload repo's branches (user). The
+    example app's `deploy/aws` overlay (backups, metrics, dashboard) was
+    carried over verbatim in pass 5d and is untested until this pass.
 12. **Documentation run: the guidebook** (after the last passes; user,
     2026-10-15). One file for each tool or component in `docs/guide/`, for a
     reader who is new to it: the basics, how it works, how this repo uses

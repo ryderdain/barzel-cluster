@@ -15,8 +15,8 @@
 #     brzl.dev/prefix-<upstream>   path under that host per upstream
 #                                  (quay, k8s, github, docker-hub): an ECR
 #                                  pull-through prefix on AWS, a Zot namespace locally
-#     brzl.dev/demo-app-image      demo-app repository under the host
-#     brzl.dev/demo-app-tag        demo-app tag
+#     brzl.dev/example-app-image   the example app's repository under the host
+#     brzl.dev/example-app-tag     the example app's tag
 #     brzl.dev/backup-bucket       CNPG backup bucket (AWS only; absent = no backup patch)
 #     brzl.dev/portal-host         the admin portal's host name (its certificate)
 #     brzl.dev/revision            git revision to follow (absent = main)
@@ -26,6 +26,11 @@
 # A kustomize element's path may carry __ENV__, replaced by the env label: the
 # `secret-store` app renders gitops/clusters/<env>/secret-store (ADR-0026),
 # and `pki` renders gitops/clusters/<env>/pki, the TLS mode's issuer (ADR-0036).
+#
+# A workload is an element with its own `repo` and `revision` (ADR-0034): Argo
+# CD reads its manifests from that repo; this file only names the overlay and
+# renames the images. Elements without `repo` are the platform's, from this
+# repo at the cluster's brzl.dev/revision.
 #
 # Two matrices, unioned: every cluster gets the common apps; only clusters
 # labelled brzl.dev/substrate=aws get the AWS-only ones.
@@ -38,9 +43,10 @@
 # would leave a live Application without an element.
 #
 # Sync waves (annotation, per element): -1 argocd self-manage, 0 ebs-csi+gp3,
-# 1 operators (cnpg, external-secrets, cert-manager, monitoring), 2 postgres
-# Cluster, secret-store, pki, 3 demo-app, 4 the admin portal (nginx names the
-# Services it passes to, so they must exist first).
+# 1 operators (cnpg, external-secrets, cert-manager, monitoring), 2
+# secret-store, pki, 3 the example app (with its own Postgres Cluster), 4 the
+# admin portal (nginx names the Services it passes to, so they must exist
+# first).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -148,20 +154,19 @@ spec:
                   # The environment's TLS mode: the ClusterIssuer the portal's
                   # Certificate names (ADR-0036).
                   path: gitops/clusters/__ENV__/pki
-                - appName: postgres
-                  kind: kustomize
-                  wave: "2"
-                  namespace: cnpg-demo
-                  serverSideApply: "false"
-                  path: gitops/operators/postgres
-                  localPath: gitops/clusters/local/postgres
-                - appName: demo-app
+                - appName: chofesh
                   kind: kustomize
                   wave: "3"
-                  namespace: demo
+                  namespace: chofesh
                   serverSideApply: "false"
-                  path: gitops/applications/demo-app
-                  localPath: gitops/clusters/local/demo-app
+                  # The example app (ADR-0034): its manifests live in its own
+                  # repo, a public one read over https (no credential). The
+                  # name must match BRZL_EXAMPLE_APP_NAME and the portal's
+                  # location /apps/chofesh/.
+                  repo: https://github.com/ryderdain/chofesh.git
+                  revision: main
+                  path: deploy/aws
+                  localPath: deploy/local
                 - appName: portal
                   kind: kustomize
                   wave: "4"
@@ -289,20 +294,38 @@ spec:
       {{- else }}
       {{- $path := replace "__ENV__" $env .path }}
       {{- if and (eq $env "local") .localPath }}{{ $path = .localPath }}{{ end }}
+      {{- $repo := "git@github.com:ryderdain/barzel-cluster.git" }}
+      {{- $rev := $revision }}
+      {{- if .repo }}{{ $repo = .repo }}{{ $rev = .revision | default "main" }}{{ end }}
       sources:
-        - repoURL: git@github.com:ryderdain/barzel-cluster.git
-          targetRevision: {{ $revision }}
+        - repoURL: {{ $repo }}
+          targetRevision: {{ $rev }}
           path: {{ $path }}
           kustomize:
-            {{- if eq .appName "demo-app" }}
+            {{- if eq .appName "chofesh" }}
+            {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
             images:
-              - "__ECR_REGISTRY_HOST__/brzl-dev/demo-app={{ $host }}/{{ index $ann "brzl.dev/demo-app-image" }}:{{ index $ann "brzl.dev/demo-app-tag" }}"
-            {{- if eq $env "prod" }}
+              - "ghcr.io/ryderdain/chofesh={{ $host }}/{{ index $ann "brzl.dev/example-app-image" }}:{{ index $ann "brzl.dev/example-app-tag" }}"
             patches:
+              - target:
+                  group: postgresql.cnpg.io
+                  version: v1
+                  kind: Cluster
+                  name: pg
+                patch: |-
+                  - op: replace
+                    path: /spec/imageName
+                    value: {{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/cloudnative-pg/postgresql:17.2
+                  {{- if $bucket }}
+                  - op: replace
+                    path: /spec/backup/barmanObjectStore/destinationPath
+                    value: s3://{{ $bucket }}/
+                  {{- end }}
+            {{- if eq $env "prod" }}
               - target:
                   version: v1
                   kind: Service
-                  name: demo-app
+                  name: chofesh
                 patch: |-
                   - op: replace
                     path: /spec/type
@@ -327,22 +350,5 @@ spec:
                   - op: replace
                     path: /spec/dnsNames/0
                     value: {{ index $ann "brzl.dev/portal-host" }}
-            {{- else if eq .appName "postgres" }}
-            {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
-            patches:
-              - target:
-                  group: postgresql.cnpg.io
-                  version: v1
-                  kind: Cluster
-                  name: pg
-                patch: |-
-                  - op: replace
-                    path: /spec/imageName
-                    value: {{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/cloudnative-pg/postgresql:17.2
-                  {{- if $bucket }}
-                  - op: replace
-                    path: /spec/backup/barmanObjectStore/destinationPath
-                    value: s3://{{ $bucket }}/
-                  {{- end }}
             {{- end }}
       {{- end }}

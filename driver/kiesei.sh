@@ -17,7 +17,9 @@
 #   - the host network, so the k3d API (127.0.0.1:<port>) and published ports
 #     are reachable with the same kubeconfig the host uses;
 #   - the repo mounted at its own host path, so every path in the stream is the
-#     same inside and out, and run sheets land in the host's var/run/;
+#     same inside and out, and run sheets land in the host's var/run/; the
+#     example app's checkout (BRZL_EXAMPLE_APP_SRC, beside the repo) the same
+#     way, when it exists, so phase 20 builds it and fast mode renders it;
 #   - user root, because the engine socket in the engine's VM is root-only;
 #   - every exported BRZL_* variable, so a one-off override reaches the phase
 #     emitters that run inside;
@@ -39,10 +41,12 @@ repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
 image="${BRZL_KIESEI_IMAGE:-}"
 portal_host="${BRZL_PORTAL_HOST:-}"
 store_dir="${BRZL_SECRET_STORE_DIR:-}"
+app_src="${BRZL_EXAMPLE_APP_SRC:-}"
 while IFS='=' read -r key value; do
   [[ "$key" == BRZL_KIESEI_IMAGE && -z "$image" ]] && image="$value"
   [[ "$key" == BRZL_PORTAL_HOST && -z "$portal_host" ]] && portal_host="$value"
   [[ "$key" == BRZL_SECRET_STORE_DIR && -z "$store_dir" ]] && store_dir="$value"
+  [[ "$key" == BRZL_EXAMPLE_APP_SRC && -z "$app_src" ]] && app_src="$value"
 done < "$repo_root/env/local.env"
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -61,6 +65,13 @@ while IFS='=' read -r name _; do
 done < <(env)
 
 [[ -n "$portal_host" ]] && env_args+=(--add-host "$portal_host:127.0.0.1")
+
+# The example app's checkout, at its own host path too (relative paths in the
+# stream, such as ../chofesh, then resolve the same inside). Absent: phase 20
+# says what to clone.
+if [[ -n "$app_src" ]] && app_src="$(cd -- "$repo_root/$app_src" 2>/dev/null && pwd -P)"; then
+  env_args+=(-v "$app_src:$app_src")
+fi
 
 # The CA, when the store is one (after phase 25): mounted where Debian's
 # update-ca-certificates picks it up; `prelude` runs that at start.

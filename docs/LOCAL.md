@@ -1,9 +1,10 @@
 # Runbook — Local-dev stack (k3d)
 
-Run the **CNPG + demo-app** stack on a developer laptop with **no AWS** — the
-portability proof for the platform (k3s everywhere; ADR-0015 /
-[ARCHITECTURE](ARCHITECTURE.md)). It's the same workload manifests as the cloud
-cluster, applied through a thin
+Run the platform and its example app on a developer laptop with **no AWS**
+— the portability proof for the platform (k3s everywhere; ADR-0015 /
+[ARCHITECTURE](ARCHITECTURE.md)). The example app is
+[chofesh](https://github.com/ryderdain/chofesh) (ADR-0034): Argo CD reads
+its manifests from that repo, and the platform's own manifests get a thin
 [`gitops/clusters/local`](../gitops/clusters/local) overlay.
 
 ## Prerequisites
@@ -13,6 +14,11 @@ cluster, applied through a thin
 - Internet access. The images come from the upstream registries, through the
   local Zot cache.
 - No AWS account, profile, or credentials.
+- The example app's checkout beside this repo:
+  `git clone git@github.com:ryderdain/chofesh.git ../chofesh`
+  (`BRZL_EXAMPLE_APP_SRC` in `env/local.env`). Phase 20 builds its image
+  from it, and fast mode renders its manifests from it. Argo CD itself reads
+  the pushed repo, not the checkout.
 - Enough memory for the container engine. The reference hosts:
 
   | Host | Hardware | Note |
@@ -85,18 +91,20 @@ conductor. Do not operate `driver/conductor.sh` yourself.
   and the k3d cluster, and writes the kubeconfig to the run directory. If the
   configuration of Zot or OpenBao changed, it replaces that container. The
   data stays.
-- `20-images` (driver) pushes the kiesei image to Zot, and assembles the
-  demo-app image and pushes it too.
+- `20-images` (driver) pushes the kiesei image to Zot, and builds the
+  example app's image from its checkout and pushes it too.
 - `25-bootstrap` (driver) connects the secret store to the cluster. It
   writes the deploy key into the store when you give it. Then it writes the
   Argo CD repository Secret from the store, and starts the conductor in the
   namespace `brzl-system`.
 - `30-gitops` (conductor) installs Argo CD and applies the platform
   ApplicationSet (ADR-0025). Argo CD then deploys CloudNativePG, External
-  Secrets, Postgres and the demo-app from git.
+  Secrets, cert-manager, the admin portal and the example app (with its
+  Postgres) from git.
 - `40-workloads` (conductor) waits until all Applications are Synced and
-  Healthy, and checks Postgres and the demo-app. It also checks that the
-  smoke value from phase 25 came back through External Secrets.
+  Healthy, and checks the example app, its Postgres and the portal. It also
+  checks that the smoke value from phase 25 came back through External
+  Secrets.
 
 Argo CD follows the branch that is checked out when phase `30-gitops` is
 emitted. To follow a different branch, export `BRZL_GITOPS_REVISION`. Argo CD
@@ -199,7 +207,7 @@ The next `up` makes a new store. Then give the deploy key again.
 
 The admin portal is the one place to start: `https://<host>/` (ADR-0028).
 It links to Argo CD (`/argocd/`) and to the example app
-(`/apps/demo-app/`), and lists the CLI commands. The host name and the port
+(`/apps/chofesh/`), and lists the CLI commands. The host name and the port
 are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
 adapter maps the port to the portal's NodePort when it makes the cluster.
 
@@ -270,9 +278,15 @@ bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
 - `fast_on` sets the annotation `brzl.dev/auto-sync: "false"` on the cluster
   Secret. The ApplicationSet then removes automated sync from each
   Application. No commit is necessary.
-- `apply` renders the kustomize apps (postgres, demo-app) from your working
-  tree, with the same images and patches that Argo CD injects. The conductor
-  applies the result. The helm apps (Argo CD, CloudNativePG, External Secrets)
+- `apply` renders the kustomize apps from your working tree, with the same
+  images and patches that Argo CD injects. The example app renders from its
+  checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`). The conductor applies
+  the result. So the loop for the app is: edit `../chofesh`, `apply`, look.
+  When the app's code changed, build and push its image first:
+
+  ```sh
+  bash driver/phases/20-images.sh phase_up local var/run/local/current | bash driver/kiesei.sh
+  ``` The helm apps (Argo CD, CloudNativePG, External Secrets)
   are not included: to change one, push a branch and let Argo CD sync it.
 - While fast mode is on, Argo CD shows each changed Application as OutOfSync.
   The difference is your change compared with the pushed branch.
@@ -373,12 +387,12 @@ next `up` starts a new run.
 
 ## What differs from the AWS cluster (and why)
 
-The local overlays (`gitops/clusters/local/postgres`, `.../demo-app`) touch
-only the AWS-specific parts; all else is the same manifests as the cloud:
+The example app's local overlay (`deploy/local` in its repo) touches only
+the AWS-specific parts. All else is the same manifests as the cloud:
 
 | Concern | AWS cluster | Local (k3d) | Why |
 | ------- | ----------- | ----------- | --- |
-| Images | ECR + pull-through (host and prefixes injected by the ApplicationSet) | Zot pull-through (host `localhost:5001`, the upstream name as prefix) + a locally built `localhost:5001/brzl/demo-app:local` (pushed) | same `host/prefix/path` shape as the cloud; no registry auth locally |
+| Images | ECR + pull-through (host and prefixes injected by the ApplicationSet) | Zot pull-through (host `localhost:5001`, the upstream name as prefix) + the example app built locally, `localhost:5001/brzl/chofesh:local` (pushed) | same `host/prefix/path` shape as the cloud; no registry auth locally |
 | Storage | EBS CSI, `gp3` | `local-path` (k3d built-in) | no cloud block storage on a laptop |
 | Postgres | 3 instances (HA) | 1 instance | laptop footprint; HA isn't the point locally |
 | Backups | CNPG → S3 (Barman) | **off** | no object store locally |
@@ -386,12 +400,14 @@ only the AWS-specific parts; all else is the same manifests as the cloud:
 | GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
 | Identity / UI SSO | OIDC roles, ingress (prod path) | none by default; **the full SSO edge** with `--with-sso` (see below) | the local cluster is where the SSO gateway is actually built (ADR-0018) |
 
-**Image strategy.** Local builds the demo-app and pushes it to Zot
-(`localhost:5001/brzl/demo-app:local`). The cluster pulls it from Zot, and it
-pulls every upstream image through Zot's cache, as a cloud cluster pulls
-through ECR (ADR-0023). There is no ECR login and no registry credential.
+**Image strategy.** Local builds the example app from its checkout and
+pushes it to Zot (`localhost:5001/brzl/chofesh:local`): the local stand-in
+for the app's CI, until the app publishes its own image (pass 8). The
+cluster pulls it from Zot, and it pulls every upstream image through Zot's
+cache, as a cloud cluster pulls through ECR (ADR-0023). There is no ECR
+login and no registry credential.
 
-**Parity note.** The CNPG operator, External Secrets, the `Cluster`, the ESO
-`ClusterSecretStore`/`ExternalSecret`, and the demo-app Deployment/Service are
-the same objects as production — so a green local run is real evidence the
-stack is substrate-portable, not a bespoke laptop variant.
+**Parity note.** The CNPG operator, External Secrets, cert-manager, the
+portal, the app's `Cluster` and its Deployment/Service are the same objects
+as production. So a green local run is real evidence that the stack is
+substrate-portable, not a bespoke laptop variant.

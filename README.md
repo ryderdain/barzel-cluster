@@ -11,7 +11,9 @@ change as a reviewed, recorded procedure.
 > **Status (2026-10):** the **local environment** (k3d on a laptop) runs the
 > full platform: driver, registry and secret store outside the cluster, Argo
 > CD, ESO, CNPG, cert-manager, the admin portal and the example app — see
-> [`docs/LOCAL.md`](docs/LOCAL.md). You need no public DNS zone and no
+> [`docs/LOCAL.md`](docs/LOCAL.md). The example app is
+> [chofesh](https://github.com/ryderdain/chofesh), deployed from its own
+> repo (ADR-0034). You need no public DNS zone and no
 > account at a provider: the local environment has a stand-in for each
 > public service, and still has the shape of a production environment
 > (ADR-0036). The plan is in [`BACKLOG.md`](BACKLOG.md).
@@ -77,8 +79,7 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 | ------ | --------- |
 | [`terraform/`](terraform/) | Layered IaC: reusable `modules/` + the single-source layer stack [`stack/aws/`](terraform/stack/aws/) applied per env via committed `dev.tfvars`/`prod.tfvars` (ADR-0020), plus `bootstrap/` + `identity/` account primitives and the dev-only `environments/dev/00-conductor` |
 | [`ansible/`](ansible/) | `roles/{base,security,kubernetes}` + `playbooks/` (node config + k3s bootstrap) |
-| [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, monitoring values), `applications/`, `operators/postgres/`; `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + kiesei shell + `ui-forward.sh`) |
-| [`apps/demo-app/`](apps/demo-app/) | Demo app: a Sefaria search web UI (search logic borrowed from [chofesh](https://github.com/ryderdain/chofesh)) — persists queries/results + outbound-call logs to Postgres, exposes `/metrics` + a ServiceMonitor — and Dockerfile |
+| [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, cert-manager, monitoring values, the admin portal), `platform/` (the one ApplicationSet, ADR-0025; the example app's manifests live in [chofesh](https://github.com/ryderdain/chofesh), ADR-0034); `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + kiesei shell + `ui-forward.sh`) |
 | [`containers/`](containers/) | `kiesei/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the kiesei via podman/ECR) |
 | [`docs/`](docs/) | Delivery-facing docs: architecture + ADRs (`docs/adr/`), operational-lifecycle runbooks, security |
 
@@ -329,7 +330,7 @@ and detailed in the documents below.
 - [`UPGRADE.md`](docs/UPGRADE.md) — PostgreSQL / k3s / chart / app upgrades (GitOps).
 - [`RECOVERY.md`](docs/RECOVERY.md) — backups, restore/PITR, failover, state recovery.
 - [`TEARDOWN.md`](docs/TEARDOWN.md) — decommission + the mandatory cost-leak sweep.
-- [`LOCAL.md`](docs/LOCAL.md) — run the CNPG + demo-app stack locally on **k3d**, no AWS (the portability proof); `--with-sso` adds the operator SSO gateway.
+- [`LOCAL.md`](docs/LOCAL.md) — run the platform and its example app locally on **k3d**, no AWS; `--with-sso` adds the legacy operator SSO gateway.
 - [`guide/`](docs/guide/) — the guidebook: one short file for each tool the
   platform uses ([Kustomize](docs/guide/kustomize.md),
   [cert-manager](docs/guide/cert-manager.md), [kiesei](docs/guide/kiesei.md));

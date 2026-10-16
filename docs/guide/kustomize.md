@@ -82,48 +82,56 @@ Deployment that uses it starts new pods. You do not need to restart them.
 ## How it is used here
 
 The manifests are in two layers: the **bases** describe a component for all
-environments, and the **overlays** in `gitops/clusters/<env>/` change it for
-one environment.
+environments, and the **overlays** change it for one environment. The
+platform's overlays are in `gitops/clusters/<env>/`. A workload keeps its
+own bases and overlays in its own repo (ADR-0034): the example app,
+[chofesh](https://github.com/ryderdain/chofesh), has `deploy/base`,
+`deploy/local` and `deploy/aws`.
 
 ```text
- gitops/operators/postgres/         base: the CNPG Cluster `pg` (3 instances,
-                                    backups, monitoring), as on AWS
- gitops/applications/demo-app/      base: the demo-app's Deployment, Service,
-                                    secret projection, ServiceMonitor
-        ▲                     ▲
-        │ resources: ../../.. │
- gitops/clusters/local/postgres/    overlay: 1 instance, the `local-path`
-                                    storage class, no backup, no monitoring
- gitops/clusters/local/demo-app/    overlay: removes the ServiceMonitor
-                                    (local has no metrics stack yet)
+ this repo
+ gitops/infrastructure/portal/      base: the admin portal (nginx, Service,
+                                    Certificate, configMapGenerator)
+        ▲
+        │ resources: ../../../infrastructure/portal
+ gitops/clusters/local/portal/      overlay: the Service becomes a NodePort
+ gitops/clusters/<env>/pki/         no base: the TLS mode's issuer (ADR-0036)
  gitops/clusters/<env>/secret-store/  no base: the store definition of each
                                     environment (ADR-0026)
+
+ the example app's repo (chofesh)
+ deploy/base/                       Deployment, Service, the CNPG Cluster `pg`
+ deploy/local/                      overlay: 1 Postgres instance
+ deploy/aws/                        overlay: 3 instances, gp3, S3 backups,
+                                    metrics, the Grafana dashboard
 ```
 
 **Argo CD does the rendering, not the driver.** The platform ApplicationSet
 (`gitops/platform/applicationset.yaml`, ADR-0025) makes one Application for
-each element. A `kustomize` element points at a directory. On local, it is
-the overlay (`localPath`). On other environments, it is the base. Values that
-differ for each environment are not in git. They come from the cluster's
+each element. A `kustomize` element points at a directory in this repo, or,
+for a workload, in the repo the element names (`repo`, `revision`). On
+local, it is the local overlay (`localPath`). On other environments, it is
+the base or the cloud overlay. Values that differ for each environment are
+not in git. They come from the cluster's
 registration (its cluster Secret), and the ApplicationSet adds them to the
 Application as Kustomize settings when it renders it:
 
 ```text
- cluster Secret (written by phase 30)       git (this repo)
+ cluster Secret (written by phase 30)       git (this repo, or the workload's)
  annotations: registry host, prefixes,      base + overlay directories
- demo-app image tag                                  │
+ the example app's image and tag                     │
         │                                            │
         ▼                                            ▼
  ApplicationSet ──renders──▶ Application ──Kustomize──▶ manifests ──▶ cluster
                              kustomize:
-                               images:  [demo-app → <registry host>/…:<tag>]
+                               images:  [ghcr.io/ryderdain/chofesh → <registry host>/…:<tag>]
                                patches: [pg image → <registry host>/…]
 ```
 
-So the files in git name images with a sentinel
-(`__ECR_REGISTRY_HOST__/brzl-dev/demo-app`), and the Application replaces it
+So the files in git name images as published (`ghcr.io/ryderdain/chofesh`,
+`ghcr.io/cloudnative-pg/postgresql`), and the Application replaces each
 with the registry of that environment. No account ID or host name goes into
-git.
+git, and the workload's manifests know nothing of the platform's registry.
 
 **One older use.** `gitops/clusters/local/kustomization.yaml` combines the
 whole local stack into one directory. Only the legacy SSO bring-up
@@ -140,11 +148,12 @@ name in from the cluster's registration.
 ## Try it
 
 ```sh
-# The local postgres overlay: one instance, local-path, no ScheduledBackup
-kubectl kustomize gitops/clusters/local/postgres
+# The example app's local overlay (its checkout beside this repo): one instance
+kubectl kustomize ../chofesh/deploy/local
 
-# Compare with the base
-kubectl kustomize gitops/operators/postgres
+# Compare with the base, and with the cloud overlay
+kubectl kustomize ../chofesh/deploy/base
+kubectl kustomize ../chofesh/deploy/aws
 ```
 
 ## Where to read more

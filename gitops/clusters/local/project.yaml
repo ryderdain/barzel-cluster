@@ -16,6 +16,8 @@ spec:
   description: brzl-demo local cluster (k3d) — infrastructure, operators, applications
   sourceRepos:
     - git@github.com:ryderdain/barzel-cluster.git
+    # The example app's repo (ADR-0034): public, read over https.
+    - https://github.com/ryderdain/chofesh.git
     # Helm chart repos the child apps render from (images come through Zot;
     # only the chart packages are fetched here).
     - https://argoproj.github.io/argo-helm

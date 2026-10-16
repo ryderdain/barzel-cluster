@@ -22,7 +22,7 @@
 featured, secured Kubernetes cluster that runs on any substrate (k3d on a
 laptop, AWS, GCP, DigitalOcean, …) with as few changes as possible. It is
 the backbone of a CI/CD chain, and it does not depend on any workload. An
-example app (BACKLOG pass 5d) shows stateless and stateful workloads; any
+example app (chofesh, ADR-0034) shows stateless and stateful workloads. Any
 other app can take its place. Keep it simple: the plainest working shape
 wins.
 
@@ -391,6 +391,13 @@ rather than replacing it.
 
 ## 10. Changelog
 
+- **v0.14 (2026-10-16):** Pass 5d (Q141–Q147): the example app is
+  `ryderdain/chofesh` with a server mode and its own manifests and Postgres
+  (ADR-0034 built, the credential stays CNPG's). The platform lost
+  `apps/demo-app`, the demo-app and postgres GitOps bases and their local
+  overlays. The ApplicationSet gained workload elements with their own
+  `repo` and `revision`. Until pass 8, phase 20 builds the app's image from
+  its checkout beside the repo (`BRZL_EXAMPLE_APP_SRC`).
 - **v0.13 (2026-10-15):** §1 states the two goals of the local environment
   (try it with nothing public; stand in for production). §3 gains the
   certificate flow and the local stand-ins (ADR-0036); the admin portal line

@@ -11,7 +11,9 @@
 # its check fails: run it in GitOps mode (fast_off first).
 #
 # Inputs: <run_dir>/kubeconfig from phase 10 (for the check); BRZL_PORTAL_*
-# and, in local-ca mode, the CA certificate in BRZL_SECRET_STORE_DIR. Needs
+# and, in local-ca mode, the CA certificate in BRZL_SECRET_STORE_DIR;
+# BRZL_EXAMPLE_APP_NAME (the example app's namespace, Deployment and portal
+# path all carry its name; its Postgres is Cluster `pg` there). Needs
 # kubectl, curl. No credentials.
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
@@ -58,13 +60,14 @@ phase_check() {
       printf 'the smoke secret round-trips through the cluster secret store\n'
     fi
   fi
-  if ! kubectl -n cnpg-demo wait --for=jsonpath='{.status.phase}'='Cluster in healthy state' \
+  local app="$BRZL_EXAMPLE_APP_NAME"
+  if ! kubectl -n "$app" wait --for=jsonpath='{.status.phase}'='Cluster in healthy state' \
       cluster/pg --timeout=300s >/dev/null; then
-    printf 'fix: Postgres cluster cnpg-demo/pg is not healthy; see: kubectl -n cnpg-demo describe cluster/pg\n' >&2
+    printf 'fix: the example app'"'"'s Postgres %s/pg is not healthy; see: kubectl -n %s describe cluster/pg\n' "$app" "$app" >&2
     rc=1
   fi
-  if ! kubectl -n demo rollout status deploy/demo-app --timeout=180s >/dev/null; then
-    printf 'fix: demo-app is not rolled out; see: kubectl -n demo describe deploy/demo-app\n' >&2
+  if ! kubectl -n "$app" rollout status "deploy/$app" --timeout=180s >/dev/null; then
+    printf 'fix: the example app %s is not rolled out; see: kubectl -n %s describe deploy/%s\n' "$app" "$app" "$app" >&2
     rc=1
   fi
   portal_check || rc=1
@@ -72,7 +75,8 @@ phase_check() {
 }
 
 # portal_check — the admin portal answers over TLS at its host name, from this
-# machine, and passes /argocd/ through. The name is resolved here (--resolve),
+# machine, and passes /argocd/ and the example app's /apps/<name>/ through.
+# The name is resolved here (--resolve),
 # so the check does not depend on the operating system's resolver; the CA is
 # the store's in local-ca mode.
 portal_check() {
@@ -100,7 +104,13 @@ portal_check() {
     printf 'fix: the portal does not pass /argocd/ through (%s); see: kubectl -n argocd logs deploy/argocd-server\n' "$code" >&2
     return 1
   fi
-  printf 'the admin portal answers at %s/ and passes /argocd/ through\n' "$url"
+  code="$("${curl[@]}" "$url/apps/$BRZL_EXAMPLE_APP_NAME/" 2>&1)"
+  if [[ "$code" != 200 ]]; then
+    printf 'fix: the portal does not pass /apps/%s/ through (%s); see: kubectl -n portal logs deploy/portal; kubectl -n %s logs deploy/%s\n' \
+      "$BRZL_EXAMPLE_APP_NAME" "$code" "$BRZL_EXAMPLE_APP_NAME" "$BRZL_EXAMPLE_APP_NAME" >&2
+    return 1
+  fi
+  printf 'the admin portal answers at %s/ and passes /argocd/ and /apps/%s/ through\n' "$url" "$BRZL_EXAMPLE_APP_NAME"
 }
 
 if [[ "$is_sourced" == false ]]; then

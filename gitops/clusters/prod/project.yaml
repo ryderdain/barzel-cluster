@@ -11,6 +11,8 @@ spec:
   description: brzl-demo prod cluster — infrastructure, operators, applications
   sourceRepos:
     - git@github.com:ryderdain/barzel-cluster.git
+    # The example app's repo (ADR-0034): public, read over https.
+    - https://github.com/ryderdain/chofesh.git
     - https://argoproj.github.io/argo-helm
     - https://kubernetes-sigs.github.io/aws-ebs-csi-driver
     - https://cloudnative-pg.github.io/charts
