@@ -54,13 +54,18 @@ spec:
             - name: IDLE_SECONDS
               value: "__IDLE_SECONDS__"
           # Wait for run sheets. driver/conductor.sh touches /work/run/.activity
-          # on each use; after IDLE_SECONDS with no use, scale to zero.
+          # on each use; after IDLE_SECONDS with no use, scale to zero. A run
+          # sheet that still runs (its .launch has no .rc yet) counts as use,
+          # so a long phase (40-workloads waits up to 30 min) is never cut off.
           command: ["bash", "-c"]
           args:
             - |
               mkdir -p /work/run && touch /work/run/.activity
               printf 'conductor ready; idle limit %ss\n' "$IDLE_SECONDS"
               while sleep 30; do
+                for launch in /work/run/*.launch; do
+                  [[ -e "$launch" && ! -e "${launch%.launch}.rc" ]] && touch /work/run/.activity
+                done
                 idle=$(( $(date +%s) - $(stat -c %Y /work/run/.activity) ))
                 if (( idle > IDLE_SECONDS )); then
                   printf 'conductor idle for %ss; scaling to zero\n' "$idle"
