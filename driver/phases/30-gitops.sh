@@ -177,8 +177,20 @@ phase_check() {
       "$appset_name" "$appset_name" >&2
     return 1
   fi
+  # The ApplicationSet in the cluster must be the one in the file. When the run
+  # sheet stopped at its guard (orphan Applications), Argo CD is up and the OLD
+  # ApplicationSet is up to date, and this is the only test that tells.
+  local live wanted
+  live="$(kubectl -n argocd get applicationset "$appset_name" \
+    -o jsonpath='{.spec.generators[*].matrix.generators[1].list.elements[*].appName}' | tr ' ' '\n' | sort | tr '\n' ' ')"
+  wanted="$(yq '.spec.generators[].matrix.generators[1].list.elements[].appName' "$repo_root/$appset_file" | sort | tr '\n' ' ')"
+  if [[ "$live" != "$wanted" ]]; then
+    printf 'fix: ApplicationSet %s in the cluster has elements [%s] but %s has [%s]: the run sheet stopped before it applied the file (read %s/30-gitops.out: orphan Applications?), or the file changed since; run the 30-gitops phase again\n' \
+      "$appset_name" "$live" "$appset_file" "$wanted" "$run_dir" >&2
+    return 1
+  fi
   apps="$(kubectl -n argocd get applications -o jsonpath='{.items[*].metadata.name}')"
-  printf 'Argo CD is up; ApplicationSet %s made: %s\n' "$appset_name" "$apps"
+  printf 'Argo CD is up; ApplicationSet %s is the one in %s; it made: %s\n' "$appset_name" "$appset_file" "$apps"
 }
 
 if [[ "$is_sourced" == false ]]; then
