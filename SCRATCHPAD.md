@@ -74,6 +74,14 @@ emitted (`error 3`), phase 25 requires `yq` and `jq`, the token step names
 its file plainly, INSTALL.md has the table of the six files. `25-bootstrap.ok`
 removed again; the next `up` must go through kiesei.
 
+**Second `up` (through kiesei, 22:20)** failed on my bug: `secret_put_file`
+wrote `value=@file`, but `bao` in the run sheet is a `docker exec` into
+the store's container, which cannot see the driver's files. Fixed: the
+file goes on stdin (`value=- < file`). Phase 30 then failed because the SCM
+generator had no App Secret (ErrorOccurred: "scm provider: error
+fetching"), the consequence of the first failure. `25-bootstrap.ok` removed
+again. The user finds the access flow clunky: BACKLOG 16a.
+
 **Onboarding chofesh (user runs; this is the verification of Q156):**
 
 1. `bash driver/access/github.sh app_manifest tzvat | bash`, the browser

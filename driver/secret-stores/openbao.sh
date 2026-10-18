@@ -275,10 +275,11 @@ secret_put() {
   printf 'printf '\''%%s'\'' "$%s" | %s kv put -mount=secret %q value=-' "$var" "$(openbao_bao)" "$path"
 }
 
-# secret_put_file <path> <file> — the file's bytes become the value (bao reads
-# the file itself; nothing enters argv).
+# secret_put_file <path> <file> — the file's bytes become the value. The file
+# goes on stdin: `bao` in the run sheet is a call into the store's container,
+# which cannot see the driver's files, and nothing enters argv.
 secret_put_file() {
-  printf '%s kv put -mount=secret %q value=@%q' "$(openbao_bao)" "$1" "$2"
+  printf '%s kv put -mount=secret %q value=- < %q' "$(openbao_bao)" "$1" "$2"
 }
 
 secret_get() {

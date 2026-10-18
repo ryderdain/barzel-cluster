@@ -176,6 +176,15 @@ Order of work (Q120):
     not follow it from git. When this item is decided, the procedure should
     become one driver action or go away: with the ApplicationSet in
     GitOps, Argo CD would show the orphan and the operator would prune it.
+16a. **The workload's access setup is clunky** (user, 2026-10-18, after the
+    first onboarding with `driver/access/github.sh`): six steps, three of
+    them in the browser, and it is no longer clear which commands run on
+    the host and which in kiesei. Revisit in a later pass: run the
+    management through kiesei as a rule, with a way to hand the browser
+    steps (and the clipboard) to the host; fewer steps where GitHub's API
+    allows; the same shape for other hosts (GitLab, ...). Also the
+    platform's own deploy key (the standing concern below) through the
+    same App.
 16. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
