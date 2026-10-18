@@ -81,3 +81,12 @@ configuration of dev was lost that way once.
   and does not work on dev or prod. Patching each Application and
   `ignoreApplicationDifferences`: it is more parts, and they fight the
   controller.
+
+## Amendment (2026-10-18, pass 5d, ADR-0034)
+
+The annotations `brzl.dev/demo-app-image` and `brzl.dev/demo-app-tag` are
+gone. A workload's image is the workload's own, published by its CI; the
+platform renames only the registry host. The label
+`brzl.dev/workload-follow` (`branch` or `release`) is the per-environment
+value for workloads, written by the bootstrap or phase 30 like the others.
+The workload's element sits in a nested matrix with an SCM generator.

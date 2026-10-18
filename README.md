@@ -236,8 +236,9 @@ Database durability is automated end to end (details + the restore drill in
 **[`docs/RECOVERY.md`](docs/RECOVERY.md)**):
 
 - **Continuous + scheduled:** CloudNativePG ships WAL to S3 continuously and
-  takes a scheduled base backup (a `ScheduledBackup` cron CR under
-  `gitops/operators/postgres/`) — all GitOps-managed, no operator action.
+  takes a scheduled base backup (a `ScheduledBackup` cron CR in the
+  workload's own manifests, chofesh `deploy/aws/`) — all GitOps-managed, no
+  operator action.
 - **Auth without a second secret:** backups authenticate via the **EC2 instance
   profile** (no second IAM user); the backup bucket is **customer-managed-KMS**
   encrypted.
@@ -254,10 +255,10 @@ Monitoring is a GitOps app like everything else: **kube-prometheus-stack** (char
 — giving cluster/node/workload dashboards out of the box. Postgres is scraped via
 the CNPG cluster's PodMonitor, and the official **CloudNativePG Grafana dashboard**
 (grafana.com id 20417) ships with it. A custom **app & database overview**
-dashboard (`gitops/applications/demo-app/dashboard.gen.py`) puts the demo-app's
-metrics and the Postgres metrics **side-by-side** — request/search/error rates and
-outbound-call latency next to transactions, connections, tuples, and rollbacks — so
-app↔DB drift or errors stand out at a glance. Alertmanager is trimmed off (no receiver
+dashboard (chofesh `deploy/aws/dashboard.gen.py`) puts the app's
+metrics and the Postgres metrics **side-by-side**: request/search/error rates and
+outbound-call latency next to transactions, connections, tuples, and rollbacks.
+So app↔DB drift or errors stand out at a glance. Alertmanager is trimmed off (no receiver
 wired; a one-line re-enable). Prometheus/Grafana persist on small gp3 PVCs. Every
 image routes through ECR pull-through — including Grafana via the Docker Hub rule
 (rationale in [ADR-0017](docs/adr/0017-observability-kube-prometheus-stack-trimmed-port.md)).
@@ -272,11 +273,9 @@ bash gitops/tools/ui-forward.sh grafana  # or just one
 
 → Grafana `localhost:3000`, Prometheus `localhost:9090`, ArgoCD `localhost:8080`.
 
-The **demo app's** own web UI (the Sefaria search) is reached the same way:
-
-```bash
-kubectl -n demo port-forward svc/demo-app 8088:80   # → http://localhost:8088
-```
+The **example app's** own web UI (the Sefaria search) is behind the admin
+portal at `/apps/chofesh/` (ADR-0028). On the AWS build of June 2026 it was
+reached with a port-forward in the same way.
 
 Each search runs a live Sefaria API call, renders the results in-page, and writes
 the query + results to Postgres while logging the outbound call — so the CNPG and

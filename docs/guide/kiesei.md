@@ -89,7 +89,7 @@ kubectl get applications -n argocd
 kubectl -n portal describe certificate portal
 
 # Postgres, with the CNPG plugin
-kubectl cnpg status -n cnpg-demo pg
+kubectl cnpg status -n chofesh pg
 
 # the secret store (the CLI runs in the store's container; the token is a file)
 BAO_TOKEN="$(<var/secret-store/local/driver.token)" \

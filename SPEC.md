@@ -94,8 +94,8 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   ADR-0025).** `gitops/platform/applicationset.yaml` serves local, dev and prod
   (same Application names and AWS values as the old per-env files, verified by
   an offline render). Every per-environment value is a label or annotation on
-  the cluster Secret (registry host, per-upstream prefix, demo-app image/tag,
-  backup bucket, git revision), written by the bootstrap (AWS) or phase
+  the cluster Secret (registry host, per-upstream prefix, the workload follow
+  policy, backup bucket, git revision), written by the bootstrap (AWS) or phase
   30-gitops (local) — never in git. The annotation `brzl.dev/auto-sync: "false"`
   is the one switch that stops automated sync: **fast mode** (local,
   `fast_on`/`fast_off`, `apply` renders the working tree with Argo's own

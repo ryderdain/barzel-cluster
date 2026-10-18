@@ -30,7 +30,8 @@ the pushed repository, not the checkout.
 ## 3. The platform's own deploy key
 
 Argo CD reads this repository with a read-only deploy key. Make one for
-your clone of it and register it on GitHub:
+your clone and register it on GitHub. A deploy key needs admin rights on
+the repository, so a reader without them works from a fork:
 
 ```sh
 ssh-keygen -t ed25519 -N '' -C brzl-local -f ~/.ssh/brzl-local-deploy

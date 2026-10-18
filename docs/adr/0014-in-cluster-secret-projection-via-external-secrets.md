@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted · **Date:** 2026-06-04
+Accepted · **Date:** 2026-06-04 · **Superseded in pass 5d (2026-10-18)
+by [ADR-0034](0034-example-app-is-a-separate-workload.md):** the projection
+went with the demo-app. The example app and its database share one
+namespace, and the app reads CNPG's Secret directly. ESO remains, for
+secrets from the cluster secret store (ADR-0026).
 
 ## Context
 
