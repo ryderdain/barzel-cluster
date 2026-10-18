@@ -101,7 +101,8 @@ emit_phase() {
   locus="$(bash "$repo_root/driver/phases/$phase.sh" phase_locus 2>/dev/null)"
   [[ "$mode" == down ]] && locus=driver   # removing a cluster is never the conductor's job
   printf '{ # phase %s (%s, locus: %s)\n' "$name" "$env" "${locus:-driver}"
-  printf '  bash driver/phases/%s.sh %s %q %q > %q\n' "$phase" "$emitter" "$env" "$run_dir" "$run_dir/$name.sh"
+  printf '  bash driver/phases/%s.sh %s %q %q > %q \\\n' "$phase" "$emitter" "$env" "$run_dir" "$run_dir/$name.sh"
+  printf '    || error 3 %s\n' "$(squote "phase $name could not be emitted (the message above says what is missing; the stream belongs in kiesei: | bash driver/kiesei.sh); nothing ran")"
   if [[ "$locus" == conductor ]]; then
     printf '  bash driver/conductor.sh %q %q < /dev/null 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
   else

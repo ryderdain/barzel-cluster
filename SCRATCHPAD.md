@@ -65,6 +65,15 @@ kiesei, the phase 25 check against the cluster ("no workload access in the
 store"). The `.ok` files of 10, 25 and 30 are removed so the next `up`
 runs them.
 
+**Onboarding chofesh ran (2026-10-18 22:00): the six steps and `check`
+passed** (App 5372267 `brzl-reader-tzvat`, installation 172809241, the
+token pulls the package). The `up` that followed ran on the host (`| bash`,
+no `yq`): phases 25 and 30 emitted empty run sheets, the driver ran them,
+and 25 even earned an `.ok`. Fixed: the driver stops when a phase cannot be
+emitted (`error 3`), phase 25 requires `yq` and `jq`, the token step names
+its file plainly, INSTALL.md has the table of the six files. `25-bootstrap.ok`
+removed again; the next `up` must go through kiesei.
+
 **Onboarding chofesh (user runs; this is the verification of Q156):**
 
 1. `bash driver/access/github.sh app_manifest tzvat | bash`, the browser

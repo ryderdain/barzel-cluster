@@ -181,9 +181,11 @@ packages_token() {
   printf '  gh api user --jq .login > %q\n' "$dir/packages-user"
   printf '  %s %q\n' "$(open_cmd)" "https://github.com/settings/tokens/new?description=brzl-$org-packages&scopes=read:packages"
   printf '}\n'
-  operator_step "to make the packages token: on the page that opened, keep only read:packages, generate the token, copy it; then paste it into its file (clipboard to file, mode 0600):" \
-    "(umask 077; $paste > $dir/packages-token)" \
-    "bash driver/access/github.sh check $org/<repo>"
+  operator_step "to make the packages token: on the page that opened, keep only read:packages, generate the token, and copy it." \
+    "THE TOKEN GOES INTO THE FILE $dir/packages-token (mode 0600). This writes it from the clipboard:" \
+    "  (umask 077; $paste > $dir/packages-token)" \
+    "then verify everything:" \
+    "  bash driver/access/github.sh check $org/<repo>"
   end_function 0 "emitted the packages token step for $org"
 }
 

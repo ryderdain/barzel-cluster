@@ -45,7 +45,8 @@ selects where it operates:
 - `| bash driver/kiesei.sh` operates it in the kiesei image, with the pinned
   tools. This is the usual selection.
 - `| bash` operates it on the host. Then the host must have `k3d`, `kubectl`,
-  `helm`, and `jq`.
+  `helm`, `jq` and `yq`. Without one of them, a phase cannot be emitted,
+  and the driver stops with a message that says so.
 
 The procedure is the same for the two shells.
 
@@ -194,8 +195,8 @@ read them, both read-only. A GitHub App on the organization serves Argo CD
 and the ApplicationSet's SCM generator. A token with `read:packages` serves
 Zot's pull-through of the image. `driver/access/github.sh` makes them with
 your `gh` login, one step at a time, and leaves six files in
-`var/access/github/<org>/` (not in git). The steps are in
-[INSTALL.md](INSTALL.md), section 4.
+`var/access/github/<org>/` (not in git). The steps and the table of the
+six files are in [INSTALL.md](INSTALL.md), section 4.
 
 Phase 25 reads those files once and puts them into the store. From the
 store it writes the Argo CD `repo-creds` Secret `workload-github-app`, for

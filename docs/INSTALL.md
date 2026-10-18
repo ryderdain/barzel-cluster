@@ -55,14 +55,26 @@ bash driver/access/github.sh app_manifest tzvat | bash     # register the App (b
 bash driver/access/github.sh app_convert tzvat <code> | bash  # the code from the browser's URL
 bash driver/access/github.sh app_install tzvat | bash      # install it on the organization (browser)
 bash driver/access/github.sh installation tzvat | bash     # its installation id
-bash driver/access/github.sh packages_token tzvat | bash   # the token (browser), paste to a file
+bash driver/access/github.sh packages_token tzvat | bash   # the token (browser), then its file
 bash driver/access/github.sh check tzvat/chofesh           # verify all of it
 ```
 
-The result is six files in `var/access/github/tzvat/`, not in git. Phase 25
-reads them once and puts them into the cluster secret store. You can delete
-the directory after the first `up`. For a public workload, skip this
-section.
+The result is six files in `var/access/github/tzvat/`, not in git. Five of
+them the steps write. The token you write yourself, from the clipboard, with
+the command the `packages_token` step prints:
+
+| File | Written by | Holds |
+| --- | --- | --- |
+| `app-id` | `app_convert` | the GitHub App's id (a number) |
+| `app-slug` | `app_convert` | the App's name on GitHub |
+| `app.pem` | `app_convert` | the App's private key (mode 0600) |
+| `installation-id` | `installation` | the id of the App's installation on the organization |
+| `packages-user` | `packages_token` | your GitHub login, the user name for the registry |
+| `packages-token` | you, with the printed command | the classic token with `read:packages` (mode 0600) |
+
+Phase 25 reads them once and puts them into the cluster secret store. You
+can delete the directory after the first `up`. For a public workload, skip
+this section.
 
 ## 5. Up
 
@@ -71,6 +83,11 @@ bash driver/driver.sh local up                      # read the whole procedure f
 bash driver/driver.sh local up \
   | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/brzl-local-deploy)" bash driver/kiesei.sh
 ```
+
+Pipe the procedure to `bash driver/kiesei.sh`, not to `bash`. The phases
+need the tools of the kiesei image (`yq`, `kubectl`, `helm`, `k3d`). On a
+host without them, a phase cannot be emitted, and the driver stops and says
+so.
 
 The driver runs five phases and checks each one. Two checks print a boxed
 one-time step for your machine: trust the local CA in your keychain, and,

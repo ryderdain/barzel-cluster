@@ -110,6 +110,7 @@ workload_access_up() {
 phase_up() {
   local env="$1" run_dir="$2" url image manifest org
   phase_init "$env" || end_function "$?" 'environment definition'
+  require_tools yq jq || end_function "$?" 'yq and jq (run the stream in kiesei)'
   [[ -n "${BRZL_SECRET_STORE:-}" ]] || end_function 1 'this phase needs a cluster secret store (BRZL_SECRET_STORE)'
   case "${BRZL_PORTAL_TLS:-}" in
     local-ca) ;;
