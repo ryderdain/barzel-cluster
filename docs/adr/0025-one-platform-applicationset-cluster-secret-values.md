@@ -62,8 +62,15 @@ configuration of dev was lost that way once.
 
 - One file to change for all environments. A per-environment difference
   becomes a label or an annotation, not a copy of the file.
-- A renamed element leaves the old Application in place. An operator removes
-  it on purpose.
+- A renamed or removed element leaves the old Application in place. An
+  operator removes it on purpose, in this order (found in pass 5d): drop the
+  element from the ApplicationSet in the cluster (a JSON patch), delete the
+  Application, delete its namespace, then run phase 30 again. The order
+  matters. While the element is in the live ApplicationSet, a deleted
+  Application comes back at once. The guard stops phase 30 as long as the
+  Application exists. The check of phase 30 passes only when the
+  ApplicationSet in the cluster has the file's elements. So a run that
+  stopped at the guard does not earn an `.ok`.
 - When a fast-mode change is not pushed before `fast_off`, Argo CD removes it.
   This is intentional: the branch is the truth.
 - The AWS bootstrap (`gitops/bootstrap/bootstrap-argocd.sh`) writes the new

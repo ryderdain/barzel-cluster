@@ -305,6 +305,39 @@ bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
   branch. Use **Refresh** to see the current difference: Argo CD compares
   only every 3 minutes by itself.
 
+## Retire an Application
+
+The platform ApplicationSet never deletes an Application (ADR-0025). When
+an element leaves `gitops/platform/applicationset.yaml`, its Application
+stays, and phase 30 stops before it applies the file ("Application(s) …
+have no element in the new ApplicationSet"). Remove it on purpose, in this
+order. The order matters: while the element is still in the ApplicationSet
+in the cluster, a deleted Application comes back at once.
+
+```sh
+export KUBECONFIG=var/run/local/current/kubeconfig
+
+# 1. Find the element's index in the ApplicationSet in the cluster.
+kubectl -n argocd get applicationset brzl-platform \
+  -o jsonpath='{.spec.generators[0].matrix.generators[1].list.elements[*].appName}'; echo
+
+# 2. Drop the element (index N; drop the highest index first when there are several).
+kubectl -n argocd patch applicationset brzl-platform --type json \
+  -p '[{"op":"remove","path":"/spec/generators/0/matrix/generators/1/list/elements/N"}]'
+
+# 3. Delete the Application. Its finalizer removes what it deployed; the
+#    namespace takes the rest (the Application does not own the namespace).
+kubectl -n argocd delete application <name>
+kubectl delete namespace <namespace>
+
+# 4. Apply the file: phase 30 runs again, then phase 40.
+rm var/run/local/current/30-gitops.ok
+bash driver/driver.sh local up | bash driver/kiesei.sh
+```
+
+Step 4 removes the `.ok` by hand because `up` skips a phase that has one
+(BACKLOG item 16 is the driver action for this).
+
 ## Up with the operator SSO gateway (`--with-sso`)
 
 At this time, the driver does not make the SSO edge. Until it does, the

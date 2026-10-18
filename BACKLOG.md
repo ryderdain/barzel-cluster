@@ -125,6 +125,48 @@ Order of work (Q120):
     Application for `gitops/platform/`), or the driver says so plainly.
     Decide with pass 7 (`promote platform`), which is about moving the
     platform revision.
+
+    **Incident, pass 5d live test (2026-10-16/18), to read again here.**
+    The pass removed the `postgres` and `demo-app` elements. The procedure
+    I gave was "delete the two Applications, then `up`". It failed twice,
+    for two reasons that both belong to this item.
+
+    *The orphan guard.* Phase 30's run sheet has four groups: install Argo
+    CD, register the cluster (AppProject, cluster Secret), the guard, apply
+    the ApplicationSet. The guard reads the element names from the file at
+    emit time and the live Application names on the conductor at run time.
+    When a live Application has no element, it stops the sheet with
+    `error 3` before the apply group (ADR-0016, ADR-0025). The
+    ApplicationSet never deletes an Application (`create-update`), so an
+    orphan is the operator's decision. The guard worked as designed.
+
+    *Attempt 1.* The live ApplicationSet still had the two elements, so it
+    recreated the Applications one minute after the delete. Phase 30 wrote
+    the cluster Secret (revision `pass-5d`), then stopped at the guard. The
+    two old Applications now pointed at a branch without their paths
+    (ComparisonError), and the portal's new pod crash-looped until the
+    `chofesh` Service existed. The conductor also scaled itself to zero in
+    the middle of phase 40. Its idle timer counted only run-sheet starts,
+    and phase 40's two 900 s waits exceed 1800 s. Fixed:
+    `driver/conductor/conductor.yaml` counts a running sheet as activity.
+
+    *Attempt 2.* The check of phase 30 wrote `30-gitops.ok` on attempt 1.
+    It only asked whether Argo CD was up and whether the ApplicationSet,
+    the old one, was `ResourcesUpToDate`. `up` skips a
+    phase with an `.ok`, so it ran phase 40 alone against the old
+    ApplicationSet: no `chofesh`, the portal never Healthy, the wait "hung
+    on pki" (the last Application printed before `portal`). Fixed: the
+    check now compares the live element names with the file's and fails
+    with both lists when they differ (commit `a3b2f42`). I removed the two
+    stale `.ok` files by hand.
+
+    *The procedure that works* (now in LOCAL.md "Retire an Application" and
+    ADR-0025): drop the element from the live ApplicationSet with a JSON
+    patch, delete the Application, delete its namespace, then `up`. It is
+    manual because phase 30 applies the ApplicationSet, and Argo CD does
+    not follow it from git. When this item is decided, the procedure should
+    become one driver action or go away: with the ApplicationSet in
+    GitOps, Argo CD would show the orphan and the operator would prune it.
 16. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal

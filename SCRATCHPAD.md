@@ -36,31 +36,14 @@ with no rewrite. The demo-app and postgres bases and overlays are deleted. Stati
 checks passed: go test, the image build, the kustomize renders, nginx -t,
 the phase emits in kiesei, the fast-mode render.
 
-**Live test, first attempt (2026-10-16, run 202610161814) found two
-things.** (1) Step 1 as I wrote it cannot work: the live ApplicationSet
-still has the `postgres` and `demo-app` elements and recreates the
-Applications right after the delete; phase 30 then stops on its guard
-(rc 3), but the cluster Secret already points at `pass-5d`, where their
-paths are gone (ComparisonError), and the portal's new pod crash-loops
-until `chofesh.chofesh.svc` exists. The retire order is: drop the elements
-from the live ApplicationSet, delete the Applications, delete their
-namespaces, then `up`. Document this (LOCAL.md, ADR-0025) after the test.
-(2) The conductor scaled itself to zero in the middle of phase 40: the idle
-timer counted only run-sheet starts, and phase 40's two 900 s waits exceed
-the 1800 s limit. Fixed in `driver/conductor/conductor.yaml` (a running
-sheet counts as activity); phase 25 re-applies it on the next `up`.
-
-**Live test (user runs):**
-
-1. The old Applications must go first, or phase 30 stops (`error 3`, the
-   element guard): `kubectl -n argocd delete application demo-app postgres`
-   (cascades: the Cluster and its PVC go), then
-   `kubectl delete namespace demo cnpg-demo`.
-2. `bash driver/driver.sh local up | bash driver/kiesei.sh` on branch
-   `pass-5d`.
-3. Open `https://local.barzel.sh/apps/chofesh/` and search. Argo CD shows
-   `chofesh`.
-4. Optional loop: `fast_on`, edit `../chofesh`, `apply`, `fast_off`.
+**Live test PASSED (2026-10-18, run 202610161814, phases 25–40 again).**
+Phase 40: all eight Applications Synced and Healthy, the portal passes
+`/argocd/` and `/apps/chofesh/`. I then ran one search through the portal
+with curl: 200, three hits, and Postgres holds 1 search, 3 results, 1 API
+call. Two attempts failed before that; the incident is written up in
+BACKLOG item 15 (the orphan guard, the `.ok` of phase 30, the conductor's
+idle timer), with the fixes `5e1c69f` and `a3b2f42` and the retire
+procedure in LOCAL.md and ADR-0025.
 
 **After verification:** RETROSPECTIVE entry, BACKLOG item 3 "done", merge
 `pass-5d` to `main` (fast-forward), LLM-CONDUCT. Then **▶ NEXT: pass 6,
