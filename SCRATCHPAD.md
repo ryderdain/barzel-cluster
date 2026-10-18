@@ -94,11 +94,13 @@ the image pulled from the private package through Zot (the AppProjects had
 still named `ryderdain`; fixed in `eb04bea`). The pods' status reports the
 image as `…:main`: the same digest under its other tag, not a defect.
 
-**Update test 3 running:** chofesh `c9f3ddb` (the page's footer names the
-build; CI passes the commit as VERSION) pushed at 2026-10-18 ~21:20Z. A
-background wait follows CI, the generator (≤5 min), the rollout, and reads
-the footer through the portal. Then test 4 (fast mode, `make dev-image`) is
-the user's.
+**Update test 3 PASSED (2026-10-18 ~21:30Z), no driver action:** chofesh
+`c9f3ddb` (the page's footer names the build; CI passes the commit as
+VERSION) pushed to `main`. CI done after 441 s. The generator had the new
+commit by then (targetRevision = `c9f3ddb…`). Rollout done at 467 s. The
+page's footer through the portal reads `chofesh c9f3ddbde3…`. About eight
+minutes from push to page. Test 4 (fast mode, `make dev-image`) is the
+user's; then RETROSPECTIVE and the merge.
 
 **Onboarding chofesh (user runs; this is the verification of Q156):**
 
