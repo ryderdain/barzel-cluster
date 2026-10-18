@@ -49,23 +49,30 @@ still has the shape of a production environment (ADR-0036).
 separate roads, and Argo CD in each cluster is where they meet:
 
 ```text
-  barzel-cluster (this repo)                 a workload's repo (e.g. chofesh)
-  the platform: ApplicationSet + manifests   manifests + source
-         │ push a branch                            │ CI builds the image
-         ▼                                          ▼ push → registry (digest)
-  ┌─ local ─────────────────────────┐        ┌────────────────────┐
-  │ Argo CD follows the branch the  │◀─pull──│ Zot / ECR / …      │
-  │ driver checked out              │        └────────────────────┘
-  │ (fast mode: the working tree)   │
-  └───────────────┬─────────────────┘
+  barzel-cluster (this repo)               a workload's repo (chofesh: private,
+  the platform: ApplicationSet +           under a GitHub organization)
+  manifests                                manifests (deploy/) + source + its CI
+         │ push a branch                          │ push to main  ─▶ CI: image :<commit>
+         │                                        │ tag vX.Y.Z    ─▶ CI: image :vX.Y.Z
+         ▼                                        ▼ ghcr.io, a private package
+  ┌─ local ───────────────────────────┐    ┌─────────────────────────────────┐
+  │ Argo CD follows the branch the    │◀───│ registry: Zot / ECR, a pull-    │
+  │ driver checked out                │    │ through with the packages token │
+  │ (fast mode: the working tree)     │    └─────────────────────────────────┘
+  │ workload: follow = branch         │    reads of the repo: a GitHub App,
+  │  the SCM generator asks GitHub    │    read-only, one per organization
+  │  for the head of main every 5 min │    (Argo CD and the SCM generator)
+  │  ─▶ manifests at that commit,     │
+  │     image :<commit>               │
+  └───────────────┬───────────────────┘
                   │ promote platform (pass 7): the platform revision,
                   ▼ one environment at a time
-  ┌─ dev ────────────┐      ┌─ prod ───────────┐   each cluster's registration
-  │ revision = A     │ ───▶ │ revision = A     │   (its cluster Secret) names the
-  │ workload digests │      │ workload digests │   revision Argo CD follows and
-  └──────────────────┘      └──────────────────┘   the images it deploys
-                  promote workloads (pass 9): a workload's image digest
-                  and values, one environment at a time, from its own CI
+  ┌─ dev ────────────┐      ┌─ prod ───────────┐   workload: follow = release
+  │ revision = A     │ ───▶ │ revision = A     │   the element names the tag;
+  │ release vX.Y.Z   │      │ release vX.Y.Z   │   the manifests at the tag name
+  └──────────────────┘      └──────────────────┘   the image :vX.Y.Z
+                  promote workloads (pass 9): the release, one environment
+                  at a time, from the workload's own CI
 ```
 
 A **platform change** is a commit here. Argo CD renders the one platform
@@ -73,11 +80,46 @@ ApplicationSet (ADR-0025) from the revision named in the cluster's
 registration. Local follows the branch the driver checked out (GitOps mode)
 or applies the working tree directly (fast mode, ADR-0024). `promote
 platform` moves that revision to the next environment. A **workload change**
-is a commit in the workload's repo plus an image in the registry; the
-ApplicationSet has one entry for each workload, pointing at its manifests.
-`promote workloads` moves the workload's image digest and values along the
-chain. In both cases Argo CD, not an operator, applies the change; break-glass
-mode (pass 6b) is the audited exception.
+is a commit in the workload's repo, and nothing else. Its CI publishes the
+image, and the environment's **follow policy** (ADR-0034) decides what Argo
+CD deploys. Local follows the development branch. An SCM generator in the
+ApplicationSet gives the head commit, and Argo CD reads the manifests at
+that commit and the image CI published for it. The page shows the change
+about eight minutes after the push. The other environments follow a release
+tag, which `promote workloads` moves along the chain (pass 9). The driver
+never builds or touches a workload. In both cases Argo CD, not an operator,
+applies the change. Break-glass mode (pass 6b) is the audited exception.
+
+**Adding a workload.** The platform does not know its workloads. A new one
+is a contract on its own side and one element on the platform's side.
+
+- *The workload's repo* has a `deploy/` directory with a Kustomize base and
+  one overlay per kind of environment (`local`, `aws`). `main` is the
+  development branch. Its CI publishes the image under the commit's first
+  8 hex digits and the moving tag `main`. A release is a tag `vX.Y.Z`, and
+  the manifests at that tag name the image `:vX.Y.Z`. The manifests name
+  images as published, never a platform's registry. A page behind the admin
+  portal has relative links only. A database is the workload's own, through
+  the CNPG operator. Secrets from outside the cluster come through the
+  cluster secret store (ADR-0026). chofesh's `make release` and `make
+  dev-image` are the reference.
+- *The platform* gets one element in the ApplicationSet, with `repo`,
+  `revision` (the release), `path` and `localPath`, in a matrix with the
+  SCM generator for the workload's organization. The repo goes into each
+  AppProject's `sourceRepos`, and the workload gets a location in the admin
+  portal. The ApplicationSet renames the registry host, never a tag.
+- *A public repo with a public package* needs nothing more.
+- *A private repo and package* is the reference case. The repo is under a
+  GitHub **organization**, because the SCM generator lists an
+  organization's repositories. A GitHub App on that organization, read-only
+  (contents, metadata), serves Argo CD as `repo-creds` for the organization
+  and serves the SCM generator. A classic token with only `read:packages`
+  serves the registry's pull-through, since the container registry accepts
+  no other kind. `driver/access/github.sh` makes both with the operator's
+  `gh` login, in six steps ([INSTALL.md](INSTALL.md), section 4). Phase 25
+  seeds them into the store once. An App can also read a private repo under
+  a personal account, but the generator cannot list a user's repositories.
+  Such a workload follows releases only.
 
 **Division of labour:** OpenTofu owns the infrastructure, Argo CD owns the
 state in the cluster, and the driver sequences the phases that connect them.
@@ -300,6 +342,6 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0031](adr/0031-argocd-manages-itself.md) | Argo CD manages itself (from ADR-0013) | Accepted |
 | [ADR-0032](adr/0032-argocd-repository-credential.md) | The Argo CD repository credential: deploy key now, GitHub App before leaving local (from ADR-0013) | Accepted; to be superseded in pass 8 |
 | [ADR-0033](adr/0033-metrics-kube-prometheus-stack.md) | Metrics: kube-prometheus-stack, trimmed (from ADR-0017) | Accepted (AWS substrate) |
-| [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh, from its own repo); the platform depends on no workload | Accepted; built (pass 5d) |
+| [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh, private, from its own repo and CI); an environment follows a branch or a release; the platform depends on no workload | Accepted; built (pass 5d) |
 | [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted (design; pass 6a) |
 | [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |

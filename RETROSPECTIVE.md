@@ -336,3 +336,55 @@ two printed one-time steps: no warning.
 - **Found:** phase 30 applies the ApplicationSet file, and Argo CD does not
   follow it from git. So the chart bump reached the cluster only on the
   next `up` (BACKLOG item 15, for pass 7).
+
+## 2026-10-18 — local-first refactor, pass 5d: the example app is chofesh, private, from its own repo
+
+User-verified on sleipnir, four live tests. The platform ships no workload
+any more. `apps/demo-app`, the demo-app and postgres GitOps bases and their
+local overlays are gone. The example app is `tzvat/chofesh`, a private
+repository under a GitHub organization. It has `chofesh serve` (the
+demo-app's page and search, `/healthz`, `/readyz`, `/metrics`), a
+Dockerfile, its own CI, and `deploy/{base,local,aws}` with its CNPG Cluster
+in its own namespace. The credential stays CNPG's, read directly. The
+portal passes `/apps/chofesh/` with no rewrite
+([ADR-0034](docs/adr/0034-example-app-is-a-separate-workload.md),
+Q141–Q157).
+
+- **Test 1, bring-up.** All Applications Synced and Healthy. A search
+  through the portal wrote 1 search, 3 results and 1 API call into the
+  app's Postgres. The data survived every later `up`.
+- **Test 2, the private path.** Argo CD read the private repo with the
+  GitHub App. The SCM generator followed `main`. Zot pulled the private
+  package with the `read:packages` token. The access script made the
+  credentials in six steps (App `brzl-reader-tzvat`, one installation on
+  `tzvat`), and phase 25 seeded the store from its files.
+- **Test 3, a push to `main`, no driver action.** CI published in 441 s.
+  The ApplicationSet followed the commit at once. The rollout was done at
+  467 s, and the page's new footer named the commit. About eight minutes
+  from push to page.
+- **Test 4, fast mode.** `make dev-image` built into Zot's push namespace
+  and pointed `deploy/local` at the build. `apply` rolled the Deployment to
+  it (the footer showed `c9f3ddb-da39a3ee`). `git checkout deploy/local`
+  and `fast_off` brought the branch's build back.
+- **Found, the design.** The first build let the driver build the image
+  with a fixed tag, so a code change never arrived (Q148). The fix is the
+  follow policy. The driver is out of the workload's path. An environment
+  follows a branch (local, through an SCM generator) or a release. Two
+  GitHub facts shaped it. The container registry accepts only a classic
+  token. The SCM generator lists an organization, not a user (`ryderdain`
+  answered 404), so chofesh moved to `tzvat`.
+- **Found, the driver.** The orphan guard works, but removing an
+  Application is a three-step procedure (BACKLOG 15, LOCAL.md "Retire an
+  Application"). The check of phase 30 earned an `.ok` from a sheet that
+  stopped at the guard. Fixed: it compares the live elements with the
+  file. The driver ran an empty run sheet when a phase could not be
+  emitted on a host without `yq`. Fixed: `error 3`. The conductor's idle
+  timer cut a 30-minute phase. Fixed: a running sheet counts as activity.
+  `bao` in a run sheet runs in the store's container, so files go on
+  stdin, and a `bao` call inside a pipeline swallows the pipe. Both fixed.
+  The AppProjects still named `ryderdain` after the move. Fixed.
+- **Carried.** The access flow is clunky (BACKLOG 16a). The operator's
+  small annoyances in kiesei, with core mode as the tested way for
+  `argocd` (16b). Manifests as files in the run directory (16c). The AWS
+  side of ADR-0034, ECR pull-through for `ghcr.io` with a credential
+  (pass 8). `deploy/aws` is untested until pass 9.

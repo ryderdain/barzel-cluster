@@ -34,8 +34,8 @@ Order of work (Q120):
    cert-manager renews; the issuer is the environment's TLS mode;
    `local-ca` on local, `letsencrypt` in pass 8; a CoreDNS stand-in for
    public DNS; `BRZL_PORTAL_HOST` is a value (`local.barzel.sh`).
-3. **5d. Example app** — built 2026-10-16 on branch `pass-5d`, live test
-   pending. `chofesh` (now `tzvat/chofesh`) gained `chofesh serve`, a Dockerfile and
+3. **5d. Example app** — **done 2026-10-18** (RETROSPECTIVE; four live
+   tests, user-verified). `chofesh` (now `tzvat/chofesh`) gained `chofesh serve`, a Dockerfile and
    `deploy/{base,local,aws}`. The demo-app and postgres bases and overlays
    and `apps/demo-app` left this repo
    ([ADR-0034](docs/adr/0034-example-app-is-a-separate-workload.md)).
@@ -201,6 +201,18 @@ Order of work (Q120):
     `echo argocd app list | bash driver/kiesei.sh` works as is. Core mode
     bypasses Argo CD's own RBAC: right for the operator with the
     cluster-admin kubeconfig, not for a user with limited rights.
+16c. **Manifests as files in the run directory** (user, 2026-10-18, from
+    reading the fast-mode run sheet). Today the emitted groups wrap each
+    rendered manifest in a `kubectl apply -f - <<EOF` heredoc. Clearer: the
+    group writes the manifests as YAML files in `var/run/<env>/<run>/`, one
+    object or one app per file, and applies them by file name, or `tee`s
+    them in. Then an operator can read a manifest later on its own. The
+    core style idea: the stream emits each manifest alone, so that a
+    redirect puts it in a file. That is one more pipe segment in the
+    driver's emitted actions. It is either a doctrine update in
+    `ryderdain/bash` (STYLE §1.2, emitted groups) or a mistake here to
+    correct against the doctrine. Decide with the doctrine's owner, then
+    apply it to fast-mode.sh and the phases.
 16. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
