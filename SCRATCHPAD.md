@@ -71,8 +71,8 @@ runs them.
    step, then `app_convert tzvat <code> | bash`.
 2. `app_install tzvat | bash` (browser), then `installation tzvat | bash`.
    Run `gh auth refresh -h github.com -s admin:org` first if it asks.
-3. `packages_token tzvat | bash` (browser; paste the token with the printed
-   command), then `check tzvat/chofesh`.
+3. `packages_token tzvat | bash` (browser, then paste the token with the
+   printed command), then `check tzvat/chofesh`.
 4. `bash driver/driver.sh local up | bash driver/kiesei.sh` on `pass-5d`.
    Phase 10 replaces Zot. Phase 25 seeds the store and writes the Secret
    and the file. Phase 30 applies the ApplicationSet, whose SCM generator
