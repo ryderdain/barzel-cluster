@@ -81,11 +81,15 @@ workload_access_up() {
   printf '}\n'
   printf '{ # from the store: Argo CD'"'"'s repo-creds Secret for https://github.com/%s (the SCM generator uses it too)\n' "$org"
   printf '  if %s; then\n' "$(secret_exists workload-github-app-key)"
+  # The ids first, on their own: a `bao` call inside the pipeline below would
+  # read the key from the pipe (docker exec -i inherits stdin) and leave the
+  # Secret without it.
+  printf '    app_id="$(%s)"\n' "$(secret_get workload-github-app-id)"
+  printf '    installation="$(%s)"\n' "$(secret_get workload-github-app-installation)"
   printf '    %s \\\n' "$(secret_get workload-github-app-key)"
   printf '      | kubectl -n argocd create secret generic %q --dry-run=client -o yaml \\\n' "$workload_secret_name"
   printf '          --from-literal=type=git --from-literal=url=%q \\\n' "https://github.com/$org"
-  printf '          --from-literal=githubAppID="$(%s)" \\\n' "$(secret_get workload-github-app-id)"
-  printf '          --from-literal=githubAppInstallationID="$(%s)" \\\n' "$(secret_get workload-github-app-installation)"
+  printf '          --from-literal=githubAppID="$app_id" --from-literal=githubAppInstallationID="$installation" \\\n'
   printf '          --from-file=githubAppPrivateKey=/dev/stdin \\\n'
   printf '      | kubectl label --local -f - argocd.argoproj.io/secret-type=repo-creds -o yaml \\\n'
   printf '      | kubectl apply -f -\n'

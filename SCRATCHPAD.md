@@ -82,6 +82,12 @@ generator had no App Secret (ErrorOccurred: "scm provider: error
 fetching"), the consequence of the first failure. `25-bootstrap.ok` removed
 again. The user finds the access flow clunky: BACKLOG 16a.
 
+**Third `up` (22:26)**: the store and the registry credential are in; the
+Secret had an empty key, because the `$(bao kv get …)` substitutions for
+the two ids sat inside the pipeline and `docker exec -i` read the key from
+the pipe. Fixed: the ids are resolved first, then the pipeline. No `.ok`
+was written; `up` runs 25 again.
+
 **Onboarding chofesh (user runs; this is the verification of Q156):**
 
 1. `bash driver/access/github.sh app_manifest tzvat | bash`, the browser
