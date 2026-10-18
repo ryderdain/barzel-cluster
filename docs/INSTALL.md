@@ -19,7 +19,7 @@ it, with its example app. It is a procedure. The reference for each part is
 
 ```sh
 git clone git@github.com:ryderdain/barzel-cluster.git
-git clone git@github.com:tzvat/chofesh.git            # the example app, beside it
+git clone git@github.com:tzvat/chofesh.git            # the example app
 cd barzel-cluster
 docker build -t kiesei:local containers/kiesei       # the toolchain image
 ```
@@ -68,9 +68,9 @@ the command the `packages_token` step prints:
 | `app-id` | `app_convert` | the GitHub App's id (a number) |
 | `app-slug` | `app_convert` | the App's name on GitHub |
 | `app.pem` | `app_convert` | the App's private key (mode 0600) |
-| `installation-id` | `installation` | the id of the App's installation on the organization |
-| `packages-user` | `packages_token` | your GitHub login, the user name for the registry |
-| `packages-token` | you, with the printed command | the classic token, `read:packages` (0600) |
+| `installation-id` | `installation` | the App's installation id on the organization |
+| `packages-user` | `packages_token` | your GitHub login, the registry's user name |
+| `packages-token` | you, with the printed command | the token, `read:packages` (0600) |
 
 Phase 25 reads them once and puts them into the cluster secret store. You
 can delete the directory after the first `up`. For a public workload, skip
@@ -79,7 +79,7 @@ this section.
 ## 5. Up
 
 ```sh
-bash driver/driver.sh local up                      # read the whole procedure first
+bash driver/driver.sh local up                      # read the procedure first
 bash driver/driver.sh local up \
   | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/brzl-local-deploy)" bash driver/kiesei.sh
 ```
