@@ -305,9 +305,9 @@ bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
   images and patches that Argo CD injects. The example app renders from its
   checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`). The conductor applies
   the result. So the loop for the app is: edit `../chofesh`, then, when the
-  code changed, `make dev-image` there (it points `deploy/local` at the
-  build; `git checkout deploy/local` undoes it before a commit), then
-  `apply`, look.
+  code changed, `make dev-image` there, then `apply`, look. `make dev-image`
+  points `deploy/local` at the build. `git checkout deploy/local` undoes
+  that before a commit.
 
   The helm apps (Argo CD, CloudNativePG, External Secrets, cert-manager)
   are not included: to change one, push a branch and let Argo CD sync it.
