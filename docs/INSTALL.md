@@ -51,12 +51,12 @@ the steps in this order. Each one prints what it does before you pipe it to
 for:
 
 ```sh
-bash driver/access/github.sh app_manifest tzvat | bash     # register the App (browser)
-bash driver/access/github.sh app_convert tzvat <code> | bash  # the code from the browser's URL
-bash driver/access/github.sh app_install tzvat | bash      # install it on the organization (browser)
-bash driver/access/github.sh installation tzvat | bash     # its installation id
-bash driver/access/github.sh packages_token tzvat | bash   # the token (browser)
-bash driver/access/github.sh check tzvat/chofesh           # verify all of it
+bash driver/access/github.sh app_manifest tzvat | bash          # browser
+bash driver/access/github.sh app_convert tzvat <code> | bash    # the code
+bash driver/access/github.sh app_install tzvat | bash           # browser
+bash driver/access/github.sh installation tzvat | bash
+bash driver/access/github.sh packages_token tzvat | bash        # browser
+bash driver/access/github.sh check tzvat/chofesh
 ```
 
 The result is six files in `var/access/github/tzvat/`, not in git. Five of
