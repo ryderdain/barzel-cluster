@@ -16,7 +16,7 @@ spec:
   sourceRepos:
     - git@github.com:ryderdain/barzel-cluster.git
     # The example app's repo (ADR-0034): public, read over https.
-    - https://github.com/ryderdain/chofesh.git
+    - https://github.com/tzvat/chofesh.git
     # Helm chart repos the child apps render from (images still come via ECR
     # pull-through; only the chart packages are fetched here).
     - https://argoproj.github.io/argo-helm

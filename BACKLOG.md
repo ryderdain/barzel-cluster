@@ -185,6 +185,14 @@ Order of work (Q120):
     allows; the same shape for other hosts (GitLab, ...). Also the
     platform's own deploy key (the standing concern below) through the
     same App.
+16b. **Small annoyances for the operator in kiesei** (user, 2026-10-18):
+    logging in to Argo CD from the kiesei shell takes four lines (export
+    the kubeconfig, read the admin password from its Secret, `argocd login`
+    with the host, the root path and the user). The fewer such details an
+    operator must keep, the fewer any user must. Candidates: the shell
+    starts with KUBECONFIG set and the Argo CD context logged in (pass 6a's
+    SSO changes the login anyway); one `brzl` helper for the common
+    lookups; the portal page lists exactly what is left.
 16. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
