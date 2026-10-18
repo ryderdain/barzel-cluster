@@ -286,7 +286,9 @@ bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
 
   ```sh
   bash driver/phases/20-images.sh phase_up local var/run/local/current | bash driver/kiesei.sh
-  ``` The helm apps (Argo CD, CloudNativePG, External Secrets)
+  ```
+
+  The helm apps (Argo CD, CloudNativePG, External Secrets, cert-manager)
   are not included: to change one, push a branch and let Argo CD sync it.
 - While fast mode is on, Argo CD shows each changed Application as OutOfSync.
   The difference is your change compared with the pushed branch.
@@ -318,8 +320,8 @@ in the cluster, a deleted Application comes back at once.
 export KUBECONFIG=var/run/local/current/kubeconfig
 
 # 1. Find the element's index in the ApplicationSet in the cluster.
-kubectl -n argocd get applicationset brzl-platform \
-  -o jsonpath='{.spec.generators[0].matrix.generators[1].list.elements[*].appName}'; echo
+kubectl -n argocd get applicationset brzl-platform -o \
+  jsonpath='{.spec.generators[0].matrix.generators[1].list.elements[*].appName}'
 
 # 2. Drop the element (index N; drop the highest index first when there are several).
 kubectl -n argocd patch applicationset brzl-platform --type json \
