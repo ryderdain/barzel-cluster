@@ -83,8 +83,8 @@ platform` moves that revision to the next environment. A **workload change**
 is a commit in the workload's repo, and nothing else. Its CI publishes the
 image, and the environment's **follow policy** (ADR-0034) decides what Argo
 CD deploys. Local follows the development branch. An SCM generator in the
-ApplicationSet gives the head commit, and Argo CD reads the manifests at
-that commit and the image CI published for it. The page shows the change
+ApplicationSet gives the head commit. Argo CD reads the manifests at that
+commit and the image CI published for it. The page shows the change
 about eight minutes after the push. The other environments follow a release
 tag, which `promote workloads` moves along the chain (pass 9). The driver
 never builds or touches a workload. In both cases Argo CD, not an operator,
@@ -104,8 +104,8 @@ is a contract on its own side and one element on the platform's side.
   cluster secret store (ADR-0026). chofesh's `make release` and `make
   dev-image` are the reference.
 - *The platform* gets one element in the ApplicationSet, with `repo`,
-  `revision` (the release), `path` and `localPath`, in a matrix with the
-  SCM generator for the workload's organization. The repo goes into each
+  `revision` (the release), `path` and `localPath`. The element sits in a
+  matrix with the SCM generator for the workload's organization. The repo goes into each
   AppProject's `sourceRepos`, and the workload gets a location in the admin
   portal. The ApplicationSet renames the registry host, never a tag.
 - *A public repo with a public package* needs nothing more.

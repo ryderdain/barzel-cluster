@@ -205,8 +205,8 @@ Order of work (Q120):
     reading the fast-mode run sheet). Today the emitted groups wrap each
     rendered manifest in a `kubectl apply -f - <<EOF` heredoc. Clearer: the
     group writes the manifests as YAML files in `var/run/<env>/<run>/`, one
-    object or one app per file, and applies them by file name, or `tee`s
-    them in. Then an operator can read a manifest later on its own. The
+    object or one app per file. Then it applies them by file name, or
+    `tee`s them in. Then an operator can read a manifest later on its own. The
     core style idea: the stream emits each manifest alone, so that a
     redirect puts it in a file. That is one more pipe segment in the
     driver's emitted actions. It is either a doctrine update in
