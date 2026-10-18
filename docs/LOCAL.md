@@ -3,7 +3,7 @@
 Run the platform and its example app on a developer laptop with **no AWS**
 — the portability proof for the platform (k3s everywhere; ADR-0015 /
 [ARCHITECTURE](ARCHITECTURE.md)). The example app is
-[chofesh](https://github.com/ryderdain/chofesh) (ADR-0034): Argo CD reads
+[chofesh](https://github.com/tzvat/chofesh) (ADR-0034): Argo CD reads
 its manifests from that repo, and the platform's own manifests get a thin
 [`gitops/clusters/local`](../gitops/clusters/local) overlay.
 
@@ -14,11 +14,10 @@ its manifests from that repo, and the platform's own manifests get a thin
 - Internet access. The images come from the upstream registries, through the
   local Zot cache.
 - No AWS account, profile, or credentials.
-- The example app's checkout beside this repo:
-  `git clone git@github.com:ryderdain/chofesh.git ../chofesh`
-  (`BRZL_EXAMPLE_APP_SRC` in `env/local.env`). Phase 20 builds its image
-  from it, and fast mode renders its manifests from it. Argo CD itself reads
-  the pushed repo, not the checkout.
+- For fast mode only: the example app's checkout beside this repo,
+  `git clone git@github.com:tzvat/chofesh.git ../chofesh`
+  (`BRZL_EXAMPLE_APP_SRC` in `env/local.env`). Argo CD reads the pushed
+  repo, not the checkout.
 - Enough memory for the container engine. The reference hosts:
 
   | Host | Hardware | Note |
@@ -91,8 +90,9 @@ conductor. Do not operate `driver/conductor.sh` yourself.
   and the k3d cluster, and writes the kubeconfig to the run directory. If the
   configuration of Zot or OpenBao changed, it replaces that container. The
   data stays.
-- `20-images` (driver) pushes the kiesei image to Zot, and builds the
-  example app's image from its checkout and pushes it too.
+- `20-images` (driver) pushes the kiesei image to Zot. A workload's image
+  is its own: its CI publishes it, and the cluster pulls it through Zot
+  like every upstream image (ADR-0034).
 - `25-bootstrap` (driver) connects the secret store to the cluster. It
   writes the deploy key into the store when you give it. Then it writes the
   Argo CD repository Secret from the store, and starts the conductor in the
@@ -262,6 +262,29 @@ Do a search. The app sends the query to Sefaria, shows the results, and writes
 them to the local Postgres, as in the cloud. The ESO credential projection
 between namespaces uses the same path.
 
+## How a change to the example app arrives
+
+The example app's repo has a contract with the platform (ADR-0034,
+amendment): `main` is its development branch, and its CI publishes an
+image for every push to it. The local environment **follows the branch**
+(`BRZL_WORKLOAD_FOLLOW=branch`). The platform ApplicationSet asks GitHub
+for the head commit of `main` every 5 minutes. Argo CD then deploys that
+commit's manifests with that commit's image. So, in GitOps mode:
+
+1. Push to `main` of `tzvat/chofesh`. CI builds the image for both
+   architectures, about 3 minutes.
+2. Within 5 minutes, Argo CD shows `chofesh` at the new commit, and the
+   pods roll to `localhost:5001/ghcr.io/tzvat/chofesh:<commit>`, pulled
+   through Zot from `ghcr.io`.
+
+A manifest change arrives the same way. The other environments follow a
+release instead (`release`): the tag the ApplicationSet element names,
+made in the app's repo with `make release`.
+
+For a change you have not pushed, use fast mode (below) with
+`make dev-image` in the checkout. It builds for this machine, pushes to
+Zot's push namespace, and points `deploy/local` at the build.
+
 ## Fast mode
 
 Fast mode is for changes to the structure of the cluster: you apply your
@@ -281,12 +304,10 @@ bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
 - `apply` renders the kustomize apps from your working tree, with the same
   images and patches that Argo CD injects. The example app renders from its
   checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`). The conductor applies
-  the result. So the loop for the app is: edit `../chofesh`, `apply`, look.
-  When the app's code changed, build and push its image first:
-
-  ```sh
-  bash driver/phases/20-images.sh phase_up local var/run/local/current | bash driver/kiesei.sh
-  ```
+  the result. So the loop for the app is: edit `../chofesh`, then, when the
+  code changed, `make dev-image` there (it points `deploy/local` at the
+  build; `git checkout deploy/local` undoes it before a commit), then
+  `apply`, look.
 
   The helm apps (Argo CD, CloudNativePG, External Secrets, cert-manager)
   are not included: to change one, push a branch and let Argo CD sync it.
@@ -427,7 +448,7 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 
 | Concern | AWS cluster | Local (k3d) | Why |
 | ------- | ----------- | ----------- | --- |
-| Images | ECR + pull-through (host and prefixes injected by the ApplicationSet) | Zot pull-through (host `localhost:5001`, the upstream name as prefix) + the example app built locally, `localhost:5001/brzl/chofesh:local` (pushed) | same `host/prefix/path` shape as the cloud; no registry auth locally |
+| Images | ECR + pull-through (host and prefixes injected by the ApplicationSet) | Zot pull-through (host `localhost:5001`, the upstream name as prefix); the example app's image comes from `ghcr.io` the same way | same `host/prefix/path` shape as the cloud; no registry auth locally |
 | Storage | EBS CSI, `gp3` | `local-path` (k3d built-in) | no cloud block storage on a laptop |
 | Postgres | 3 instances (HA) | 1 instance | laptop footprint; HA isn't the point locally |
 | Backups | CNPG → S3 (Barman) | **off** | no object store locally |
@@ -435,12 +456,11 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 | GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
 | Identity / UI SSO | OIDC roles, ingress (prod path) | none by default; **the full SSO edge** with `--with-sso` (see below) | the local cluster is where the SSO gateway is actually built (ADR-0018) |
 
-**Image strategy.** Local builds the example app from its checkout and
-pushes it to Zot (`localhost:5001/brzl/chofesh:local`): the local stand-in
-for the app's CI, until the app publishes its own image (pass 8). The
-cluster pulls it from Zot, and it pulls every upstream image through Zot's
-cache, as a cloud cluster pulls through ECR (ADR-0023). There is no ECR
-login and no registry credential.
+**Image strategy.** The cluster pulls every image, the example app's
+included, through Zot's cache, as a cloud cluster pulls through ECR
+(ADR-0023). There is no ECR login and no registry credential. Only the
+kiesei image and `make dev-image` builds are pushed to Zot directly, into
+its push namespace `brzl/`.
 
 **Parity note.** The CNPG operator, External Secrets, cert-manager, the
 portal, the app's `Cluster` and its Deployment/Service are the same objects

@@ -10,13 +10,16 @@
 #     brzl.dev/appset-cluster: "true"   the generators select this Secret
 #     brzl.dev/env:        local|dev|prod   AppProject brzl-<env>; prod deltas
 #     brzl.dev/substrate:  k3d|aws          the AWS-only apps (EBS CSI, monitoring)
+#     brzl.dev/workload-follow: branch|release   how this environment follows
+#                                  a workload (ADR-0034): `branch` = the
+#                                  development branch's newest commit and its
+#                                  image (local); `release` (the default) = the
+#                                  release tag named in the element
 #   annotations (written live by the bootstrap or the phase)
 #     brzl.dev/registry-host       the registry the cluster pulls from
 #     brzl.dev/prefix-<upstream>   path under that host per upstream
 #                                  (quay, k8s, github, docker-hub): an ECR
 #                                  pull-through prefix on AWS, a Zot namespace locally
-#     brzl.dev/example-app-image   the example app's repository under the host
-#     brzl.dev/example-app-tag     the example app's tag
 #     brzl.dev/backup-bucket       CNPG backup bucket (AWS only; absent = no backup patch)
 #     brzl.dev/portal-host         the admin portal's host name (its certificate)
 #     brzl.dev/revision            git revision to follow (absent = main)
@@ -29,8 +32,13 @@
 #
 # A workload is an element with its own `repo` and `revision` (ADR-0034): Argo
 # CD reads its manifests from that repo; this file only names the overlay and
-# renames the images. Elements without `repo` are the platform's, from this
-# repo at the cluster's brzl.dev/revision.
+# renames the registry host of its images, never a tag. Elements without
+# `repo` are the platform's, from this repo at the cluster's brzl.dev/revision.
+# The workload's element sits in a matrix with an SCM generator that gives the
+# development branch's head commit (`sha`, `short_sha`); an environment with
+# brzl.dev/workload-follow=branch deploys that commit and the image CI
+# published for it. The workload's repo must be public and under a GitHub
+# organization (the generator lists an organization's repositories).
 #
 # Two matrices, unioned: every cluster gets the common apps; only clusters
 # labelled brzl.dev/substrate=aws get the AWS-only ones.
@@ -154,19 +162,6 @@ spec:
                   # The environment's TLS mode: the ClusterIssuer the portal's
                   # Certificate names (ADR-0036).
                   path: gitops/clusters/__ENV__/pki
-                - appName: chofesh
-                  kind: kustomize
-                  wave: "3"
-                  namespace: chofesh
-                  serverSideApply: "false"
-                  # The example app (ADR-0034): its manifests live in its own
-                  # repo, a public one read over https (no credential). The
-                  # name must match BRZL_EXAMPLE_APP_NAME and the portal's
-                  # location /apps/chofesh/.
-                  repo: https://github.com/ryderdain/chofesh.git
-                  revision: main
-                  path: deploy/aws
-                  localPath: deploy/local
                 - appName: portal
                   kind: kustomize
                   wave: "4"
@@ -227,6 +222,42 @@ spec:
                   # Single host-injection point: global.imageRegistry = the host.
                   hostParams:
                     - global.imageRegistry
+    # The example app (ADR-0034), one Application per cluster: the element and
+    # the SCM generator combine into one row, so the row carries the element's
+    # fields and the development branch's head commit. The name must match
+    # BRZL_EXAMPLE_APP_NAME and the portal's location /apps/chofesh/.
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  brzl.dev/appset-cluster: "true"
+          - matrix:
+              generators:
+                - list:
+                    elements:
+                      - appName: chofesh
+                        kind: kustomize
+                        wave: "3"
+                        namespace: chofesh
+                        serverSideApply: "false"
+                        # Public, read over https: no credential.
+                        repo: https://github.com/tzvat/chofesh.git
+                        # The release an environment with workload-follow=release
+                        # runs; the manifests at that tag name the same image tag.
+                        revision: v0.3.0
+                        path: deploy/aws
+                        localPath: deploy/local
+                - scmProvider:
+                    github:
+                      organization: tzvat
+                      allBranches: false   # the default branch only
+                    filters:
+                      - repositoryMatch: ^chofesh$
+                    cloneProtocol: https
+                    # Anonymous GitHub API calls: 60 per hour per address; a
+                    # cycle costs two.
+                    requeueAfterSeconds: 300
   template:
     metadata:
       name: '{{.appName}}'
@@ -294,9 +325,11 @@ spec:
       {{- else }}
       {{- $path := replace "__ENV__" $env .path }}
       {{- if and (eq $env "local") .localPath }}{{ $path = .localPath }}{{ end }}
+      {{- $follow := index .metadata.labels "brzl.dev/workload-follow" | default "release" }}
       {{- $repo := "git@github.com:ryderdain/barzel-cluster.git" }}
       {{- $rev := $revision }}
-      {{- if .repo }}{{ $repo = .repo }}{{ $rev = .revision | default "main" }}{{ end }}
+      {{- if .repo }}{{ $repo = .repo }}{{ $rev = .revision }}{{ end }}
+      {{- if and .repo (eq $follow "branch") }}{{ $rev = .sha }}{{ end }}
       sources:
         - repoURL: {{ $repo }}
           targetRevision: {{ $rev }}
@@ -305,7 +338,7 @@ spec:
             {{- if eq .appName "chofesh" }}
             {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
             images:
-              - "ghcr.io/ryderdain/chofesh={{ $host }}/{{ index $ann "brzl.dev/example-app-image" }}:{{ index $ann "brzl.dev/example-app-tag" }}"
+              - "ghcr.io/tzvat/chofesh={{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/tzvat/chofesh{{ if eq $follow "branch" }}:{{ .short_sha }}{{ end }}"
             patches:
               - target:
                   group: postgresql.cnpg.io

@@ -25,8 +25,9 @@
 #   bash driver/phases/30-gitops.sh phase_up <env> <run_dir>     # EMIT
 #   bash driver/phases/30-gitops.sh phase_check <env> <run_dir>  # GENERATOR
 #
-# Inputs: env/<env>.env (BRZL_EXAMPLE_APP_NAME/_TAG, BRZL_PORTAL_HOST); the
-# substrate adapter (registry host, upstream prefixes); gitops/platform/applicationset.yaml,
+# Inputs: env/<env>.env (BRZL_EXAMPLE_APP_NAME, BRZL_WORKLOAD_FOLLOW,
+# BRZL_PORTAL_HOST); the substrate adapter (registry host, upstream prefixes);
+# gitops/platform/applicationset.yaml,
 # gitops/clusters/<env>/project.yaml, gitops/infrastructure/argocd/values.yaml;
 # <run_dir>/kubeconfig (for the check). Needs git, yq (kiesei). No credentials:
 # the repo credential is phase 25's.
@@ -69,10 +70,8 @@ gitops_revision() {
 # cluster_secret <env> <revision> — this cluster's registration, with the
 # labels and annotations the platform ApplicationSet reads.
 cluster_secret() {
-  local env="$1" revision="$2" host app_ref upstream
+  local env="$1" revision="$2" host upstream
   host="$(substrate_registry_host)" || return 1
-  app_ref="$(substrate_image_ref "$BRZL_EXAMPLE_APP_NAME:$BRZL_EXAMPLE_APP_TAG")" || return 1
-  app_ref="${app_ref#"$host"/}"
   cat <<EOF
 apiVersion: v1
 kind: Secret
@@ -84,10 +83,9 @@ metadata:
     brzl.dev/appset-cluster: "true"
     brzl.dev/env: $env
     brzl.dev/substrate: $BRZL_SUBSTRATE
+    brzl.dev/workload-follow: $BRZL_WORKLOAD_FOLLOW
   annotations:
     brzl.dev/registry-host: "$host"
-    brzl.dev/example-app-image: "${app_ref%:*}"
-    brzl.dev/example-app-tag: "$BRZL_EXAMPLE_APP_TAG"
     brzl.dev/revision: "$revision"
     brzl.dev/portal-host: "$BRZL_PORTAL_HOST"
 EOF
@@ -109,12 +107,12 @@ phase_up() {
   phase_init "$env" || end_function "$?" 'environment definition'
   require_tools git yq || end_function "$?" 'git and yq (run the stream in kiesei)'
   revision="$(gitops_revision)" || end_function "$?" 'git revision'
-  chart_version="$(yq '.spec.generators[].matrix.generators[1].list.elements[] | select(.appName == "argocd") | .chartVersion' \
+  chart_version="$(yq '.. | select(type == "!!map" and .appName == "argocd") | .chartVersion' \
     "$repo_root/$appset_file")" || end_function "$?" 'argo-cd chart version'
   argocd_image="$(substrate_registry_host)/$(substrate_upstream_prefix quay)/argoproj/argocd" \
     || end_function "$?" 'Argo CD image'
   secret="$(cluster_secret "$env" "$revision")" || end_function "$?" 'cluster Secret'
-  app_names="$(yq '.spec.generators[].matrix.generators[1].list.elements[].appName' "$repo_root/$appset_file")" \
+  app_names="$(yq '.. | select(type == "!!map" and has("appName")) | .appName' "$repo_root/$appset_file")" \
     || end_function "$?" 'Application names'
   # The example app is named in three places that must agree: the environment
   # definition, the ApplicationSet element and the portal's location.
@@ -182,8 +180,8 @@ phase_check() {
   # ApplicationSet is up to date, and this is the only test that tells.
   local live wanted
   live="$(kubectl -n argocd get applicationset "$appset_name" \
-    -o jsonpath='{.spec.generators[*].matrix.generators[1].list.elements[*].appName}' | tr ' ' '\n' | sort | tr '\n' ' ')"
-  wanted="$(yq '.spec.generators[].matrix.generators[1].list.elements[].appName' "$repo_root/$appset_file" | sort | tr '\n' ' ')"
+    -o jsonpath='{.spec.generators..appName}' | tr ' ' '\n' | sort | tr '\n' ' ')"
+  wanted="$(yq '.. | select(type == "!!map" and has("appName")) | .appName' "$repo_root/$appset_file" | sort | tr '\n' ' ')"
   if [[ "$live" != "$wanted" ]]; then
     printf 'fix: ApplicationSet %s in the cluster has elements [%s] but %s has [%s]: the run sheet stopped before it applied the file (read %s/30-gitops.out: orphan Applications?), or the file changed since; run the 30-gitops phase again\n' \
       "$appset_name" "$live" "$appset_file" "$wanted" "$run_dir" >&2

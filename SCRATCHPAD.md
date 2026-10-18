@@ -36,14 +36,33 @@ with no rewrite. The demo-app and postgres bases and overlays are deleted. Stati
 checks passed: go test, the image build, the kustomize renders, nginx -t,
 the phase emits in kiesei, the fast-mode render.
 
-**Live test PASSED (2026-10-18, run 202610161814, phases 25–40 again).**
-Phase 40: all eight Applications Synced and Healthy, the portal passes
-`/argocd/` and `/apps/chofesh/`. I then ran one search through the portal
-with curl: 200, three hits, and Postgres holds 1 search, 3 results, 1 API
-call. Two attempts failed before that; the incident is written up in
-BACKLOG item 15 (the orphan guard, the `.ok` of phase 30, the conductor's
-idle timer), with the fixes `5e1c69f` and `a3b2f42` and the retire
-procedure in LOCAL.md and ADR-0025.
+**Live test PASSED on 2026-10-18 for the first build** (run 202610161814,
+phases 25–40). A curl search wrote 1 search, 3 results and 1 API call.
+Then the user asked how a workload update arrives. The answer was "it does
+not": the driver-built image had a fixed tag. The update path is rebuilt
+(Q148–Q152, ADR-0034 amendment). chofesh moved to the `tzvat` org. Its CI
+(`e7afdce`) publishes `ghcr.io/tzvat/chofesh:<sha8>` and `:main` on each
+push to `main`, and `:vX.Y.Z` on a release tag. `make release` and `make
+dev-image` exist. The platform's `chofesh` element sits in a nested matrix
+with an SCM generator (org `tzvat`, repo `^chofesh$`, requeue 300 s). The
+cluster label `brzl.dev/workload-follow` (`BRZL_WORKLOAD_FOLLOW=branch` on
+local) picks `sha` as the revision and `short_sha` as the image tag. Phase
+20 pushes only kiesei. The `example-app-image/-tag` annotations are gone.
+Element lookups use `.. | select(has("appName"))` for the nested matrix.
+Static checks passed: the yq lookups, the phase 20 and 30 emits, a server
+dry-run of the ApplicationSet, the fast-mode render.
+
+**Live test of the update path (user runs):**
+
+1. Wait for the chofesh CI run, and check once that the package `chofesh`
+   under `tzvat` is public.
+2. `rm var/run/local/current/30-gitops.ok`, then `up` on `pass-5d`. Phase
+   30 applies the new ApplicationSet. Within 5 min Argo CD shows `chofesh`
+   at commit `e7afdce…` with the image `…/ghcr.io/tzvat/chofesh:e7afdce1`.
+3. Push a one-word change to chofesh `main`. CI, then the generator, then
+   Argo CD. The page shows it within about 10 min.
+4. Fast mode: `make dev-image` in `../chofesh`, `apply`, look,
+   `git checkout deploy/local`, `fast_off`.
 
 **After verification:** RETROSPECTIVE entry, BACKLOG item 3 "done", merge
 `pass-5d` to `main` (fast-forward), LLM-CONDUCT. Then **▶ NEXT: pass 6,

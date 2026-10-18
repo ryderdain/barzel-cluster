@@ -62,6 +62,12 @@ with a stateful database. Any other workload can take its place. It is also
 the workload that the bring-up checks.
 _Avoid_: demo, test app, smoke workload
 
+**Follow policy**:
+How an environment follows a workload. `release`: the release tag the
+platform names for it. `branch`: the newest commit of the workload's
+development branch, and the image its CI published for that commit.
+_Avoid_: tracking mode, image policy, update strategy
+
 **Environment definition**:
 The one shell script that tells all values for one environment. Each value is
 a default that the operator can replace for a single test.

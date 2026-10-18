@@ -83,6 +83,13 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **Backups:** CNPG → S3 (Barman Cloud), authenticated by the **EC2 instance profile** — no second IAM user.
 - **GitOps:** a **single `ApplicationSet`** (account-id-free, ADR-0016 — NOT an app-of-apps root) with **sync waves** so operators land before the applications that need them; `clusters/{dev,prod}` + `clusters/local`.
 - **Local is the first environment (2026-10-07, ADR-0024).** The promotion chain is local → dev → prod. Local runs on a laptop (k3d) as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **fast mode** (`fast_on`/`fast_off` turn Argo auto-sync off and on so the working tree can be applied directly). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** outside the cluster, persistent, static seal (KV v2 + transit; ADR-0026), ESO as the read boundary with one write adapter per store, and the admin log store's data on a host directory (ADR-0027). The local cluster is disposable.
+- **A workload is deployed from its own repo, and the environment decides what
+  it follows (2026-10-18, ADR-0034).** A workload element names its repo and
+  its release. The cluster's `brzl.dev/workload-follow` label is `release`
+  (the tag) or `branch`. With `branch`, an SCM generator gives the
+  development branch's head commit, and the image is the one its CI
+  published for that commit. The platform renames only the registry host of
+  a workload's image, never a tag, and never builds it.
 - **One platform ApplicationSet; values and sync switch per cluster (2026-10-12,
   ADR-0025).** `gitops/platform/applicationset.yaml` serves local, dev and prod
   (same Application names and AWS values as the old per-env files, verified by
@@ -392,12 +399,13 @@ rather than replacing it.
 ## 10. Changelog
 
 - **v0.14 (2026-10-16):** Pass 5d (Q141–Q147): the example app is
-  `ryderdain/chofesh` with a server mode and its own manifests and Postgres
+  `tzvat/chofesh` (moved from `ryderdain`) with a server mode and its own manifests and Postgres
   (ADR-0034 built, the credential stays CNPG's). The platform lost
   `apps/demo-app`, the demo-app and postgres GitOps bases and their local
   overlays. The ApplicationSet gained workload elements with their own
-  `repo` and `revision`. Until pass 8, phase 20 builds the app's image from
-  its checkout beside the repo (`BRZL_EXAMPLE_APP_SRC`).
+  `repo` and `revision`, and (Q148–Q152) the follow policy per environment.
+  Local follows the app's `main` through an SCM generator, the others a
+  release tag. The app's CI publishes the image. The driver never builds it.
 - **v0.13 (2026-10-15):** §1 states the two goals of the local environment
   (try it with nothing public; stand in for production). §3 gains the
   certificate flow and the local stand-ins (ADR-0036); the admin portal line

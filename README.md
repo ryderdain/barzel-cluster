@@ -12,7 +12,7 @@ change as a reviewed, recorded procedure.
 > full platform: driver, registry and secret store outside the cluster, Argo
 > CD, ESO, CNPG, cert-manager, the admin portal and the example app — see
 > [`docs/LOCAL.md`](docs/LOCAL.md). The example app is
-> [chofesh](https://github.com/ryderdain/chofesh), deployed from its own
+> [chofesh](https://github.com/tzvat/chofesh), deployed from its own
 > repo (ADR-0034). You need no public DNS zone and no
 > account at a provider: the local environment has a stand-in for each
 > public service, and still has the shape of a production environment
@@ -79,7 +79,7 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 | ------ | --------- |
 | [`terraform/`](terraform/) | Layered IaC: reusable `modules/` + the single-source layer stack [`stack/aws/`](terraform/stack/aws/) applied per env via committed `dev.tfvars`/`prod.tfvars` (ADR-0020), plus `bootstrap/` + `identity/` account primitives and the dev-only `environments/dev/00-conductor` |
 | [`ansible/`](ansible/) | `roles/{base,security,kubernetes}` + `playbooks/` (node config + k3s bootstrap) |
-| [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, cert-manager, monitoring values, the admin portal), `platform/` (the one ApplicationSet, ADR-0025; the example app's manifests live in [chofesh](https://github.com/ryderdain/chofesh), ADR-0034); `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + kiesei shell + `ui-forward.sh`) |
+| [`gitops/`](gitops/) | ArgoCD GitOps: `clusters/{dev,prod}` (the `ApplicationSet` + AppProject + in-cluster Secret), `infrastructure/` (argocd, ebs-csi, cnpg, external-secrets, cert-manager, monitoring values, the admin portal), `platform/` (the one ApplicationSet, ADR-0025; the example app's manifests live in [chofesh](https://github.com/tzvat/chofesh), ADR-0034); `bootstrap/` (one-time argo install + ECR-host shim + repo deploy-key) and `tools/` (read-only cluster/SSM/IP checks + kiesei shell + `ui-forward.sh`) |
 | [`containers/`](containers/) | `kiesei/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the kiesei via podman/ECR) |
 | [`docs/`](docs/) | Delivery-facing docs: architecture + ADRs (`docs/adr/`), operational-lifecycle runbooks, security |
 

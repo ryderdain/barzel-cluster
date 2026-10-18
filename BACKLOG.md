@@ -35,7 +35,7 @@ Order of work (Q120):
    `local-ca` on local, `letsencrypt` in pass 8; a CoreDNS stand-in for
    public DNS; `BRZL_PORTAL_HOST` is a value (`local.barzel.sh`).
 3. **5d. Example app** — built 2026-10-16 on branch `pass-5d`, live test
-   pending. `ryderdain/chofesh` gained `chofesh serve`, a Dockerfile and
+   pending. `chofesh` (now `tzvat/chofesh`) gained `chofesh serve`, a Dockerfile and
    `deploy/{base,local,aws}`. The demo-app and postgres bases and overlays
    and `apps/demo-app` left this repo
    ([ADR-0034](docs/adr/0034-example-app-is-a-separate-workload.md)).
@@ -44,7 +44,11 @@ Order of work (Q120):
    reads them from the public repo at `main`, fast mode from the checkout.
    Q143/Q147, the credential stays CNPG's, in the app's namespace. Q144,
    relative links and no base-path flag. Q145, git in chofesh is delegated
-   like this repo.
+   like this repo. Then (2026-10-18) Q148–Q152 replaced the driver's build:
+   the app's CI publishes the image, releases are tags made with
+   `make release`, and the environment's follow policy (`branch` on local,
+   through an SCM generator; `release` elsewhere) picks the commit and the
+   image. chofesh moved to the `tzvat` organization for the generator.
 4. **6. Logs** — collector, admin and diagnostic Loki, Grafana; UTC
    everywhere; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`; a header
    line in each run output; API and OpenBao audit logs; `driver.sh <env> state`
@@ -70,8 +74,8 @@ Order of work (Q120):
 10. **8. Substrate adapters** — one pass for each: first the shared interface
     and AWS, then others. Open items for AWS: the secret-store adapter
     (Secrets Manager) and `gitops/clusters/{dev,prod}/secret-store/`; the
-    example app publishes its own image from its own CI (`ghcr.io`, Q141 a),
-    phase 20 stops building it, and a laptop keeps a local-build escape;
+    ECR pull-through for `ghcr.io` needs an upstream credential (a GitHub
+    token in Secrets Manager) before dev can pull the example app's image;
     the AWS runbooks and the legacy AWS scripts (`platform.sh`,
     `bootstrap-argocd.sh`, `seed-demo-data.sh`, the Terraform ingress) still
     name the demo-app and `gitops/operators/postgres`, where only the DR

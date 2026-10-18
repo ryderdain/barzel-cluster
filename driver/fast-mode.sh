@@ -185,7 +185,7 @@ fast_apply() {
     [[ -n "$without_ns" ]] && printf "  kubectl apply -n %q -f - <<'EOF'\n%s\nEOF\n" "$ns" "$without_ns"
     [[ -n "$with_ns" ]] && printf "  kubectl apply -f - <<'EOF'\n%s\nEOF\n" "$with_ns"
     printf '}\n'
-  done < <(yq '.spec.generators[].matrix.generators[1].list.elements[] | select(.kind == "kustomize") | .appName' \
+  done < <(yq '.. | select(type == "!!map" and .kind == "kustomize" and has("appName")) | .appName' \
     "$repo_root/$appset_file")
   end_function 0 'emitted fast apply'
 }

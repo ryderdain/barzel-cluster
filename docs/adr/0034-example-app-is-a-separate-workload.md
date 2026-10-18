@@ -15,8 +15,8 @@ that any workload can consume.
 
 ## Decision
 
-- **The example app is `ryderdain/chofesh`**, in its own repo with its own
-  lifecycle. It keeps its Go CLI and gains a server mode (the demo-app's
+- **The example app is `chofesh`** (`ryderdain/chofesh`, since 2026-10-18
+  `tzvat/chofesh`), in its own repo with its own lifecycle. It keeps its Go CLI and gains a server mode (the demo-app's
   REST API), a small web page and Postgres. The changes there are kept
   small: copy what exists here, add the parts named, preserve the CLI.
 - **The platform deploys it from the chofesh repo**, as one ApplicationSet
@@ -34,6 +34,13 @@ that any workload can consume.
 
 - The bring-up check (phase 40) tests the example app as a workload, not as
   part of the platform.
+- The SCM generator lists an organization's repositories through the GitHub
+  API, anonymously. The limit is 60 calls per hour per address, and a
+  cycle costs two, every 5 minutes. When GitHub does not answer, the whole
+  ApplicationSet stops rendering until it does. Argo CD keeps what it has.
+- A code change on `main` reaches local in about 5 to 10 minutes: CI builds
+  (both architectures), the generator polls, Argo CD syncs. Testing before
+  replacement (sync hooks, Argo Rollouts) is a later addition (Q150).
 - The database credential stays CNPG's. CNPG makes it and keeps it in the
   Secret `pg-app` in the app's namespace, and the app reads it directly
   (Q147). This amends the first text, which moved it to the secret store.
@@ -58,10 +65,43 @@ that any workload can consume.
   before. The `postgres` and `demo-app` elements, `apps/demo-app`,
   `gitops/applications/demo-app` and `gitops/operators/postgres` (the
   GitOps base) left this repo (Q146).
-- **The image, for now:** phase 20 builds it from the app's checkout
-  beside this repo (`BRZL_EXAMPLE_APP_SRC`, `../chofesh`). It pushes it to
-  the local registry, as it did for the demo-app. Fast mode renders the
-  app's manifests from that checkout too. The app publishes its own image
-  from its own CI in pass 8 (Q141).
+- **The image is the workload's** (amendment below): its CI publishes it,
+  and the cluster pulls it through the registry like any upstream image.
+  Phase 20 pushes only the kiesei image. Fast mode renders the app's
+  manifests from its checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`).
 - The example app's name is in three places that must agree, and phase 30
   checks it: `BRZL_EXAMPLE_APP_NAME`, the element, the portal's location.
+
+## Amendment (2026-10-18, Q148–Q152): how an environment follows a workload
+
+The first build of this pass let the driver build the app's image with a
+fixed tag. So a code change never reached the cluster: the tag did not
+change, and `up` skips a finished phase. The driver was a stand-in for the
+workload's CI, and a stand-in must not stay in the path. Decided:
+
+- **The workload's repo has a contract.** `main` is the development
+  branch. Its CI publishes an image for every push to it, under the
+  commit's first 8 hex digits and the moving tag `main`. A release is a tag
+  `vX.Y.Z` on `main`, made with `make release`. That target writes the tag
+  into the base manifests. CI publishes the image under that tag and
+  refuses a tag the manifests do not name. The repo is public and under a
+  GitHub organization (`tzvat`).
+- **The environment defines what it follows**, with the label
+  `brzl.dev/workload-follow` on its registration (from the environment
+  definition, `BRZL_WORKLOAD_FOLLOW`). `release`, the default: Argo CD
+  reads the manifests at the release tag the element names, and the image
+  is the tag those manifests name. `branch` (local): an SCM generator in
+  the platform ApplicationSet gives the development branch's head commit.
+  Argo CD reads the manifests at that commit and the image CI published
+  for it. The platform renames only the registry host of the image, never
+  a tag.
+- **A laptop loop without a release:** `make dev-image` in the app's repo
+  builds for the machine and pushes into the registry's push namespace.
+  It also points the local overlay at the build. Fast mode then applies
+  the checkout.
+- *Alternatives considered.* The driver derives a tag from the checkout and
+  registers it (Q148 a). The driver then stays in the workload's path. CI
+  commits the tag into the manifests (Q152 a, a'). A bot then writes to
+  the app's repo, and `main` needs a pull before each push, or a
+  deployment branch. Argo CD Image Updater: one more component, and it
+  fights the ApplicationSet over the image field.

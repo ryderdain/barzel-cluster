@@ -85,7 +85,7 @@ The manifests are in two layers: the **bases** describe a component for all
 environments, and the **overlays** change it for one environment. The
 platform's overlays are in `gitops/clusters/<env>/`. A workload keeps its
 own bases and overlays in its own repo (ADR-0034): the example app,
-[chofesh](https://github.com/ryderdain/chofesh), has `deploy/base`,
+[chofesh](https://github.com/tzvat/chofesh), has `deploy/base`,
 `deploy/local` and `deploy/aws`.
 
 ```text
@@ -118,20 +118,23 @@ Application as Kustomize settings when it renders it:
 
 ```text
  cluster Secret (written by phase 30)       git (this repo, or the workload's)
- annotations: registry host, prefixes,      base + overlay directories
- the example app's image and tag                     │
+ annotations: registry host, prefixes;      base + overlay directories
+ label: the follow policy                   (+ the branch head, from GitHub)
         │                                            │
         ▼                                            ▼
  ApplicationSet ──renders──▶ Application ──Kustomize──▶ manifests ──▶ cluster
                              kustomize:
-                               images:  [ghcr.io/ryderdain/chofesh → <registry host>/…:<tag>]
+                               images:  [ghcr.io/tzvat/chofesh → <registry host>/…:<tag>]
                                patches: [pg image → <registry host>/…]
 ```
 
-So the files in git name images as published (`ghcr.io/ryderdain/chofesh`,
+So the files in git name images as published (`ghcr.io/tzvat/chofesh`,
 `ghcr.io/cloudnative-pg/postgresql`), and the Application replaces each
-with the registry of that environment. No account ID or host name goes into
-git, and the workload's manifests know nothing of the platform's registry.
+registry host with the registry of that environment. No account ID or host
+name goes into git, and the workload's manifests know nothing of the
+platform's registry. A tag is the workload's. An environment that follows
+the development branch gets the commit's tag from the SCM generator. One
+that follows a release gets the tag the manifests name (ADR-0034).
 
 **One older use.** `gitops/clusters/local/kustomization.yaml` combines the
 whole local stack into one directory. Only the legacy SSO bring-up

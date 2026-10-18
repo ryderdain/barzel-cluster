@@ -12,6 +12,7 @@ metadata:
     brzl.dev/appset-cluster: "true"
     brzl.dev/env: prod
     brzl.dev/substrate: aws
+    brzl.dev/workload-follow: release
 type: Opaque
 stringData:
   name: in-cluster
