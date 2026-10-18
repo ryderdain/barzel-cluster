@@ -192,7 +192,15 @@ Order of work (Q120):
     operator must keep, the fewer any user must. Candidates: the shell
     starts with KUBECONFIG set and the Argo CD context logged in (pass 6a's
     SSO changes the login anyway); one `brzl` helper for the common
-    lookups; the portal page lists exactly what is left.
+    lookups; the portal page lists exactly what is left. Tested fast way
+    for `argocd` (2026-10-18): core mode needs no server, no password and
+    no login, only the kubeconfig with the namespace `argocd` as its
+    context's namespace. So kiesei.sh can export `KUBECONFIG` to the current
+    run's kubeconfig and `ARGOCD_OPTS="--core --kubeconfig <a copy with
+    namespace argocd>"`, made at start; then
+    `echo argocd app list | bash driver/kiesei.sh` works as is. Core mode
+    bypasses Argo CD's own RBAC: right for the operator with the
+    cluster-admin kubeconfig, not for a user with limited rights.
 16. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
