@@ -70,7 +70,7 @@ the command the `packages_token` step prints:
 | `app.pem` | `app_convert` | the App's private key (mode 0600) |
 | `installation-id` | `installation` | the id of the App's installation on the organization |
 | `packages-user` | `packages_token` | your GitHub login, the user name for the registry |
-| `packages-token` | you, with the printed command | the classic token with `read:packages` (mode 0600) |
+| `packages-token` | you, with the printed command | the classic token, `read:packages` (0600) |
 
 Phase 25 reads them once and puts them into the cluster secret store. You
 can delete the directory after the first `up`. For a public workload, skip
