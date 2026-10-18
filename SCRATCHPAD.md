@@ -88,6 +88,18 @@ the two ids sat inside the pipeline and `docker exec -i` read the key from
 the pipe. Fixed: the ids are resolved first, then the pipeline. No `.ok`
 was written; `up` runs 25 again.
 
+**Fourth `up` (23:00) PASSED, and the user confirmed `chofesh` Synced and
+Healthy** at `e7afdce2`, read through the GitHub App from the private repo,
+the image pulled from the private package through Zot (the AppProjects had
+still named `ryderdain`; fixed in `eb04bea`). The pods' status reports the
+image as `…:main`: the same digest under its other tag, not a defect.
+
+**Update test 3 running:** chofesh `c9f3ddb` (the page's footer names the
+build; CI passes the commit as VERSION) pushed at 2026-10-18 ~21:20Z. A
+background wait follows CI, the generator (≤5 min), the rollout, and reads
+the footer through the portal. Then test 4 (fast mode, `make dev-image`) is
+the user's.
+
 **Onboarding chofesh (user runs; this is the verification of Q156):**
 
 1. `bash driver/access/github.sh app_manifest tzvat | bash`, the browser
