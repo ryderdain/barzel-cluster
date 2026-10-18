@@ -55,7 +55,7 @@ bash driver/access/github.sh app_manifest tzvat | bash     # register the App (b
 bash driver/access/github.sh app_convert tzvat <code> | bash  # the code from the browser's URL
 bash driver/access/github.sh app_install tzvat | bash      # install it on the organization (browser)
 bash driver/access/github.sh installation tzvat | bash     # its installation id
-bash driver/access/github.sh packages_token tzvat | bash   # the token (browser), then its file
+bash driver/access/github.sh packages_token tzvat | bash   # the token (browser)
 bash driver/access/github.sh check tzvat/chofesh           # verify all of it
 ```
 
