@@ -99,9 +99,23 @@ workload's CI, and a stand-in must not stay in the path. Decided:
   builds for the machine and pushes into the registry's push namespace.
   It also points the local overlay at the build. Fast mode then applies
   the checkout.
+- **The workload is private** (Q153, Q154 b: privacy first; the platform
+  models a cluster that runs proprietary software). The repository and the
+  package are private. The platform reads them with two read-only
+  credentials. A GitHub App on the organization (contents and metadata)
+  serves Argo CD as `repo-creds` for the organization and the SCM generator
+  through `appSecretName`. A classic token with only `read:packages` serves
+  the registry's pull-through (the container registry accepts no
+  fine-grained token). `driver/access/github.sh` makes them with the
+  operator's `gh` login (Q155–Q157): one subcommand per step, the browser
+  for the three steps GitHub has no API for, the files in
+  `var/access/github/<org>/`, which phase 25 seeds into the store once. A
+  host other than GitHub gets its own script with the same layout.
 - *Alternatives considered.* The driver derives a tag from the checkout and
   registers it (Q148 a). The driver then stays in the workload's path. CI
   commits the tag into the manifests (Q152 a, a'). A bot then writes to
   the app's repo, and `main` needs a pull before each push, or a
   deployment branch. Argo CD Image Updater: one more component, and it
-  fights the ApplicationSet over the image field.
+  fights the ApplicationSet over the image field. One classic token with
+  `repo` and `read:packages` for everything (Q154 a): one secret, but with
+  write access to every repository the account reaches.

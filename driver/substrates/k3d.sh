@@ -12,6 +12,8 @@
 #                                   image to, which the cluster can also pull
 #   substrate_registry_host         print the registry host the cluster pulls
 #                                   from (the ApplicationSet's registry-host)
+#   substrate_registry_credentials_file   the registry's upstream credentials file
+#   substrate_registry_reload             EMIT: the registry reads that file again
 #   substrate_upstream_prefix <upstream>
 #                                   print the path under that host for an
 #                                   upstream: docker-hub, github, quay, k8s
@@ -85,11 +87,16 @@ substrate_up() {
   else
     printf '{ # Zot registry (pull-through cache + push registry); its data outlives the cluster\n'
     printf '  docker volume create %q\n' "$BRZL_ZOT_VOLUME"
+    # The upstream credentials file (a private workload's packages token, ADR-0034):
+    # phase 25 writes it from the store and reloads Zot; until then it is empty.
+    printf '  [[ -e %q ]] || { umask 077; mkdir -p %q; printf '"'"'{}\\n'"'"' > %q; }\n' \
+      "$(substrate_registry_credentials_file)" "$BRZL_SECRET_STORE_DIR" "$(substrate_registry_credentials_file)"
     [[ "$state" == stale ]] && printf '  docker rm -f %q   # its config changed; the cache volume stays\n' "$zot"
     printf '  docker run -d --name %q --network %q --restart unless-stopped \\\n' "$zot" "$BRZL_DOCKER_NETWORK"
     printf '    --label %q \\\n' "dev.brzl.zot-config-sha256=$sha"
     printf '    -p %q -v %q \\\n' "127.0.0.1:$port:5000" "$BRZL_ZOT_VOLUME:/var/lib/registry"
     printf '    -v %q \\\n' "$config:/etc/zot/config.json:ro"
+    printf '    -v %q \\\n' "$repo_root/$(substrate_registry_credentials_file):/etc/zot/credentials.json:ro"
     printf '    %q\n' "$BRZL_ZOT_IMAGE"
     printf '}\n'
   fi
@@ -197,6 +204,19 @@ substrate_down() {
 
 substrate_image_ref() {
   printf 'localhost:%s/brzl/%s' "$BRZL_ZOT_PORT" "$1"
+}
+
+# substrate_registry_credentials_file — where the registry reads its upstream
+# credentials (Zot's sync credentialsFile), relative to the repo root; in the
+# store's directory, which is gitignored and holds the driver's secret files.
+substrate_registry_credentials_file() {
+  printf '%s/zot-credentials.json' "$BRZL_SECRET_STORE_DIR"
+}
+
+# substrate_registry_reload — EMIT: make the registry read its credentials
+# file again (Zot reads it at start).
+substrate_registry_reload() {
+  printf '  docker restart %q >/dev/null\n' "$BRZL_ZOT_NAME"
 }
 
 substrate_registry_host() {

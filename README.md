@@ -13,7 +13,7 @@ change as a reviewed, recorded procedure.
 > CD, ESO, CNPG, cert-manager, the admin portal and the example app — see
 > [`docs/LOCAL.md`](docs/LOCAL.md). The example app is
 > [chofesh](https://github.com/tzvat/chofesh), deployed from its own
-> repo (ADR-0034). You need no public DNS zone and no
+> repo (ADR-0034). To run it from zero: [`docs/INSTALL.md`](docs/INSTALL.md). You need no public DNS zone and no
 > account at a provider: the local environment has a stand-in for each
 > public service, and still has the shape of a production environment
 > (ADR-0036). The plan is in [`BACKLOG.md`](BACKLOG.md).
@@ -330,7 +330,8 @@ and detailed in the documents below.
 - [`UPGRADE.md`](docs/UPGRADE.md) — PostgreSQL / k3s / chart / app upgrades (GitOps).
 - [`RECOVERY.md`](docs/RECOVERY.md) — backups, restore/PITR, failover, state recovery.
 - [`TEARDOWN.md`](docs/TEARDOWN.md) — decommission + the mandatory cost-leak sweep.
-- [`LOCAL.md`](docs/LOCAL.md) — run the platform and its example app locally on **k3d**, no AWS; `--with-sso` adds the legacy operator SSO gateway.
+- [`INSTALL.md`](docs/INSTALL.md) — from a clean machine to the running local environment, in order: tools, repositories, the deploy key, the workload's access, `up`.
+- [`LOCAL.md`](docs/LOCAL.md) — the reference for the local environment on **k3d**, no AWS; `--with-sso` adds the legacy operator SSO gateway.
 - [`guide/`](docs/guide/) — the guidebook: one short file for each tool the
   platform uses ([Kustomize](docs/guide/kustomize.md),
   [cert-manager](docs/guide/cert-manager.md), [kiesei](docs/guide/kiesei.md));

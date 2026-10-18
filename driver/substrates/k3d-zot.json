@@ -82,7 +82,8 @@
             }
           ]
         }
-      ]
+      ],
+      "credentialsFile": "/etc/zot/credentials.json"
     }
   }
 }

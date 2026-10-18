@@ -49,6 +49,11 @@ Order of work (Q120):
    `make release`, and the environment's follow policy (`branch` on local,
    through an SCM generator; `release` elsewhere) picks the commit and the
    image. chofesh moved to the `tzvat` organization for the generator.
+   Then Q153–Q157: the workload is private (repo and package). A GitHub
+   App and a `read:packages` token, made by `driver/access/github.sh` into
+   `var/access/github/<org>/`, are seeded into the store by phase 25. One
+   `repo-creds` Secret per organization. `docs/INSTALL.md` is the front
+   door for a new user.
 4. **6. Logs** — collector, admin and diagnostic Loki, Grafana; UTC
    everywhere; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`; a header
    line in each run output; API and OpenBao audit logs; `driver.sh <env> state`
@@ -181,7 +186,9 @@ Standing concerns (check in every pass):
 - **GitHub App before leaving local** (Q61). The repo is private. Argo CD on
   local reads it with the read-only deploy key `sleipnir-brzl-deploy`
   (bootstrap source `BRZL_REPO_DEPLOY_KEY`). Replace it with a GitHub App
-  credential before pass 7h or 8.
+  credential before pass 7h or 8. The workload side is done in pass 5d
+  (`driver/access/github.sh`, a GitHub App per organization, Q154 b). The
+  same App on the platform's organization can replace the deploy key.
 - **Every phase must be safe to run again** (`ryderdain/bash` STYLE §1.11,
   ADR-0022). Review each new phase script for converging commands.
 - **Platform-layer portability** (SPEC §3). The platform layer assumes only

@@ -14,6 +14,8 @@ its manifests from that repo, and the platform's own manifests get a thin
 - Internet access. The images come from the upstream registries, through the
   local Zot cache.
 - No AWS account, profile, or credentials.
+- For a private workload: `gh`, the GitHub CLI, logged in to your account.
+  The access script (below, "The workload's access") uses it.
 - For fast mode only: the example app's checkout beside this repo,
   `git clone git@github.com:tzvat/chofesh.git ../chofesh`
   (`BRZL_EXAMPLE_APP_SRC` in `env/local.env`). Argo CD reads the pushed
@@ -183,6 +185,25 @@ Phase 10 makes them the first time. They are not in git:
 A store made before 2026-10-15 has a driver token without the PKI
 capabilities. The check of phase 25 says so; purge the store (below) and
 run `up` again.
+
+### The workload's access
+
+The example app is a private repository under a GitHub organization, and
+its image a private package (ADR-0034). Two credentials let the platform
+read them, both read-only. A GitHub App on the organization serves Argo CD
+and the ApplicationSet's SCM generator. A token with `read:packages` serves
+Zot's pull-through of the image. `driver/access/github.sh` makes them with
+your `gh` login, one step at a time, and leaves six files in
+`var/access/github/<org>/` (not in git). The steps are in
+[INSTALL.md](INSTALL.md), section 4.
+
+Phase 25 reads those files once and puts them into the store. From the
+store it writes the Argo CD `repo-creds` Secret `workload-github-app`, for
+`https://github.com/<org>` and so for every repository of the organization.
+It also writes Zot's upstream credentials file,
+`var/secret-store/local/zot-credentials.json`.
+It restarts Zot when that file changed. Later runs need the files no more.
+A public workload needs none of this: the phase says so and goes on.
 
 To write one secret into the store yourself, use the `bao` CLI in the
 container. The value goes on stdin, and the token in the environment:

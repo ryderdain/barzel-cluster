@@ -9,6 +9,12 @@
 #      it with what ESO projects);
 #   3. Argo CD's repository credential is written into the cluster FROM THE
 #      STORE, so the deploy key is given once: the store keeps it;
+#   3b. the workload's access (ADR-0034, a private repo on GitHub): the files
+#      that driver/access/github.sh left in var/access/github/<org>/ seed the
+#      store once (the App's id, installation and key; the packages user and
+#      token); from the store, the run sheet writes Argo CD's repo-creds
+#      Secret for the organization (also the SCM generator's credential) and
+#      the registry's upstream credentials file, and reloads the registry;
 #   4. the conductor (driver/conductor/conductor.yaml, rendered with the kiesei
 #      image that phase 20 pushed and the idle limit);
 #   5. in local-ca mode (BRZL_PORTAL_TLS), the store becomes the CA that
@@ -43,11 +49,66 @@ source "$repo_root/driver/lib/runlib.sh" || exit 1
 source "$repo_root/driver/lib/phase-common.sh" || exit 1
 
 secret_name=repo-barzel-cluster
+# The workload's credential in Argo CD: one repo-creds Secret for the
+# organization; the ApplicationSet's SCM generator names it (appSecretName).
+workload_secret_name=workload-github-app
 
 phase_locus() { printf '%s\n' driver; }
 
+# workload_org — the organization of the example app's repo, from the
+# ApplicationSet (the element with a `repo`), and its host's access directory.
+workload_org() {
+  local url
+  url="$(yq '[.. | select(type == "!!map" and has("repo")) | .repo] | .[0]' "$repo_root/gitops/platform/applicationset.yaml")" || return 1
+  url="${url#https://github.com/}"
+  printf '%s' "${url%%/*}"
+}
+
+# workload_access_up <org> — EMIT: seed the store from the access files when
+# they are there, then the cluster and the registry from the store. Without
+# access files and without store entries, nothing: a public workload.
+workload_access_up() {
+  local org="$1" dir="var/access/github/$1" creds
+  creds="$(substrate_registry_credentials_file)"
+  printf '{ # the workload'"'"'s access on GitHub (%s): seed the store from %s once\n' "$org" "$dir"
+  printf '  if [[ -s %q ]]; then\n' "$dir/app.pem"
+  printf '    %s\n' "$(secret_put_file workload-github-app-id "$dir/app-id")"
+  printf '    %s\n' "$(secret_put_file workload-github-app-installation "$dir/installation-id")"
+  printf '    %s\n' "$(secret_put_file workload-github-app-key "$dir/app.pem")"
+  printf '    %s\n' "$(secret_put_file workload-packages-user "$dir/packages-user")"
+  printf '    %s\n' "$(secret_put_file workload-packages-token "$dir/packages-token")"
+  printf '  fi\n'
+  printf '}\n'
+  printf '{ # from the store: Argo CD'"'"'s repo-creds Secret for https://github.com/%s (the SCM generator uses it too)\n' "$org"
+  printf '  if %s; then\n' "$(secret_exists workload-github-app-key)"
+  printf '    %s \\\n' "$(secret_get workload-github-app-key)"
+  printf '      | kubectl -n argocd create secret generic %q --dry-run=client -o yaml \\\n' "$workload_secret_name"
+  printf '          --from-literal=type=git --from-literal=url=%q \\\n' "https://github.com/$org"
+  printf '          --from-literal=githubAppID="$(%s)" \\\n' "$(secret_get workload-github-app-id)"
+  printf '          --from-literal=githubAppInstallationID="$(%s)" \\\n' "$(secret_get workload-github-app-installation)"
+  printf '          --from-file=githubAppPrivateKey=/dev/stdin \\\n'
+  printf '      | kubectl label --local -f - argocd.argoproj.io/secret-type=repo-creds -o yaml \\\n'
+  printf '      | kubectl apply -f -\n'
+  printf '  else\n'
+  printf '    echo "no workload access in the store: Argo CD reads the workload as a public repo"\n'
+  printf '  fi\n'
+  printf '}\n'
+  printf '{ # from the store: the registry'"'"'s upstream credentials (ghcr.io), then the registry reads them again\n'
+  printf '  if %s; then\n' "$(secret_exists workload-packages-token)"
+  printf '    before="$(sha256sum < %q)"\n' "$creds"
+  printf '    umask 077\n'
+  printf '    jq -n --arg user "$(%s)" --arg token "$(%s)" '"'"'{"ghcr.io": {username: $user, password: $token}}'"'"' > %q\n' \
+    "$(secret_get workload-packages-user)" "$(secret_get workload-packages-token)" "$creds.new"
+  printf '    mv %q %q\n' "$creds.new" "$creds"
+  printf '    if [[ "$(sha256sum < %q)" != "$before" ]]; then\n' "$creds"
+  substrate_registry_reload | sed 's/^/    /'
+  printf '    fi\n'
+  printf '  fi\n'
+  printf '}\n'
+}
+
 phase_up() {
-  local env="$1" run_dir="$2" url image manifest
+  local env="$1" run_dir="$2" url image manifest org
   phase_init "$env" || end_function "$?" 'environment definition'
   [[ -n "${BRZL_SECRET_STORE:-}" ]] || end_function 1 'this phase needs a cluster secret store (BRZL_SECRET_STORE)'
   case "${BRZL_PORTAL_TLS:-}" in
@@ -56,6 +117,7 @@ phase_up() {
     *) end_function 1 "BRZL_PORTAL_TLS must be local-ca or letsencrypt (got '${BRZL_PORTAL_TLS:-}')" ;;
   esac
   url="$(gitops_repo_url)" || end_function "$?" 'repo URL from the ApplicationSet'
+  org="$(workload_org)" || end_function "$?" 'the workload organization from the ApplicationSet'
   image="$(substrate_image_ref "kiesei:${BRZL_KIESEI_IMAGE##*:}")"
   manifest="$(<"$repo_root/driver/conductor/conductor.yaml")" \
     || end_function "$?" 'conductor manifest'
@@ -91,6 +153,7 @@ phase_up() {
   printf '    | kubectl label --local -f - argocd.argoproj.io/secret-type=repository -o yaml \\\n'
   printf '    | kubectl apply -f -\n'
   printf '}\n'
+  workload_access_up "$org"
   printf '{ # the conductor: service account, RBAC, deployment (image from phase 20)\n'
   printf "  kubectl apply -f - <<'EOF'\n%s\nEOF\n" "$manifest"
   printf '}\n'
@@ -129,6 +192,28 @@ phase_check() {
   else
     printf 'the Argo CD repository Secret argocd/%s holds a deploy key (%d bytes, base64)\n' \
       "$secret_name" "${#key}"
+  fi
+  if secret_store_has workload-github-app-key; then
+    type="$(kubectl -n argocd get secret "$workload_secret_name" \
+      -o jsonpath='{.metadata.labels.argocd\.argoproj\.io/secret-type}' 2>/dev/null)"
+    key="$(kubectl -n argocd get secret "$workload_secret_name" -o jsonpath='{.data.githubAppPrivateKey}' 2>/dev/null)"
+    if [[ "$type" != repo-creds || -z "$key" ]]; then
+      printf 'fix: the Argo CD repo-creds Secret argocd/%s is missing or has no key; run the 25-bootstrap phase again\n' \
+        "$workload_secret_name" >&2
+      rc=1
+    else
+      printf 'the Argo CD repo-creds Secret argocd/%s holds the GitHub App key (%d bytes, base64)\n' \
+        "$workload_secret_name" "${#key}"
+    fi
+    if ! jq -e '."ghcr.io".password | length > 0' "$repo_root/$(substrate_registry_credentials_file)" >/dev/null 2>&1; then
+      printf 'fix: the registry has no ghcr.io credential in %s; run the 25-bootstrap phase again\n' \
+        "$(substrate_registry_credentials_file)" >&2
+      rc=1
+    else
+      printf 'the registry holds the packages credential for ghcr.io\n'
+    fi
+  else
+    printf 'no workload access in the store (a public workload, or driver/access/github.sh not run yet)\n'
   fi
   if ! kubectl -n brzl-system rollout status deployment/conductor --timeout=300s >/dev/null; then
     printf 'fix: the conductor is not ready; see: kubectl -n brzl-system describe deployment/conductor\n' >&2

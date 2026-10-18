@@ -52,17 +52,32 @@ Element lookups use `.. | select(has("appName"))` for the nested matrix.
 Static checks passed: the yq lookups, the phase 20 and 30 emits, a server
 dry-run of the ApplicationSet, the fast-mode render.
 
-**Live test of the update path (user runs):**
+**Then (2026-10-18) the workload went private** (Q153–Q157, user: privacy
+first). Built: `driver/access/github.sh` (app_manifest, app_convert,
+app_install, installation, packages_token, check) and the output contract
+`var/access/github/<org>/`. Phase 25 seeds the store from it and writes
+the `repo-creds` Secret `workload-github-app` and Zot's
+`zot-credentials.json` (restart on change). Phase 10 mounts that file (Zot
+config gained `credentialsFile`, so Zot is replaced once). The SCM
+generator names `appSecretName`. `docs/INSTALL.md` is new. Static checks:
+the script's previews and error paths, the phase 10 and 25 emits in
+kiesei, the phase 25 check against the cluster ("no workload access in the
+store"). The `.ok` files of 10, 25 and 30 are removed so the next `up`
+runs them.
 
-1. Wait for the chofesh CI run, and check once that the package `chofesh`
-   under `tzvat` is public.
-2. `rm var/run/local/current/30-gitops.ok`, then `up` on `pass-5d`. Phase
-   30 applies the new ApplicationSet. Within 5 min Argo CD shows `chofesh`
-   at commit `e7afdce…` with the image `…/ghcr.io/tzvat/chofesh:e7afdce1`.
-3. Push a one-word change to chofesh `main`. CI, then the generator, then
-   Argo CD. The page shows it within about 10 min.
-4. Fast mode: `make dev-image` in `../chofesh`, `apply`, look,
-   `git checkout deploy/local`, `fast_off`.
+**Onboarding chofesh (user runs; this is the verification of Q156):**
+
+1. `bash driver/access/github.sh app_manifest tzvat | bash`, the browser
+   step, then `app_convert tzvat <code> | bash`.
+2. `app_install tzvat | bash` (browser), then `installation tzvat | bash`.
+   Run `gh auth refresh -h github.com -s admin:org` first if it asks.
+3. `packages_token tzvat | bash` (browser; paste the token with the printed
+   command), then `check tzvat/chofesh`.
+4. `bash driver/driver.sh local up | bash driver/kiesei.sh` on `pass-5d`.
+   Phase 10 replaces Zot. Phase 25 seeds the store and writes the Secret
+   and the file. Phase 30 applies the ApplicationSet, whose SCM generator
+   now has the App. Phase 40 waits. Then the two update tests: a push to
+   `main`, and fast mode with `make dev-image`.
 
 **After verification:** RETROSPECTIVE entry, BACKLOG item 3 "done", merge
 `pass-5d` to `main` (fast-forward), LLM-CONDUCT. Then **▶ NEXT: pass 6,

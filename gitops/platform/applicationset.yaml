@@ -37,8 +37,9 @@
 # The workload's element sits in a matrix with an SCM generator that gives the
 # development branch's head commit (`sha`, `short_sha`); an environment with
 # brzl.dev/workload-follow=branch deploys that commit and the image CI
-# published for it. The workload's repo must be public and under a GitHub
-# organization (the generator lists an organization's repositories).
+# published for it. The workload's repo is under a GitHub organization (the
+# generator lists an organization's repositories); a private one is read with
+# the GitHub App that driver/access/github.sh registers (phase 25 writes it).
 #
 # Two matrices, unioned: every cluster gets the common apps; only clusters
 # labelled brzl.dev/substrate=aws get the AWS-only ones.
@@ -252,6 +253,10 @@ spec:
                     github:
                       organization: tzvat
                       allBranches: false   # the default branch only
+                      # The GitHub App that phase 25 writes from the store
+                      # (also Argo CD's repo-creds for the organization); a
+                      # private repo needs it, a public one works without.
+                      appSecretName: workload-github-app
                     filters:
                       - repositoryMatch: ^chofesh$
                     cloneProtocol: https
