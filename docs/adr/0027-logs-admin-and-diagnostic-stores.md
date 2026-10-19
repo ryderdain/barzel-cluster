@@ -89,3 +89,26 @@ tested the design in two rounds before the build.
   Loki with two tenants: one process and one storage location for both
   stores. CloudWatch as the admin store: its query language differs from
   local's, so local would not test it.
+
+## Amendment (pass 6 design, Q158–Q162, 2026-10-19)
+
+- **One Grafana, from kube-prometheus-stack, on every substrate** (Q158).
+  The metrics stack was AWS-only because its values held the AWS storage
+  class and the ECR prefixes, not because of memory. It moves to every
+  substrate, with values for each substrate. Its Grafana is the viewer, and
+  the two log stores are data sources in it. The full local environment
+  then needs about 5.5 GiB. A low-memory mode for smaller machines is a
+  BACKLOG item, built only when a need appears.
+- **Helm charts for Loki and the collector** (Q160): the `loki` chart in
+  single-binary mode, once for each store, and the
+  `opentelemetry-collector` chart. This is the pattern of the other
+  platform applications. The spike's settings go into the values files.
+- **The collector beside the cluster sends to the collector in the
+  cluster** (Q162), over OTLP. It keeps a queue on disk in
+  `var/logs/<env>/`, so the run outputs written while the cluster is absent
+  (phases 10 to 30, a `down`) arrive when it is back. The route to the
+  admin log store stays in one configuration, the in-cluster collector's.
+  Q106 and Q96a stand as decided: the collector beside the cluster on
+  local, the admin Loki in the cluster with its data outside.
+- `driver.sh <env> state` left this pass (Q161). It is a BACKLOG item of
+  its own: a read-only list of the state kept outside the cluster.
