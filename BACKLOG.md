@@ -222,7 +222,7 @@ Order of work (Q120):
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
     does not (cert-manager, ADR-0036).
 17. **`driver.sh <env> state`: list the state kept outside the cluster**
-    (proposed 2026-10-14 in the review of the design's shape; Q161,
+    (proposed 2026-10-14 in the review of the design's shape, then Q161,
     2026-10-19). That state keeps growing, as Q66 intends. It holds the Zot
     cache, the OpenBao volume with its seal key and tokens, the local CA,
     the access files and the run directories. From pass 6 it also holds the
