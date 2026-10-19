@@ -1,0 +1,68 @@
+# The collector beside a local cluster (ADR-0027, Q106, Q162): a container on
+# the cluster's network, made by the k3d adapter in phase 10 and kept on
+# `down`. It reads what only the driver's machine has, and sends it over OTLP
+# to the collector in the cluster, which routes it to the admin log store:
+#
+#   /run-outputs     var/run/<env>/: each run output (<run>/<NN>-<phase>.out)
+#   /openbao-audit   the secret store's audit log
+#
+# The queue and the read positions are on disk (/queue, a host directory), so
+# a record waits while the cluster is absent (phases 10 to 30, a `down`) and
+# is sent when it is back; a restart reads no file twice. Inputs from the
+# container's environment: BRZL_ENV, BRZL_OTLP_ENDPOINT (the server node's
+# host port of the in-cluster collector).
+extensions:
+  file_storage:
+    directory: /queue
+    create_directory: true
+
+receivers:
+  filelog/run-outputs:
+    include: [/run-outputs/*/*.out]
+    exclude: [/run-outputs/current/*]       # a symlink to one of the runs
+    start_at: beginning
+    include_file_path: true
+    storage: file_storage
+    operators:
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '^/run-outputs/(?P<run>[^/]+)/(?P<phase>[^/]+)\.out$'
+        parse_to: resource
+      - {type: move, from: 'resource["run"]', to: 'resource["brzl.run"]'}
+      - {type: move, from: 'resource["phase"]', to: 'resource["brzl.phase"]'}
+      - {type: add, field: 'resource["brzl.source"]', value: run-output}
+
+  filelog/openbao-audit:
+    include: [/openbao-audit/audit.log]
+    start_at: beginning
+    storage: file_storage
+    operators:
+      - {type: add, field: 'resource["brzl.source"]', value: openbao-audit}
+
+processors:
+  resource/env:
+    attributes:
+      - {key: brzl.env, value: '${env:BRZL_ENV}', action: upsert}
+  batch: {}
+
+exporters:
+  otlphttp/cluster:
+    endpoint: ${env:BRZL_OTLP_ENDPOINT}
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 0                   # never drop: wait for the cluster
+    sending_queue:
+      enabled: true
+      storage: file_storage
+      queue_size: 100000
+
+service:
+  extensions: [file_storage]
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    logs:
+      receivers: [filelog/run-outputs, filelog/openbao-audit]
+      processors: [resource/env, batch]
+      exporters: [otlphttp/cluster]

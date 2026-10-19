@@ -1,0 +1,8 @@
+# The diagnostic log store (ADR-0027): the detailed logs of the workloads and
+# the platform applications, by each namespace's route. Loki's default flush;
+# its data is on the pod's volume and is lost with the cluster. Default
+# retention 7 days.
+nameOverride: log-store-diagnostic       # the Service, the ConfigMaps, the headless Service
+loki:
+  limits_config:
+    retention_period: 168h

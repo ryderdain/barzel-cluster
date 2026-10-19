@@ -105,10 +105,45 @@ tested the design in two rounds before the build.
   platform applications. The spike's settings go into the values files.
 - **The collector beside the cluster sends to the collector in the
   cluster** (Q162), over OTLP. It keeps a queue on disk in
-  `var/logs/<env>/`, so the run outputs written while the cluster is absent
-  (phases 10 to 30, a `down`) arrive when it is back. The route to the
+  `var/log-store/<env>/queue/`. The run outputs written while the cluster
+  is absent (phases 10 to 30, a `down`) arrive when it is back. The route to the
   admin log store stays in one configuration, the in-cluster collector's.
   Q106 and Q96a stand as decided: the collector beside the cluster on
   local, the admin Loki in the cluster with its data outside.
 - `driver.sh <env> state` left this pass (Q161). It is a BACKLOG item of
   its own: a read-only list of the state kept outside the cluster.
+
+### As built (pass 6, 2026-10-19)
+
+- **No port mapping.** The collector chart opens host ports 4317 and 4318
+  on each node. The collector beside a local cluster reaches the server
+  node by its container name on the shared network. So Q162 needs no k3d
+  port mapping. The cluster is made again only for the audit policy, the
+  k3s log file and the admin data's mount.
+- **Loki's readiness.** The chart's configuration (a memberlist ring)
+  reports ready after about 45 seconds. The spike's "not ready" came from
+  its in-memory ring. The chart's readiness probe stays. The check of
+  phase 40 still asks each store with a query.
+- **The Grafana password** is in the cluster secret store, and ESO
+  projects it (Q105, as decided). On AWS, the bootstrap makes it until the
+  AWS store exists (pass 8).
+- **The ApplicationSet** gained element keys for this: more values files,
+  values files for local only, a registry prefix in front of an image
+  path, the portal's host name and the environment's name. The prod copy
+  of the monitoring values went, because the prefixes come from the
+  cluster Secret now.
+- **The OpenBao audit device is in the store's configuration** (OpenBao
+  2.3 and later), not made through the API.
+
+### Open after pass 6
+
+- The in-cluster collector accepts OTLP from any pod and from any
+  container on the local network, without a credential. Something other
+  than the platform could write records that look like the admin path's.
+  A credential on that receiver is for pass 6a or pass 8.
+- The events come from a receiver in each collector pod. With more than
+  one node, each event arrives once from each node. Pass 8 moves the
+  events to one replica.
+- Open on AWS (pass 8): the admin log store's data in S3, and the k3s
+  audit policy and log file through Ansible. Grafana needs the portal's
+  host name and its password from the AWS store.

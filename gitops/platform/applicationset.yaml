@@ -9,7 +9,7 @@
 #   labels
 #     brzl.dev/appset-cluster: "true"   the generators select this Secret
 #     brzl.dev/env:        local|dev|prod   AppProject brzl-<env>; prod deltas
-#     brzl.dev/substrate:  k3d|aws          the AWS-only apps (EBS CSI, monitoring)
+#     brzl.dev/substrate:  k3d|aws          the AWS-only apps (EBS CSI)
 #     brzl.dev/workload-follow: branch|release   how this environment follows
 #                                  a workload (ADR-0034): `branch` = the
 #                                  development branch's newest commit and its
@@ -25,6 +25,16 @@
 #     brzl.dev/revision            git revision to follow (absent = main)
 #     brzl.dev/auto-sync           "false" = Argo CD holds: fast mode on local,
 #                                  break-glass mode anywhere (absent = sync)
+#
+# A helm element names its chart and a values file from this repo, and may add:
+#   moreValueFiles        values files applied after valueFile
+#   moreValueFilesLocal   values files applied after those, on local only
+#   imageParams           chart values set to <host>/<prefix>/<path>
+#   hostParams            chart values set to the registry host
+#   prefixParams          chart values set to <prefix>/<path>, for a chart that
+#                         takes the host separately (global.imageRegistry)
+#   portalHostParams      chart values set to the admin portal's host name
+#   envParams             chart values set to the environment's name
 #
 # A kustomize element's path may carry __ENV__, replaced by the env label: the
 # `secret-store` app renders gitops/clusters/<env>/secret-store (ADR-0026),
@@ -52,7 +62,8 @@
 # would leave a live Application without an element.
 #
 # Sync waves (annotation, per element): -1 argocd self-manage, 0 ebs-csi+gp3,
-# 1 operators (cnpg, external-secrets, cert-manager, monitoring), 2
+# 1 operators (cnpg, external-secrets, cert-manager, monitoring) and the log
+# stack (log-store-admin, log-store-diagnostic, log-collector; ADR-0027), 2
 # secret-store, pki, 3 the example app (with its own Postgres Cluster), 4 the
 # admin portal (nginx names the Services it passes to, so they must exist
 # first).
@@ -147,6 +158,102 @@ spec:
                     - name: acmesolver.image.repository
                       upstream: quay
                       path: jetstack/cert-manager-acmesolver
+                - appName: monitoring
+                  kind: helm
+                  wave: "1"
+                  namespace: monitoring
+                  serverSideApply: "true"
+                  chartRepo: https://prometheus-community.github.io/helm-charts
+                  chart: kube-prometheus-stack
+                  chartVersion: "86.1.1"
+                  valueFile: gitops/infrastructure/monitoring/values.yaml
+                  moreValueFilesLocal:
+                    - gitops/infrastructure/monitoring/values-local.yaml
+                  # The charts take the host once (global.imageRegistry) and
+                  # each image as <prefix>/<path>.
+                  hostParams:
+                    - global.imageRegistry
+                  prefixParams:
+                    - name: prometheusOperator.image.repository
+                      upstream: quay
+                      path: prometheus-operator/prometheus-operator
+                    - name: prometheusOperator.prometheusConfigReloader.image.repository
+                      upstream: quay
+                      path: prometheus-operator/prometheus-config-reloader
+                    - name: prometheusOperator.admissionWebhooks.patch.image.repository
+                      upstream: github
+                      path: jkroepke/kube-webhook-certgen
+                    - name: prometheus.prometheusSpec.image.repository
+                      upstream: quay
+                      path: prometheus/prometheus
+                    - name: kube-state-metrics.image.repository
+                      upstream: k8s
+                      path: kube-state-metrics/kube-state-metrics
+                    - name: prometheus-node-exporter.image.repository
+                      upstream: quay
+                      path: prometheus/node-exporter
+                    - name: grafana.image.repository
+                      upstream: docker-hub
+                      path: grafana/grafana
+                    - name: grafana.sidecar.image.repository
+                      upstream: quay
+                      path: kiwigrid/k8s-sidecar
+                    - name: grafana.downloadDashboardsImage.repository
+                      upstream: docker-hub
+                      path: curlimages/curl
+                  portalHostParams:
+                    - grafana.grafana\.ini.server.domain
+                # The log stack (ADR-0027): two Loki installations from one
+                # chart, set apart by their values files, and the node
+                # collector. The names are the Services the collector and
+                # Grafana use (log-store-admin.logs.svc, ...).
+                - appName: log-store-admin
+                  kind: helm
+                  wave: "1"
+                  namespace: logs
+                  serverSideApply: "false"
+                  chartRepo: https://grafana.github.io/helm-charts
+                  chart: loki
+                  chartVersion: "7.3.0"
+                  valueFile: gitops/infrastructure/logs/loki.yaml
+                  moreValueFiles:
+                    - gitops/infrastructure/logs/loki-admin.yaml
+                  moreValueFilesLocal:
+                    - gitops/infrastructure/logs/loki-admin-local.yaml
+                  imageParams:
+                    - name: loki.image.repository
+                      upstream: docker-hub
+                      path: grafana/loki
+                - appName: log-store-diagnostic
+                  kind: helm
+                  wave: "1"
+                  namespace: logs
+                  serverSideApply: "false"
+                  chartRepo: https://grafana.github.io/helm-charts
+                  chart: loki
+                  chartVersion: "7.3.0"
+                  valueFile: gitops/infrastructure/logs/loki.yaml
+                  moreValueFiles:
+                    - gitops/infrastructure/logs/loki-diagnostic.yaml
+                  imageParams:
+                    - name: loki.image.repository
+                      upstream: docker-hub
+                      path: grafana/loki
+                - appName: log-collector
+                  kind: helm
+                  wave: "1"
+                  namespace: logs
+                  serverSideApply: "false"
+                  chartRepo: https://open-telemetry.github.io/opentelemetry-helm-charts
+                  chart: opentelemetry-collector
+                  chartVersion: "0.176.0"
+                  valueFile: gitops/infrastructure/logs/collector.yaml
+                  imageParams:
+                    - name: image.repository
+                      upstream: docker-hub
+                      path: otel/opentelemetry-collector-contrib
+                  envParams:
+                    - extraEnvs[0].value
                 - appName: secret-store
                   kind: kustomize
                   wave: "2"
@@ -207,22 +314,6 @@ spec:
                     - name: sidecars.nodeDriverRegistrar.image.repository
                       upstream: k8s
                       path: sig-storage/csi-node-driver-registrar
-                - appName: monitoring
-                  kind: helm
-                  wave: "1"
-                  namespace: monitoring
-                  serverSideApply: "true"
-                  chartRepo: https://prometheus-community.github.io/helm-charts
-                  chart: kube-prometheus-stack
-                  chartVersion: "86.1.1"
-                  valueFile: gitops/infrastructure/monitoring/values.yaml
-                  # kube-prometheus-stack carries the env-scoped pull-through
-                  # prefixes in its committed values (ADR-0017), so prod has its
-                  # own values file.
-                  valueFileProd: gitops/infrastructure/monitoring/values-prod.yaml
-                  # Single host-injection point: global.imageRegistry = the host.
-                  hostParams:
-                    - global.imageRegistry
     # The example app (ADR-0034), one Application per cluster: the element and
     # the SCM generator combine into one row, so the row carries the element's
     # fields and the development branch's head commit. The name must match
@@ -306,15 +397,21 @@ spec:
             factor: 2
             maxDuration: 3m
       {{- if eq .kind "helm" }}
-      {{- $valueFile := .valueFile }}
-      {{- if and (eq $env "prod") .valueFileProd }}{{ $valueFile = .valueFileProd }}{{ end }}
       sources:
         - repoURL: {{ .chartRepo }}
           chart: {{ .chart }}
           targetRevision: "{{ .chartVersion }}"
           helm:
             valueFiles:
-              - $values/{{ $valueFile }}
+              - $values/{{ .valueFile }}
+              {{- range .moreValueFiles }}
+              - $values/{{ . }}
+              {{- end }}
+              {{- if eq $env "local" }}
+              {{- range .moreValueFilesLocal }}
+              - $values/{{ . }}
+              {{- end }}
+              {{- end }}
             parameters:
               {{- range .imageParams }}
               - name: {{ .name }}
@@ -323,6 +420,18 @@ spec:
               {{- range .hostParams }}
               - name: {{ . }}
                 value: "{{ $host }}"
+              {{- end }}
+              {{- range .prefixParams }}
+              - name: {{ .name }}
+                value: "{{ index $ann (printf "brzl.dev/prefix-%s" .upstream) }}/{{ .path }}"
+              {{- end }}
+              {{- range .portalHostParams }}
+              - name: {{ . }}
+                value: "{{ index $ann "brzl.dev/portal-host" }}"
+              {{- end }}
+              {{- range .envParams }}
+              - name: {{ . }}
+                value: "{{ $env }}"
               {{- end }}
         - repoURL: git@github.com:ryderdain/barzel-cluster.git
           targetRevision: {{ $revision }}

@@ -9,6 +9,8 @@
 #      it with what ESO projects);
 #   3. Argo CD's repository credential is written into the cluster FROM THE
 #      STORE, so the deploy key is given once: the store keeps it;
+#   2b. Grafana's admin password, made once in the store (Q105); ESO
+#      projects it into monitoring/grafana-admin;
 #   3b. the workload's access (ADR-0034, a private repo on GitHub): the files
 #      that driver/access/github.sh left in var/access/github/<org>/ seed the
 #      store once (the App's id, installation and key; the packages user and
@@ -149,6 +151,13 @@ phase_up() {
   printf '  printf '\''%%s'\'' "$smoke" | sha256sum > %q\n' "$run_dir/smoke.sha256"
   printf '  unset smoke\n'
   printf '}\n'
+  printf "{ # Grafana's admin password: made once in the store; ESO projects it into monitoring/grafana-admin\n"
+  printf '  if ! %s; then\n' "$(secret_exists grafana-admin)"
+  printf '    grafana_admin="$(openssl rand -hex 24)"\n'
+  printf '    %s\n' "$(secret_put grafana-admin grafana_admin)"
+  printf '    unset grafana_admin\n'
+  printf '  fi\n'
+  printf '}\n'
   printf '{ # Argo CD reads the private repo with the deploy key, taken from the store\n'
   printf '  kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -\n'
   # (a key file must end with a newline; the store keeps the value as given)
@@ -178,6 +187,10 @@ phase_check() {
   fi
   if [[ ! -s "$run_dir/smoke.sha256" ]] || ! secret_store_has smoke; then
     printf 'fix: no smoke value in the store or no %s; run the 25-bootstrap phase again\n' "$run_dir/smoke.sha256" >&2
+    rc=1
+  fi
+  if ! secret_store_has grafana-admin; then
+    printf 'fix: the store holds no Grafana admin password; run the 25-bootstrap phase again\n' >&2
     rc=1
   fi
   if ! openbao_run_bao read -format=json auth/kubernetes/config >/dev/null 2>&1; then

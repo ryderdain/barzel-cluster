@@ -7,7 +7,8 @@ it, with its example app. It is a procedure. The reference for each part is
 ## 1. What the machine needs
 
 - A container engine with its `docker` CLI (Docker Desktop, Colima or an
-  equivalent), started, with at least 8 GiB for its VM.
+  equivalent), started, with at least 8 GiB for its VM. The environment
+  needs about 5.5 GiB of it (LOCAL.md).
 - `git`, `bash` 4 or later, `jq`, `curl`.
 - `gh`, the GitHub CLI, logged in to your account (`gh auth login`). The
   workload's access (section 4) uses it.
@@ -100,7 +101,11 @@ file. Do them when they appear. The default host name,
 
 - `https://brzl-local.localhost/` is the admin portal. Argo CD is at
   `/argocd/` (user `admin`, the password is in the Secret
-  `argocd-initial-admin-secret`), the example app at `/apps/chofesh/`.
+  `argocd-initial-admin-secret`), Grafana at `/grafana/` (user `admin`, the
+  page shows how to read the password), the example app at
+  `/apps/chofesh/`.
+- In Grafana, Explore, the data source "Admin log store" shows every run
+  output of the driver: `{brzl_source="run-output"}`.
 - Run a search on the app's page. It writes to the app's own Postgres.
 - Push a change to the example app's `main`. Its CI publishes a new image.
   Within ten minutes Argo CD deploys that commit (LOCAL.md, "How a change to

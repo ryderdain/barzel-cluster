@@ -62,7 +62,8 @@ Order of work (Q120):
    to every substrate, and kube-prometheus-stack's Grafana is the one
    viewer. Loki and the collector come from Helm charts. The local
    collector beside the cluster sends to the one in it, with a queue on
-   disk.
+   disk. **Built 2026-10-19 on branch `pass-6-logs`; the live test is
+   next** (SCRATCHPAD).
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
    Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
@@ -93,7 +94,11 @@ Order of work (Q120):
     in `gitops/clusters/<env>/pki/`; whether a cloud needs the store copy of
     the certificate; ADR-0036); the
     admin log store (Q96: same product, data in S3); shipping the driver's
-    run sheets (Q106); exposing nginx through the Gateway API (Q113); the
+    run sheets (Q106); from pass 6 (ADR-0027 "Open after pass 6"): the k3s
+    audit policy and log file through Ansible, the portal host annotation
+    for Grafana's domain, the Grafana password from the AWS store (the
+    bootstrap's `grafana-admin` goes), the events from one collector
+    replica, a credential on the collector's OTLP receiver; exposing nginx through the Gateway API (Q113); the
     CloudWatch Logs exporter is alpha; the live test of model B
     (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
     `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and
@@ -123,7 +128,7 @@ Order of work (Q120):
     pass first uses a tool or decides to add it**; the run completes them.
     Drafts so far: [Kustomize](docs/guide/kustomize.md),
     [cert-manager](docs/guide/cert-manager.md),
-    [kiesei](docs/guide/kiesei.md).
+    [kiesei](docs/guide/kiesei.md), [the log stack](docs/guide/logs.md).
 13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.23 (v2.13.4; the
     patch that fixed the login `return_url` under a base href, taken in
     pass 5c) to the current chart (10.x, v3.5). Aligns the server with the

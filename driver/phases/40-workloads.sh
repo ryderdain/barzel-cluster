@@ -14,7 +14,14 @@
 # and, in local-ca mode, the CA certificate in BRZL_SECRET_STORE_DIR;
 # BRZL_EXAMPLE_APP_NAME (the example app's namespace, Deployment and portal
 # path all carry its name; its Postgres is Cluster `pg` there). Needs
-# kubectl, curl. No credentials.
+# kubectl, curl, jq. No credentials.
+#
+# The logs (ADR-0027): the check asks each log store, through the API
+# server's service proxy, whether records arrived: every source of the admin
+# log store, and the example app's pod logs in the diagnostic log store. It
+# asks with a query, not Loki's /ready. The run outputs of the earlier phases
+# waited in the queue of the collector beside the cluster, so the check waits
+# up to three minutes for them.
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
@@ -70,12 +77,50 @@ phase_check() {
     printf 'fix: the example app %s is not rolled out; see: kubectl -n %s describe deploy/%s\n' "$app" "$app" "$app" >&2
     rc=1
   fi
+  logs_check || rc=1
   portal_check || rc=1
   return "$rc"
 }
 
+# loki_query <store> <logql> — GENERATOR: the instant query's result (JSON),
+# through the API server's proxy to the store's Service (no port-forward).
+loki_query() {
+  local store="$1" query
+  query="$(jq -rn --arg q "$2" '$q | @uri')"
+  kubectl get --raw "/api/v1/namespaces/logs/services/log-store-$store:3100/proxy/loki/api/v1/query?query=$query" 2>/dev/null
+}
+
+# logs_check — every admin source has records in the admin log store, and the
+# example app's pod logs are in the diagnostic log store (see the header).
+logs_check() {
+  local want=(run-output k3s-server api-audit openbao-audit k8s-event) have missing source app="$BRZL_EXAMPLE_APP_NAME" i
+  for (( i = 0; i < 36; i++ )); do
+    have="$(loki_query admin 'sum by (brzl_source) (count_over_time({brzl_store="admin-log-store"}[24h]))' \
+      | jq -r '.data.result[]?.metric.brzl_source' 2>/dev/null)"
+    missing=''
+    for source in "${want[@]}"; do
+      grep -qx -- "$source" <<< "$have" || missing+=" $source"
+    done
+    [[ -z "$missing" ]] && break
+    sleep 5
+  done
+  if [[ -n "$missing" ]]; then
+    printf 'fix: the admin log store has no records from:%s; see: kubectl -n logs logs ds/log-collector-agent; docker logs %s\n' \
+      "$missing" "$BRZL_LOG_COLLECTOR_NAME" >&2
+    return 1
+  fi
+  printf 'the admin log store has records from every source: %s\n' "${want[*]}"
+  if [[ "$(loki_query diagnostic "sum(count_over_time({k8s_namespace_name=\"$app\"}[24h]))" \
+        | jq -r '.data.result[0].value[1] // 0' 2>/dev/null)" == 0 ]]; then
+    printf 'fix: the diagnostic log store has no logs of the example app %s; see: kubectl -n logs logs ds/log-collector-agent\n' "$app" >&2
+    return 1
+  fi
+  printf 'the diagnostic log store has the example app'"'"'s logs (%s)\n' "$app"
+}
+
 # portal_check — the admin portal answers over TLS at its host name, from this
-# machine, and passes /argocd/ and the example app's /apps/<name>/ through.
+# machine, and passes /argocd/, /grafana/ and the example app's /apps/<name>/
+# through.
 # The name is resolved here (--resolve),
 # so the check does not depend on the operating system's resolver; the CA is
 # the store's in local-ca mode.
@@ -110,7 +155,12 @@ portal_check() {
       "$BRZL_EXAMPLE_APP_NAME" "$code" "$BRZL_EXAMPLE_APP_NAME" "$BRZL_EXAMPLE_APP_NAME" >&2
     return 1
   fi
-  printf 'the admin portal answers at %s/ and passes /argocd/ and /apps/%s/ through\n' "$url" "$BRZL_EXAMPLE_APP_NAME"
+  code="$("${curl[@]}" "$url/grafana/api/health" 2>&1)"
+  if [[ "$code" != 200 ]]; then
+    printf 'fix: the portal does not pass /grafana/ through (%s); see: kubectl -n monitoring logs deploy/monitoring-grafana; kubectl -n monitoring describe externalsecret grafana-admin\n' "$code" >&2
+    return 1
+  fi
+  printf 'the admin portal answers at %s/ and passes /argocd/, /grafana/ and /apps/%s/ through\n' "$url" "$BRZL_EXAMPLE_APP_NAME"
 }
 
 if [[ "$is_sourced" == false ]]; then

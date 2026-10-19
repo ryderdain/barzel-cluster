@@ -19,29 +19,40 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-18, fable. Pruned to the current state. The history is in git,
+*(2026-10-19, opus. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 5d DONE and user-verified** (RETROSPECTIVE 2026-10-18), merged to
-`main`. The example app is `tzvat/chofesh`, private, deployed from its own
-repo and CI. Local follows its `main` through the SCM generator. The other
-environments follow a release tag (ADR-0034, Q141–Q157). The cluster's
-registration still names revision `pass-5d`; the next `up` on `main`
-re-registers it (same content).
+**Pass 6 (logs) BUILT on branch `pass-6-logs`; the user's live test is
+next.** Design round Q158–Q162 (ADR-0027 amendment, SPEC v0.15): metrics
+and Grafana on every substrate (kube-prometheus-stack; its Grafana is the
+one viewer), Loki and the collector from Helm charts, the collector beside
+the cluster forwards to the in-cluster one and queues on disk. BACKLOG
+gained 17 (`state`, read-only), 18 (purge, separate, with safeguards), 19
+(low-memory mode).
 
-**Facts to keep in mind:** phase 30 applies the ApplicationSet file, and
-Argo CD does not follow it from git (BACKLOG 15; retiring an Application is
-a three-step procedure, LOCAL.md). The driver stops when a phase cannot be
-emitted; the stream belongs in kiesei. `bao` in a run sheet is a call into
-the store's container: files on stdin, never inside a pipeline that feeds
-`kubectl`. The SCM generator polls GitHub every 5 min anonymously for the
-list, with the App for a private repo. The access files are in
-`var/access/github/tzvat/` (the store holds the values now). Checks run in
-kiesei (Linux, no `dig`, cannot see macOS). The example app's name lives
-in three places (env, element, nginx).
+**What was built:** run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`,
+a header line in each run output (driver tests 18/18); phase 10 makes
+`var/log-store/local/{admin,queue,openbao-audit}`, the container
+`brzl-log-collector`, and the cluster with the API audit policy, the k3s
+log file and the admin data's mount; OpenBao's audit device in its config
+(the container is replaced once, its data stays); ApplicationSet keys
+`moreValueFiles`, `moreValueFilesLocal`, `prefixParams`,
+`portalHostParams`, `envParams`; elements `monitoring` (now common),
+`log-store-admin`, `log-store-diagnostic`, `log-collector` (namespace
+`logs`); phase 25 seeds `grafana-admin` in the store; phase 40 checks
+every admin source, the app's logs in the diagnostic store, `/grafana/`.
 
-**▶ NEXT: pass 6, logs** (ADR-0027; the spike on branch `spike-logs`;
-BACKLOG item 4). Start with a short design round that re-reads the ADR and
-the spike. Open small items that fit any pass: 16a (the access flow), 16b
-(kiesei conveniences, `argocd` core mode), 16c (manifests as files).
+**Verified without a cluster:** the template patch rendered through Helm
+for six elements; the charts rendered; `loki -verify-config` on both
+configs; `otelcol-contrib validate` on both collector configs; a Loki
+container with the chart's config is ready after ~45 s and indexes the
+labels; OpenBao 2.7.1 accepts the declarative audit device (needs `type`
+and `path`); uid 10001 writes to a host bind mount.
+
+**Risks for the live test:** k3s `--log` with k3d's `--wait` (if phase 10
+hangs at cluster create, that flag is the suspect); first pulls of the new
+images through Zot; ESO must project `grafana-admin` before Grafana starts.
+
+**▶ NEXT:** the user runs the live test (procedure in the chat), then the
+RETROSPECTIVE entry, the memory budget measured into LOCAL.md, merge.
