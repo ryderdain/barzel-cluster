@@ -160,7 +160,34 @@ portal_check() {
     printf 'fix: the portal does not pass /grafana/ through (%s); see: kubectl -n monitoring logs deploy/monitoring-grafana; kubectl -n monitoring describe externalsecret grafana-admin\n' "$code" >&2
     return 1
   fi
+  grafana_query_check "$url" || return 1
   printf 'the admin portal answers at %s/ and passes /argocd/, /grafana/ and /apps/%s/ through\n' "$url" "$BRZL_EXAMPLE_APP_NAME"
+}
+
+# grafana_query_check <url> — what a browser does in
+# Explore: log in through the portal, then query the admin log store, with
+# the browser's Origin header. Grafana refuses a query whose origin is not
+# the Host it receives ("origin not allowed"), so this catches a portal that
+# passes the wrong Host. The password goes from the Secret to curl's stdin;
+# nothing prints it.
+grafana_query_check() {
+  local url="$1" jar out
+  local -a c=(curl -sS --max-time 20 --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
+  [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]] && c+=(--cacert "$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt")
+  jar="$(mktemp)" || return 1
+  kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d \
+    | jq -Rs '{user: "admin", password: .}' \
+    | "${c[@]}" -c "$jar" -X POST -H 'Content-Type: application/json' -d @- "$url/grafana/login" >/dev/null 2>&1
+  out="$("${c[@]}" -b "$jar" -X POST -H 'Content-Type: application/json' -H "Origin: $url" \
+    -d '{"queries":[{"refId":"A","datasource":{"uid":"admin-log-store"},"expr":"{brzl_source=\"run-output\"}","queryType":"range"}],"from":"now-1h","to":"now"}' \
+    "$url/grafana/api/ds/query" 2>&1)"
+  rm -f "$jar"
+  if [[ "$(jq -r '.results.A.status // empty' <<< "$out" 2>/dev/null)" != 200 ]]; then
+    printf 'fix: a query in Grafana on the admin log store failed through the portal: %s; see: kubectl -n monitoring logs deploy/monitoring-grafana\n' \
+      "$(head -c 200 <<< "$out")" >&2
+    return 1
+  fi
+  printf 'Grafana queries the admin log store through the portal, as a browser does\n'
 }
 
 if [[ "$is_sourced" == false ]]; then
