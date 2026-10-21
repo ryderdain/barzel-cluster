@@ -17,9 +17,10 @@
 #                                               #    the emitted groups call this
 #
 # Each phase group: (1) the phase's emitter writes its commands to a run sheet,
-# var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh; (2) the run sheet runs at the
+# var/run/<env>/cluster-<UTC>Z/<NN>-<phase>.sh; (2) the run sheet runs at the
 # phase's locus — here, or on the conductor via driver/conductor.sh — its output
-# goes to <NN>-<phase>.out and its exit status to .rc; (3) the phase's check
+# goes to <NN>-<phase>.out, after a header line that names the environment, the
+# run, the phase and the start time (ADR-0027), and its exit status to .rc; (3) the phase's check
 # runs and, if it passes, writes .ok. A failed check stops the stream with
 # `error 3`. Resume = run `up` or `next` again: it continues at the first phase
 # with no .ok. Rules: ryderdain/bash STYLE.md §1.11–§1.12; ADR-0022.
@@ -31,7 +32,7 @@
 # the stream would end silently. Data reaches a command by pipe or heredoc.
 #
 # Fast mode (GLOSSARY; local only; ADR-0025): fast_on / fast_off / apply write
-# their run sheets into the current run (fast-on-<HHMMSS>.sh, ...) with
+# their run sheets into the current run (fast-on-<HHMMSS>Z.sh, ..., in UTC) with
 # driver/fast-mode.sh and need a run that has passed 30-gitops.
 #
 # Inputs: <env> selects env/<env>.env. Needs the tools of each phase (k3d,
@@ -61,20 +62,34 @@ current_run() {
       fi
     done
   fi
-  new_run_dir "$env"
+  new_run_dir "$env" cluster
 }
 
-# new_run_dir <env> [suffix] — print a run directory that does not exist yet:
-# var/run/<env>/<YYYYmmddHHMM>[-suffix], with -2, -3, ... if that minute is taken.
+# utc <strftime format> — the time now in UTC (ADR-0027: UTC everywhere).
+utc() { TZ=UTC0 printf "%($1)T" -1; }
+
+# new_run_dir <env> <cluster|teardown> — print a run directory that does not
+# exist yet: var/run/<env>/<kind>-<YYYYmmddTHHMM>Z, with -2, -3, ... if that
+# minute is taken.
 new_run_dir() {
-  local env="$1" suffix="${2:+-$2}" base n=1 dir
-  base="var/run/$env/$(printf '%(%Y%m%d%H%M)T' -1)"
-  dir="$base$suffix"
+  local env="$1" kind="$2" base n=1 dir
+  base="var/run/$env/$kind-$(utc '%Y%m%dT%H%M')Z"
+  dir="$base"
   while [[ -e "$repo_root/$dir" ]]; do
     n=$(( n + 1 ))
-    dir="$base-$n$suffix"
+    dir="$base-$n"
   done
   printf '%s' "$dir"
+}
+
+# run_output_header <env> <run_dir> <name> — the emitted command that starts a
+# run output with its header line (logfmt; ADR-0027). The start time is taken
+# when the line runs, not when it is emitted. The collector tells files apart
+# by their first bytes, so two outputs with the same text need this line.
+run_output_header() {
+  # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
+  printf 'printf '\''# brzl run-output env=%s run=%s phase=%s start=%%s\\n'\'' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"' \
+    "$1" "${2##*/}" "$3"
 }
 
 # squote <text> — single-quote text for the emitted stream, readably (plain
@@ -104,10 +119,11 @@ emit_phase() {
   printf '  bash driver/phases/%s.sh %s %q %q > %q \\\n' "$phase" "$emitter" "$env" "$run_dir" "$run_dir/$name.sh"
   printf '    || error 3 %s\n' "$(squote "phase $name could not be emitted (the message above says what is missing; the stream belongs in kiesei: | bash driver/kiesei.sh); nothing ran")"
   if [[ "$locus" == conductor ]]; then
-    printf '  bash driver/conductor.sh %q %q < /dev/null 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
+    printf '  { %s; bash driver/conductor.sh %q %q < /dev/null; } 2>&1 | tee %q\n' \
+      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir" "$name" "$run_dir/$name.out"
   else
-    printf '  { bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-      "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+    printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
   fi
   printf '  bash driver/driver.sh %q check %q %q%s < /dev/null \\\n' "$env" "$phase" "$run_dir" "$checker"
   printf '    || error 3 %s\n' "$(squote "phase $name did not pass its check; read $run_dir/$name.sh and $name.out, fix, then run again")"
@@ -131,7 +147,7 @@ emit_up() {
 
 emit_down() {
   local env="$1" run_dir phase i
-  run_dir="$(new_run_dir "$env" down)"
+  run_dir="$(new_run_dir "$env" teardown)"
   printf 'cd %q || exit 1\n' "$repo_root"
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
   printf '{ # run directory %s; the next up starts a new run\n' "$run_dir"
@@ -158,14 +174,15 @@ emit_fast() {
     printf 'error: fast mode needs Argo CD: phase 30-gitops has not passed in %s\n' "$run_dir" >&2
     return 2
   fi
-  name="fast-$what-$(printf '%(%H%M%S)T' -1)"
+  name="fast-$what-$(utc '%H%M%S')Z"
   printf 'cd %q || exit 1\n' "$repo_root"
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
   if [[ "$what" == apply ]]; then
     printf '{ # fast mode: apply the working tree (%s, locus: conductor)\n' "$env"
     printf '  bash driver/fast-mode.sh fast_apply %q %q > %q \\\n' "$env" "$run_dir" "$run_dir/$name.sh"
     printf '    || error 3 %s\n' "$(squote "nothing applied: is fast mode on? (bash driver/driver.sh $env fast_on)")"
-    printf '  bash driver/conductor.sh %q %q < /dev/null 2>&1 | tee %q\n' "$run_dir" "$name" "$run_dir/$name.out"
+    printf '  { %s; bash driver/conductor.sh %q %q < /dev/null; } 2>&1 | tee %q\n' \
+      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir" "$name" "$run_dir/$name.out"
     # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
     printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name.rc"
     printf '    || error 3 %s\n' "$(squote "apply failed (fast mode stays on); read $run_dir/$name.out, fix, then apply again")"
@@ -174,8 +191,8 @@ emit_fast() {
     printf '{ # fast mode %s (%s, locus: driver)\n' "$what" "$env"
     printf '  bash driver/fast-mode.sh fast_switch %q %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
     printf '    || error 3 %s\n' "$(squote "fast mode not switched: see the message above")"
-    printf '  { bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-      "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+    printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
     printf '  bash driver/fast-mode.sh fast_check %q %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
     printf '    || error 3 %s\n' "$(squote "fast mode $what did not take effect; read $run_dir/$name.out")"
     printf '}\n'

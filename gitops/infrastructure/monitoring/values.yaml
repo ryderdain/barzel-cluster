@@ -1,13 +1,19 @@
-# kube-prometheus-stack values (chart 86.1.1, appVersion v0.91.0).
+# kube-prometheus-stack values (chart 86.1.1, appVersion v0.91.0), for every
+# substrate (Q158, ADR-0027 amendment): metrics, and the one Grafana, which
+# also reads the two log stores.
 #
-# Account-id hygiene (ADR-0016 pattern): the ONE account-bearing value is the ECR
-# registry host. The ApplicationSet injects it once as `global.imageRegistry` at
-# render (hostParams) — never committed. Every image `repository` below carries
-# its pull-through PREFIX (brzl-dev-quay / -k8s / -github / -docker-hub), so the
-# rendered ref is  <host>/<prefix>/<path>  — a valid ECR pull-through image.
-# Docker Hub (grafana) needs the brzl-dev-docker-hub rule (its credential is the
-# "monitoring block" analogue of the ghcr "CNPG block"); quay/k8s/ghcr are already
-# wired. __ECR_REGISTRY_HOST__ here is a documentation sentinel, overridden at render.
+# Registry (ADR-0016 pattern): the ApplicationSet injects the registry host
+# once as `global.imageRegistry` (hostParams) and puts the upstream's prefix
+# in front of each image path below (prefixParams): an ECR pull-through
+# prefix on AWS (brzl-<env>-quay, ...), a Zot namespace on local (quay.io,
+# ...). So the paths here are the upstream paths, and no environment has its
+# own copy of this file. Docker Hub (Grafana, curl) needs the docker-hub
+# pull-through rule and its credential on AWS. __ECR_REGISTRY_HOST__ is a
+# documentation sentinel, overridden at render.
+#
+# Substrate differences go into values-<substrate>.yaml (moreValueFilesLocal
+# in the ApplicationSet for local). Storage takes the cluster's default
+# storage class: gp3 on AWS (EBS CSI, wave 0), local-path on k3d.
 global:
   imageRegistry: __ECR_REGISTRY_HOST__
 
@@ -27,19 +33,19 @@ windowsMonitoring:
 
 prometheusOperator:
   image:
-    repository: brzl-dev-quay/prometheus-operator/prometheus-operator
+    repository: prometheus-operator/prometheus-operator
   prometheusConfigReloader:
     image:
-      repository: brzl-dev-quay/prometheus-operator/prometheus-config-reloader
+      repository: prometheus-operator/prometheus-config-reloader
   admissionWebhooks:
     patch:
       image:
-        repository: brzl-dev-github/jkroepke/kube-webhook-certgen
+        repository: jkroepke/kube-webhook-certgen
 
 prometheus:
   prometheusSpec:
     image:
-      repository: brzl-dev-quay/prometheus/prometheus
+      repository: prometheus/prometheus
     # Scrape monitors cluster-wide, not just chart-release-labeled ones — so CNPG's
     # PodMonitor (enabled on the pg Cluster) is discovered without a release label.
     podMonitorSelectorNilUsesHelmValues: false
@@ -54,11 +60,11 @@ prometheus:
         memory: 512Mi
       limits:
         memory: 1Gi
-    # Persist TSDB on gp3 (EBS) so metrics survive a pod reschedule.
+    # Persist the TSDB on the default storage class (gp3 on AWS) so metrics
+    # survive a pod reschedule.
     storageSpec:
       volumeClaimTemplate:
         spec:
-          storageClassName: gp3
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
@@ -66,39 +72,59 @@ prometheus:
 
 kube-state-metrics:
   image:
-    repository: brzl-dev-k8s/kube-state-metrics/kube-state-metrics
+    repository: kube-state-metrics/kube-state-metrics
 
 prometheus-node-exporter:
   image:
-    repository: brzl-dev-quay/prometheus/node-exporter
+    repository: prometheus/node-exporter
 
 grafana:
-  # admin credentials come from a bootstrap-created in-cluster Secret (never in git,
-  # same posture as the repo deploy-key / pull-through creds — see BOOTSTRAP.md).
-  # This is deterministic: the chart's own `adminPassword` default is a
-  # `randAlphaNum` that regenerates on every render, so the Secret would drift from
-  # Grafana's DB → 401. gitops/tools/ui-forward.sh reads this Secret to print the
-  # password. Create it once: kubectl -n monitoring create secret generic
-  # grafana-admin --from-literal=admin-user=admin --from-literal=admin-password=...
+  # The admin login comes from the in-cluster Secret grafana-admin (never in
+  # git). On local, ESO projects it from the cluster secret store, where phase
+  # 25 makes the password once (values-local.yaml, Q105). On AWS, the
+  # bootstrap creates it (BOOTSTRAP.md) until the AWS store exists (pass 8).
+  # A fixed Secret, because the chart's own `adminPassword` default is a
+  # `randAlphaNum` that changes on every render, so it would drift from
+  # Grafana's database (401).
   admin:
     existingSecret: grafana-admin
     userKey: admin-user
     passwordKey: admin-password
   defaultDashboardsEnabled: true   # the kube/node/workload dashboards = system visibility
+  # Served under the admin portal's /grafana/ (ADR-0028). The ApplicationSet
+  # injects the portal's host name as server.domain (portalHostParams).
+  grafana.ini:
+    server:
+      domain: localhost                     # replaced by the portal host
+      root_url: "https://%(domain)s/grafana/"
+      serve_from_sub_path: true
+  # The two log stores (ADR-0027), beside the stack's own Prometheus. The
+  # names say which store each one reads (Q99).
+  additionalDataSources:
+    - name: Admin log store
+      uid: admin-log-store
+      type: loki
+      access: proxy
+      url: http://log-store-admin.logs.svc:3100
+    - name: Diagnostic log store
+      uid: diagnostic-log-store
+      type: loki
+      access: proxy
+      url: http://log-store-diagnostic.logs.svc:3100
   image:
-    repository: brzl-dev-docker-hub/grafana/grafana
+    repository: grafana/grafana
   # The grafana sidecar (quay) discovers the kube-prometheus-stack built-in
   # dashboards (ConfigMaps labeled grafana_dashboard) — system/node/workload views.
   sidecar:
     image:
-      repository: brzl-dev-quay/kiwigrid/k8s-sidecar
+      repository: kiwigrid/k8s-sidecar
   # The Postgres dashboard (PLAN deliverable): the official CloudNativePG dashboard
   # (grafana.com id 20417), pulled at startup by the curl downloader (routed through
   # the Docker Hub pull-through) and pointed at the stack's Prometheus datasource.
   downloadDashboards:
     enabled: true
   downloadDashboardsImage:
-    repository: brzl-dev-docker-hub/curlimages/curl
+    repository: curlimages/curl
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
@@ -117,7 +143,7 @@ grafana:
         gnetId: 20417
         revision: 1
         datasource: Prometheus
-  # gp3 fsGroup handles ownership; skip the busybox initChown to drop an image.
+  # The volume's fsGroup handles ownership; skip the busybox initChown to drop an image.
   initChownData:
     enabled: false
   # Persistence OFF deliberately: dashboards (provisioned from files + the sidecar)

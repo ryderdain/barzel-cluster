@@ -93,6 +93,13 @@ report 'next runs only that phase' 'no' "$([[ -e "$dir/20-images.sh" ]] && print
 # 3. The run sheet starts with the resolved inputs.
 report 'the run sheet records the resolved environment' '# BRZL_SUBSTRATE=fake' "$(sed -n 2p "$dir/10-substrate.sh")"
 
+# 3a. UTC everywhere (ADR-0027): the run directory is cluster-<UTC>Z, and each
+# run output starts with its header line.
+report 'the run directory is named cluster-<UTC>Z' 'yes' \
+  "$([[ "$(run_dir)" =~ ^cluster-[0-9]{8}T[0-9]{4}Z(-[0-9]+)?$ ]] && printf yes || printf no)"
+report 'the run output starts with its header line' 'yes' \
+  "$([[ "$(head -n 1 "$dir/10-substrate.out")" =~ ^'# brzl run-output env=test run='"$(run_dir)"' phase=10-substrate start='[0-9-]{10}T[0-9:]{8}Z$ ]] && printf yes || printf no)"
+
 # 4. Resume: `up` continues at the first phase without .ok, in the same run.
 before="$(run_dir)"
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)

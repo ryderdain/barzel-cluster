@@ -7,7 +7,8 @@
 #                                   the secret store and the cluster share
 #   substrate_up <run_dir>          EMIT: make the registry and the cluster;
 #                                   write <run_dir>/kubeconfig
-#   substrate_down                  EMIT: remove the cluster (the registry stays)
+#   substrate_down                  EMIT: remove the cluster (the registry and
+#                                   the collector beside it stay)
 #   substrate_image_ref <name:tag>  print the reference to push a locally built
 #                                   image to, which the cluster can also pull
 #   substrate_registry_host         print the registry host the cluster pulls
@@ -39,6 +40,18 @@
 # §3 portability), and a cloud gives no ingress for free either. The admin
 # portal's NodePort is mapped to a host port instead (ADR-0028).
 #
+# Logs (ADR-0027). The admin log store's data is a host directory,
+# BRZL_LOG_STORE_DIR/admin, mounted into the server node; the admin Loki in
+# the cluster keeps it there, so it outlives the cluster as a bucket would.
+# The API server writes an audit log (k3s-audit-policy.yaml, metadata level)
+# and k3s writes its own log to a file, both on the server node, where the
+# in-cluster collector reads them. A collector beside the cluster
+# (BRZL_LOG_COLLECTOR_NAME, config k3d-otelcol.yaml) reads the run outputs in
+# var/run/<env>/ and the secret store's audit log, and sends them to the
+# in-cluster collector's host port on the server node, over the shared
+# container network; it queues on disk in BRZL_LOG_STORE_DIR/queue while the
+# cluster is absent. It is replaced when its config changes, like Zot.
+#
 # Public DNS has a local stand-in (ADR-0036), used only when the portal's host
 # name is not under .localhost (a name the operator chose, as if public): a
 # CoreDNS container beside Zot that answers for that one name (127.0.0.1),
@@ -49,8 +62,8 @@
 # browsers, so it needs no stand-in.
 #
 # Sourced by driver/phases/*.sh, never run on its own. Inputs: BRZL_K3D_*,
-# BRZL_K3S_IMAGE, BRZL_DOCKER_NETWORK, BRZL_ZOT_*, BRZL_DNS_*, BRZL_PORTAL_*
-# from the environment definition. Needs k3d, docker, kubectl, curl, dig. No
+# BRZL_K3S_IMAGE, BRZL_DOCKER_NETWORK, BRZL_ZOT_*, BRZL_DNS_*, BRZL_PORTAL_*,
+# BRZL_LOG_* from the environment definition. Needs k3d, docker, kubectl, curl, dig. No
 # credentials (anonymous upstream pulls). The sourcing phase script sets
 # repo_root.
 # shellcheck disable=SC2154
@@ -113,15 +126,61 @@ substrate_up() {
   printf 'EOF\n'
   printf '}\n'
   dns_up
-  printf '{ # k3d cluster %s (no Traefik, no servicelb; the portal NodePort on host port %s), and its kubeconfig\n' \
+  log_collector_up "$run_dir"
+  local arg
+  printf '{ # k3d cluster %s (no Traefik, no servicelb; the portal NodePort on host port %s;\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_PORTAL_PORT"
+  printf '  # the admin log store'"'"'s data and the API audit policy mounted in), and its kubeconfig\n'
   printf '  k3d cluster create %q --image %q --servers %q --agents %q \\\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_K3S_IMAGE" "$BRZL_K3D_SERVERS" "$BRZL_K3D_AGENTS"
   printf '    --api-port %q --network %q --registry-config %q \\\n' \
     "127.0.0.1:$BRZL_K3D_API_PORT" "$BRZL_DOCKER_NETWORK" "$run_dir/registries.yaml"
-  printf '    --k3s-arg %q --port %q --wait\n' \
-    '--disable=traefik,servicelb@server:*' "127.0.0.1:$BRZL_PORTAL_PORT:$BRZL_PORTAL_NODE_PORT@server:0"
+  printf '    --volume %q \\\n' \
+    "$repo_root/$BRZL_LOG_STORE_DIR/admin:/var/lib/brzl/admin-log-store@server:0" \
+    "$repo_root/driver/substrates/k3s-audit-policy.yaml:/etc/brzl/audit-policy.yaml@server:*"
+  for arg in --disable=traefik,servicelb \
+      --kube-apiserver-arg=audit-policy-file=/etc/brzl/audit-policy.yaml \
+      --kube-apiserver-arg=audit-log-path=/var/log/kubernetes/audit/audit.log \
+      --kube-apiserver-arg=audit-log-maxsize=50 --kube-apiserver-arg=audit-log-maxbackup=3 \
+      --log=/var/log/k3s.log --alsologtostderr; do
+    printf '    --k3s-arg %q \\\n' "$arg@server:*"
+  done
+  printf '    --port %q --wait\n' "127.0.0.1:$BRZL_PORTAL_PORT:$BRZL_PORTAL_NODE_PORT@server:0"
   printf '  k3d kubeconfig get %q > %q\n' "$BRZL_K3D_CLUSTER" "$run_dir/kubeconfig"
+  printf '}\n'
+}
+
+# log_collector_up <run_dir> — EMIT: the log store's directories and the
+# collector beside the cluster (see the header). The environment's name and
+# its run directories come from the run directory, var/run/<env>/<run>.
+log_collector_up() {
+  local run_dir="$1" name="$BRZL_LOG_COLLECTOR_NAME" dir="$BRZL_LOG_STORE_DIR" runs env endpoint config sha state
+  runs="${run_dir%/*}"; env="${runs##*/}"
+  endpoint="http://k3d-$BRZL_K3D_CLUSTER-server-0:4318"
+  config="$repo_root/driver/substrates/k3d-otelcol.yaml"
+  sha="$(cat "$config" <(printf '%s %s %s' "$env" "$endpoint" "$BRZL_LOG_COLLECTOR_IMAGE") | sha256sum)"; sha="${sha%% *}"
+  state="$(container_state "$name" dev.brzl.log-collector-config-sha256 "$sha")"
+  printf '{ # the log store'"'"'s directories beside the cluster: the admin log store'"'"'s data, the collector'"'"'s queue\n'
+  printf '  mkdir -p %q %q\n' "$dir/admin" "$dir/queue"
+  printf '}\n'
+  if [[ "$state" == current ]]; then
+    printf '{ # collector beside the cluster: its config is current; make sure it runs\n'
+    printf '  docker start %q\n' "$name"
+    printf '}\n'
+    return 0
+  fi
+  printf '{ # collector beside the cluster (ADR-0027): run outputs and the store'"'"'s audit log to the\n'
+  printf '  # cluster'"'"'s collector at %s; it queues on disk while the cluster is absent\n' "$endpoint"
+  [[ "$state" == stale ]] && printf '  docker rm -f %q   # its config changed; the queue stays\n' "$name"
+  printf '  docker run -d --name %q --network %q --restart unless-stopped --user 0 \\\n' "$name" "$BRZL_DOCKER_NETWORK"
+  printf '    --label %q \\\n' "dev.brzl.log-collector-config-sha256=$sha"
+  printf '    -e %q -e %q \\\n' "BRZL_ENV=$env" "BRZL_OTLP_ENDPOINT=$endpoint"
+  printf '    -v %q \\\n' \
+    "$config:/etc/otelcol-contrib/config.yaml:ro" \
+    "$repo_root/$runs:/run-outputs:ro" \
+    "$repo_root/$dir/openbao-audit:/openbao-audit:ro" \
+    "$repo_root/$dir/queue:/queue"
+  printf '    %q\n' "$BRZL_LOG_COLLECTOR_IMAGE"
   printf '}\n'
 }
 
@@ -197,7 +256,8 @@ dns_check() {
 }
 
 substrate_down() {
-  printf '{ # remove k3d cluster %s and everything in it (Zot, its cache and the DNS stand-in stay)\n' "$BRZL_K3D_CLUSTER"
+  printf '{ # remove k3d cluster %s and everything in it (Zot, its cache, the DNS stand-in,\n' "$BRZL_K3D_CLUSTER"
+  printf '  # the collector beside the cluster and the admin log store'"'"'s data stay)\n'
   printf '  k3d cluster delete %q\n' "$BRZL_K3D_CLUSTER"
   printf '}\n'
 }
@@ -260,6 +320,12 @@ substrate_check() {
   fi
   printf 'Zot is ready on 127.0.0.1:%s; k3d cluster %s is up and its nodes are Ready\n' \
     "$BRZL_ZOT_PORT" "$BRZL_K3D_CLUSTER"
+  if [[ "$(docker inspect --format '{{ .State.Running }}' "$BRZL_LOG_COLLECTOR_NAME" 2>/dev/null)" != true ]]; then
+    printf 'fix: the collector beside the cluster %s is not running; see: docker logs %s\n' \
+      "$BRZL_LOG_COLLECTOR_NAME" "$BRZL_LOG_COLLECTOR_NAME" >&2
+    return 1
+  fi
+  printf 'the collector beside the cluster %s runs\n' "$BRZL_LOG_COLLECTOR_NAME"
   dns_check
 }
 
@@ -268,6 +334,6 @@ substrate_check_down() {
     printf 'fix: k3d cluster delete %q\n' "$BRZL_K3D_CLUSTER" >&2
     return 1
   fi
-  printf 'k3d cluster %s is gone (Zot %s, its cache and the DNS stand-in %s are kept)\n' \
-    "$BRZL_K3D_CLUSTER" "$BRZL_ZOT_NAME" "$BRZL_DNS_NAME"
+  printf 'k3d cluster %s is gone (Zot %s, its cache, the DNS stand-in %s and the collector %s are kept)\n' \
+    "$BRZL_K3D_CLUSTER" "$BRZL_ZOT_NAME" "$BRZL_DNS_NAME" "$BRZL_LOG_COLLECTOR_NAME"
 }

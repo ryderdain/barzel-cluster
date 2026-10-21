@@ -15,7 +15,8 @@ spec:
   description: brzl-demo dev cluster — infrastructure, operators, applications
   sourceRepos:
     - git@github.com:ryderdain/barzel-cluster.git
-    # The example app's repo (ADR-0034): public, read over https.
+    # The example app's repo (ADR-0034): private, read over https with the
+    # GitHub App (the organization's repo-creds Secret, phase 25).
     - https://github.com/tzvat/chofesh.git
     # Helm chart repos the child apps render from (images still come via ECR
     # pull-through; only the chart packages are fetched here).
@@ -23,7 +24,10 @@ spec:
     - https://kubernetes-sigs.github.io/aws-ebs-csi-driver
     - https://cloudnative-pg.github.io/charts
     - https://charts.external-secrets.io
+    - https://charts.jetstack.io
     - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+    - https://open-telemetry.github.io/opentelemetry-helm-charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

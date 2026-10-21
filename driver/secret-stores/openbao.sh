@@ -63,9 +63,10 @@ openbao_policy_pki_issuer='path "pki/sign/portal" { capabilities = ["update"] }'
 # openbao_config — the server config (JSON: the image writes BAO_LOCAL_CONFIG to
 # /openbao/config/local.json). The seal key comes from the container's
 # environment (env://), never from a mounted file: a bind-mounted 600 file is
-# unreadable to the image's unprivileged user.
+# unreadable to the image's unprivileged user. The audit device is declared here
+# too (OpenBao 2.3+): a file in /openbao/logs, a host directory (ADR-0027).
 openbao_config() {
-  printf '%s' '{"storage":{"pebbledb":{"path":"/openbao/file"}},"listener":{"tcp":{"address":"0.0.0.0:8200","tls_disable":true}},"seal":{"static":{"current_key_id":"brzl-1","current_key":"env://BAO_SEAL_KEY"}},"ui":false}'
+  printf '%s' '{"storage":{"pebbledb":{"path":"/openbao/file"}},"listener":{"tcp":{"address":"0.0.0.0:8200","tls_disable":true}},"seal":{"static":{"current_key_id":"brzl-1","current_key":"env://BAO_SEAL_KEY"}},"ui":false,"audit":{"brzl":{"type":"file","path":"brzl/","options":{"file_path":"/openbao/logs/audit.log"}}}}'
 }
 
 secret_store_prelude() {
@@ -106,6 +107,9 @@ secret_store_up() {
   printf '  mkdir -p %q\n' "$dir"
   printf '  [[ -s %q ]] || (umask 077; openssl rand -hex 32 > %q)\n' "$dir/seal.key" "$dir/seal.key"
   printf '}\n'
+  printf '{ # the store'"'"'s audit log goes to the log store'"'"'s directory (ADR-0027); the collector beside the cluster reads it\n'
+  printf '  mkdir -p %q\n' "$BRZL_LOG_STORE_DIR/openbao-audit"
+  printf '}\n'
   if [[ "$state" == current ]]; then
     printf '{ # OpenBao secret store: its config is current; make sure it runs\n'
     printf '  docker start %q\n' "$name"
@@ -119,6 +123,7 @@ secret_store_up() {
     printf '    --label %q \\\n' "dev.brzl.openbao-config-sha256=$sha"
     printf '    -e BAO_SEAL_KEY -e BAO_LOCAL_CONFIG -p %q -v %q \\\n' \
       "127.0.0.1:$BRZL_OPENBAO_PORT:8200" "$BRZL_OPENBAO_VOLUME:/openbao/file"
+    printf '    -v %q \\\n' "$repo_root/$BRZL_LOG_STORE_DIR/openbao-audit:/openbao/logs"
     printf '    %q server\n' "$BRZL_OPENBAO_IMAGE"
     printf '}\n'
   fi

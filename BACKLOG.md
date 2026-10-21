@@ -56,9 +56,13 @@ Order of work (Q120):
    door for a new user.
 4. **6. Logs** — collector, admin and diagnostic Loki, Grafana; UTC
    everywhere; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`; a header
-   line in each run output; API and OpenBao audit logs; `driver.sh <env> state`
-   lists (and purges) the state kept outside the cluster
+   line in each run output; API and OpenBao audit logs
    ([ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md)).
+   Design round 2026-10-19 (Q158–Q162, the ADR's amendment). Metrics go
+   to every substrate, and kube-prometheus-stack's Grafana is the one
+   viewer. Loki and the collector come from Helm charts. The local
+   collector beside the cluster sends to the one in it, with a queue on
+   disk. **DONE 2026-10-21, user-verified** (RETROSPECTIVE).
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
    Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
@@ -89,7 +93,11 @@ Order of work (Q120):
     in `gitops/clusters/<env>/pki/`; whether a cloud needs the store copy of
     the certificate; ADR-0036); the
     admin log store (Q96: same product, data in S3); shipping the driver's
-    run sheets (Q106); exposing nginx through the Gateway API (Q113); the
+    run sheets (Q106); from pass 6 (ADR-0027 "Open after pass 6"): the k3s
+    audit policy and log file through Ansible, the portal host annotation
+    for Grafana's domain, the Grafana password from the AWS store (the
+    bootstrap's `grafana-admin` goes), the events from one collector
+    replica, a credential on the collector's OTLP receiver; exposing nginx through the Gateway API (Q113); the
     CloudWatch Logs exporter is alpha; the live test of model B
     (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
     `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and
@@ -119,7 +127,7 @@ Order of work (Q120):
     pass first uses a tool or decides to add it**; the run completes them.
     Drafts so far: [Kustomize](docs/guide/kustomize.md),
     [cert-manager](docs/guide/cert-manager.md),
-    [kiesei](docs/guide/kiesei.md).
+    [kiesei](docs/guide/kiesei.md), [the log stack](docs/guide/logs.md).
 13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.23 (v2.13.4; the
     patch that fixed the login `return_url` under a base href, taken in
     pass 5c) to the current chart (10.x, v3.5). Aligns the server with the
@@ -217,6 +225,26 @@ Order of work (Q120):
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
     does not (cert-manager, ADR-0036).
+17. **`driver.sh <env> state`: list the state kept outside the cluster**
+    (proposed 2026-10-14 in the review of the design's shape, then Q161,
+    2026-10-19). That state keeps growing, as Q66 intends. It holds the Zot
+    cache, the OpenBao volume with its seal key and tokens, the local CA,
+    the access files and the run directories. From pass 6 it also holds the
+    admin log data, the collector's queue and later the cold copy. Nothing
+    lists all of it in one place. The command is a read-only generator: each item with its
+    location, size and age, and the CA trust in the keychain as a reminder.
+    The removal of each item stays a documented command in LOCAL.md.
+18. **A purge for rapid teardown and cleanup** (user, Q161, 2026-10-19).
+    Separate from `state`. It returns the machine to a clean start in one
+    step, for rapid prototyping of different modes. It needs safeguards.
+    It is an emit script whose preview names every item. It stops with
+    `error 3` while a cluster is up. It states what it keeps, for example
+    the access files, which take browser steps to make again.
+19. **A low-memory mode** (user, Q158, 2026-10-19). The full local
+    environment used 5.0 GiB with metrics and logs (pass 6, measured). huginn
+    (8 GB) and other small machines cannot run it. A mode that turns off
+    or shrinks the heavy parts with few design changes, built only when a
+    need for it appears.
 
 Standing concerns (check in every pass):
 

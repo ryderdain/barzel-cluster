@@ -1,0 +1,39 @@
+# kube-prometheus-stack on local (k3d), after values.yaml.
+#
+# The node exporter cannot mount the node's root file system in k3d: the node
+# is a container, and its / is not a shared mount. So it does without (no
+# root file-system metrics on local).
+prometheus-node-exporter:
+  hostRootFsMount:
+    enabled: false
+
+# Grafana's admin login, from the cluster secret store (Q105): phase 25 makes
+# the password once (store key grafana-admin), and ESO projects it into the
+# Secret that values.yaml names. On AWS this moves to values.yaml when the
+# AWS store exists (pass 8).
+extraManifests:
+  - apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: grafana-admin
+      namespace: monitoring
+      annotations:
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    spec:
+      refreshInterval: 1h
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: brzl-secrets
+      target:
+        name: grafana-admin
+        creationPolicy: Owner
+        template:
+          data:
+            admin-user: admin
+            # The chart renders extraManifests as a template; ESO gets the braces.
+            admin-password: '{{ "{{ .password }}" }}'
+      data:
+        - secretKey: password
+          remoteRef:
+            key: grafana-admin
+            property: value

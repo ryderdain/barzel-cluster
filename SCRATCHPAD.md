@@ -19,29 +19,22 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-18, fable. Pruned to the current state. The history is in git,
+*(2026-10-21, opus. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 5d DONE and user-verified** (RETROSPECTIVE 2026-10-18), merged to
-`main`. The example app is `tzvat/chofesh`, private, deployed from its own
-repo and CI. Local follows its `main` through the SCM generator. The other
-environments follow a release tag (ADR-0034, Q141–Q157). The cluster's
-registration still names revision `pass-5d`; the next `up` on `main`
-re-registers it (same content).
+**Pass 6 (logs) DONE and user-verified** (RETROSPECTIVE 2026-10-21),
+merged to `main`. Two Loki stores in namespace `logs`, the in-cluster
+collector, the collector beside the cluster (`brzl-log-collector`, queue in
+`var/log-store/local/queue/`), kube-prometheus-stack on every substrate,
+Grafana at `/grafana/`. The local cluster is down after the test.
 
-**Facts to keep in mind:** phase 30 applies the ApplicationSet file, and
-Argo CD does not follow it from git (BACKLOG 15; retiring an Application is
-a three-step procedure, LOCAL.md). The driver stops when a phase cannot be
-emitted; the stream belongs in kiesei. `bao` in a run sheet is a call into
-the store's container: files on stdin, never inside a pipeline that feeds
-`kubectl`. The SCM generator polls GitHub every 5 min anonymously for the
-list, with the App for a private repo. The access files are in
-`var/access/github/tzvat/` (the store holds the values now). Checks run in
-kiesei (Linux, no `dig`, cannot see macOS). The example app's name lives
-in three places (env, element, nginx).
+**Facts to keep in mind:** a portal location must not set its own
+`proxy_set_header` (it then inherits none). Loki with auth off stores
+everything under the tenant `fake`. The ApplicationSet's helm keys are
+listed in its header. The collector's OTLP receiver takes records from
+anyone who reaches it (open item).
 
-**▶ NEXT: pass 6, logs** (ADR-0027; the spike on branch `spike-logs`;
-BACKLOG item 4). Start with a short design round that re-reads the ADR and
-the spike. Open small items that fit any pass: 16a (the access flow), 16b
-(kiesei conveniences, `argocd` core mode), 16c (manifests as files).
+**▶ NEXT: pass 6a, SSO** (BACKLOG item 5): Dex and oauth2-proxy in front
+of nginx, leading to the admin portal; it replaces the legacy local SSO
+path. Start with a short design round.

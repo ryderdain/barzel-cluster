@@ -1,0 +1,13 @@
+# The admin log store (ADR-0027): the records that audit the environment, from
+# the routes fixed in the collector. It flushes early (the spike: 1 minute
+# idle, 5 minutes at most), because its data must reach storage outside the
+# cluster before a loss; Loki's defaults are 30 minutes and 2 hours. Default
+# retention 90 days. Where the data is depends on the substrate: on local, a
+# host directory (loki-admin-local.yaml); on AWS, S3 (BACKLOG pass 8).
+nameOverride: log-store-admin            # the Service, the ConfigMaps, the headless Service
+loki:
+  ingester:
+    chunk_idle_period: 1m
+    max_chunk_age: 5m
+  limits_config:
+    retention_period: 2160h

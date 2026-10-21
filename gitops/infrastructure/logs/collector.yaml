@@ -1,0 +1,198 @@
+# The node collector (chart opentelemetry-collector; ADR-0027, Q86): one pod on
+# each node, owned by the platform. It reads the node's log files and the
+# cluster's events, receives OTLP from the collector beside a local cluster,
+# and routes every record to the stores its route names. The routing is the
+# spike's (branch spike-logs), tested in two rounds.
+#
+# Routes. A route list is comma-separated: drop | admin | diagnostic | cold;
+# a record goes to every store it names, at the same time (Q91, Q95).
+#   - The platform's own records always go to the admin log store, from this
+#     config, not from an annotation, so no workload can remove them (Q90):
+#     the k3s server log, the API audit log, the events, and what arrives over
+#     OTLP (the run outputs and the secret store's audit log).
+#   - A pod's logs take its namespace's brzl.dev/log-routes; none means
+#     diagnostic. brzl.dev/log-retention (7d|30d|90d) becomes brzl.retention.
+#   - `cold` has no destination until pass 6c; a record routed only to cold
+#     is dropped until then.
+#
+# The ApplicationSet injects the image path (image.repository, through the
+# registry) and the environment's name (extraEnvs[0].value, brzl.env).
+mode: daemonset
+fullnameOverride: log-collector             # DaemonSet log-collector-agent
+
+image:
+  repository: otel/opentelemetry-collector-contrib   # replaced by the ApplicationSet
+command:
+  name: otelcol-contrib
+
+extraEnvs:
+  - name: BRZL_ENV
+    value: unknown                          # replaced by the ApplicationSet
+
+# Root, to read the node's log files (owned by root, mode 0640).
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+clusterRole:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: [pods, namespaces, nodes]
+      verbs: [get, list, watch]
+    - apiGroups: [apps]
+      resources: [replicasets]
+      verbs: [get, list, watch]
+    - apiGroups: [events.k8s.io]
+      resources: [events]
+      verbs: [list, watch]
+
+# The node's logs, and a place for the read positions that survives a restart
+# of the pod (no file is read twice).
+extraVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: positions
+    hostPath:
+      path: /var/lib/brzl/collector
+      type: DirectoryOrCreate
+extraVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+  - name: positions
+    mountPath: /var/lib/brzl/collector
+
+# OTLP only; the host ports let the collector beside a local cluster reach
+# this one on the node's address.
+ports:
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+
+config:
+  extensions:
+    file_storage:
+      directory: /var/lib/brzl/collector
+  receivers:
+    jaeger: null
+    zipkin: null
+    prometheus: null
+    filelog/pods:
+      include: [/var/log/pods/*/*/*.log]
+      start_at: beginning
+      include_file_path: true
+      storage: file_storage
+      operators:
+        - type: container                   # namespace, pod, uid, container from the path
+    filelog/k3s-server:
+      include: [/var/log/k3s.log]
+      start_at: beginning
+      storage: file_storage
+      operators:
+        - {type: add, field: 'resource["brzl.source"]', value: k3s-server}
+    filelog/api-audit:
+      include: [/var/log/kubernetes/audit/audit.log]
+      start_at: beginning
+      storage: file_storage
+      operators:
+        - {type: add, field: 'resource["brzl.source"]', value: api-audit}
+    k8sobjects/events:
+      auth_type: serviceAccount
+      objects:
+        - name: events
+          group: events.k8s.io
+          mode: watch                       # only events after the collector starts
+  processors:
+    k8sattributes:
+      auth_type: serviceAccount
+      filter:
+        node_from_env_var: OTEL_K8S_NODE_NAME
+      pod_association:
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+      extract:
+        metadata: [k8s.namespace.name, k8s.pod.name, k8s.deployment.name, k8s.node.name]
+        annotations:
+          - tag_name: brzl.routes
+            key: brzl.dev/log-routes
+            from: namespace
+          - tag_name: brzl.retention
+            key: brzl.dev/log-retention
+            from: namespace
+    # Q90: the platform's own records, to the admin log store (and cold).
+    transform/platform-routes:
+      error_mode: propagate
+      log_statements:
+        - set(resource.attributes["brzl.env"], "${env:BRZL_ENV}") where resource.attributes["brzl.env"] == nil
+        - set(resource.attributes["brzl.source"], "k8s-event") where resource.attributes["brzl.source"] == nil
+        - set(resource.attributes["brzl.routes"], "admin,cold")
+        - set(resource.attributes["brzl.retention"], "90d")
+    # Pod logs: the namespace's annotation decides; none = diagnostic.
+    transform/pod-routes:
+      error_mode: propagate
+      log_statements:
+        - set(resource.attributes["brzl.source"], "pod")
+        - set(resource.attributes["brzl.env"], "${env:BRZL_ENV}")
+        - set(resource.attributes["brzl.routes"], "diagnostic") where resource.attributes["brzl.routes"] == nil
+    filter/admin-log-store:
+      error_mode: propagate
+      logs:
+        log_record:
+          - 'not IsMatch(resource.attributes["brzl.routes"], "(^|,)admin(,|$)")'
+    filter/diagnostic-log-store:
+      error_mode: propagate
+      logs:
+        log_record:
+          - 'not IsMatch(resource.attributes["brzl.routes"], "(^|,)diagnostic(,|$)")'
+    # Q99: each record names the store it is in.
+    transform/admin-log-store:
+      log_statements:
+        - set(resource.attributes["brzl.store"], "admin-log-store")
+    transform/diagnostic-log-store:
+      log_statements:
+        - set(resource.attributes["brzl.store"], "diagnostic-log-store")
+  connectors:
+    forward/routed: {}
+  exporters:
+    debug: null
+    otlphttp/admin-log-store:
+      endpoint: http://log-store-admin.logs.svc:3100/otlp
+    otlphttp/diagnostic-log-store:
+      endpoint: http://log-store-diagnostic.logs.svc:3100/otlp
+  service:
+    extensions: [health_check, file_storage]
+    pipelines:
+      traces: null
+      metrics: null
+      logs: null
+      logs/platform-intake:
+        receivers: [filelog/k3s-server, filelog/api-audit, k8sobjects/events, otlp]
+        processors: [transform/platform-routes]
+        exporters: [forward/routed]
+      logs/pod-intake:
+        receivers: [filelog/pods]
+        processors: [k8sattributes, transform/pod-routes]
+        exporters: [forward/routed]
+      logs/admin-log-store:
+        receivers: [forward/routed]
+        processors: [filter/admin-log-store, transform/admin-log-store, batch]
+        exporters: [otlphttp/admin-log-store]
+      logs/diagnostic-log-store:
+        receivers: [forward/routed]
+        processors: [filter/diagnostic-log-store, transform/diagnostic-log-store, batch]
+        exporters: [otlphttp/diagnostic-log-store]

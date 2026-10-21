@@ -388,3 +388,43 @@ Q141–Q157).
   `argocd` (16b). Manifests as files in the run directory (16c). The AWS
   side of ADR-0034, ECR pull-through for `ghcr.io` with a credential
   (pass 8). `deploy/aws` is untested until pass 9.
+
+## 2026-10-21 — local-first refactor, pass 6: logs, metrics and Grafana on every substrate
+
+User-verified on sleipnir. The design round Q158–Q162 amended ADR-0027.
+kube-prometheus-stack runs on every substrate, and its Grafana is the one
+viewer. Loki and the collector come from Helm charts. A collector beside
+the cluster sends the run outputs and the secret store's audit log to the
+collector in the cluster. It queues them on disk while there is no
+cluster. BACKLOG gained 17 (`state`), 18 (a separate purge) and 19 (a
+low-memory mode).
+
+- **Bring-up.** `down` and `up` made the cluster again with the API audit
+  policy, the k3s log file and the admin data's mount. All Applications
+  were Synced and Healthy. Phase 40 found records from every admin source
+  (run outputs, k3s server, API audit, OpenBao audit, events) and the
+  example app's logs in the diagnostic store.
+- **Grafana.** The user queried both stores in Explore. A search on the
+  app's page appeared in the diagnostic store within the last hour.
+- **The admin data outlives the cluster.** After a second `down`,
+  `var/log-store/local/admin/` still held the chunks and the daily index
+  files.
+- **Memory.** The full environment used 5.0 GiB, the k3d node 4.7 GiB of
+  it (estimate 5.5 GiB). Recorded in LOCAL.md.
+- **Found before the live test, by rendering.** The chart templated the
+  ExternalSecret's `{{ .password }}` away. The two Loki installations
+  collided on ConfigMap and Service names. Loki's image helper dropped the
+  registry from a path whose first part has a dot. A Loki container with
+  the chart's config was ready after about 45 s, so the spike's readiness
+  problem came from its own in-memory ring. Q162's port mapping was not
+  needed, because the collector chart opens host ports on the node.
+- **Found in the live test.** Explore said "origin not allowed". The
+  portal's `/grafana/` location set its own proxy headers, so nginx
+  inherited none from the server level, and Grafana got the Service's name
+  as `Host`. Fixed: every proxy header is at the server level. Phase 40
+  now logs in and queries Grafana as a browser does. It reproduced the
+  fault before the fix and passed after it, with no driver action.
+- **Open** (ADR-0027 "Open after pass 6"). The collector's OTLP receiver
+  has no credential. On a cluster with more nodes, each event arrives once
+  from each node. The AWS parts wait for pass 8.
+

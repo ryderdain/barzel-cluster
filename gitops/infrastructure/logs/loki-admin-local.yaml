@@ -1,0 +1,19 @@
+# The admin log store on local (Q104): its data in the k3d server node's
+# /var/lib/brzl/admin-log-store, which is the host directory
+# var/log-store/<env>/admin (driver/substrates/k3d.sh). It stands in for the
+# bucket: it outlives the cluster. The working state (WAL, the index cache)
+# stays on the pod's volume and is lost with the cluster, as on a cloud.
+loki:
+  storage:
+    filesystem:
+      chunks_directory: /store/chunks
+      rules_directory: /store/rules
+singleBinary:
+  extraVolumes:
+    - name: admin-store
+      hostPath:
+        path: /var/lib/brzl/admin-log-store
+        type: Directory
+  extraVolumeMounts:
+    - name: admin-store
+      mountPath: /store

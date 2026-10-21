@@ -127,7 +127,9 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   `brzl.dev/log-routes` (`drop|admin|diagnostic|cold`) and chooses a
   retention class with `brzl.dev/log-retention` (`7d|30d|90d`). Time is UTC,
   ISO 8601 with `Z`, everywhere; each run output starts with a logfmt
-  header.
+  header. Grafana is kube-prometheus-stack's, on every substrate. Loki and
+  the collector come from their Helm charts. The collector beside a local
+  cluster sends to the one in it, with a queue on disk (Q158–Q162).
 - **The admin portal (2026-10-14, ADR-0028).** One nginx in the cluster
   serves a static page and passes each path to its service (`/argocd/`,
   `/grafana/`, `/apps/<workload>/`): one host name, one certificate, the
@@ -398,6 +400,11 @@ rather than replacing it.
 
 ## 10. Changelog
 
+- **v0.15 (2026-10-19):** Pass 6 design round (Q158–Q162, ADR-0027
+  amendment). Metrics and Grafana go to every substrate, with one Grafana
+  for metrics and logs. Loki and the collector come from Helm charts. The
+  local collector beside the cluster sends to the in-cluster collector,
+  with a queue on disk. `driver.sh <env> state` moves out of pass 6.
 - **v0.14 (2026-10-16):** Pass 5d (Q141–Q147): the example app is
   `tzvat/chofesh` (moved from `ryderdain`) with a server mode and its own manifests and Postgres
   (ADR-0034 built, the credential stays CNPG's). The platform lost

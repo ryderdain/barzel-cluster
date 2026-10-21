@@ -27,8 +27,12 @@ its manifests from that repo, and the platform's own manifests get a thin
   | sleipnir | Apple M5, 10 cores, 32 GB | The main host. Docker Desktop's VM had 7.75 GiB on 2026-10-14; that is a setting, and you can increase it. |
   | huginn | Apple M2, 8 cores, 8 GB | Tight for the full stack. |
 
-  The log stack (BACKLOG pass 6) adds about 0.8 GiB beside the cluster
-  (ADR-0027). Pass 6 measures the full total and records it here.
+  The full environment, with metrics and logs, used 5.0 GiB on sleipnir
+  (measured 2026-10-21, pass 6). The k3d node used 4.7 GiB, and the
+  containers beside it (the collector, OpenBao, Zot, DNS, the load
+  balancer) used 0.3 GiB together. Give
+  the engine's VM at least 8 GiB. huginn cannot run the full environment
+  until a low-memory mode exists (BACKLOG 19).
 
 The other tools (`k3d`, `kubectl`, `helm`, `jq`) are in the kiesei image. Make
 the image one time, and again after a change to `containers/kiesei/`:
@@ -119,9 +123,13 @@ operates it there, shows its output, and copies back the exit status. The
 conductor stops itself after `BRZL_CONDUCTOR_IDLE_SECONDS` with no work. The
 next conductor phase starts it again.
 
-Each phase writes a run sheet to `var/run/local/<YYYYmmddHHMM>/`: the commands
-(`<NN>-<phase>.sh`), their output (`.out`), the exit status (`.rc`), and `.ok`
-when the check of the phase is correct. If a phase stops, repair the cause and
+Each phase writes a run sheet to `var/run/local/cluster-<UTC>Z/`, for
+example `cluster-20261019T1300Z`: the commands (`<NN>-<phase>.sh`), their
+output (`.out`), the exit status (`.rc`), and `.ok` when the check of the
+phase is correct. A `down` writes to `teardown-<UTC>Z`. Each output starts
+with a header line that names the environment, the run, the phase and the
+start time. The admin log store receives every output (below, "The logs").
+If a phase stops, repair the cause and
 operate `up` or `next` again. The driver starts at the first phase that has no
 `.ok`.
 
@@ -187,6 +195,56 @@ A store made before 2026-10-15 has a driver token without the PKI
 capabilities. The check of phase 25 says so; purge the store (below) and
 run `up` again.
 
+### The logs
+
+The logs go to two log stores (ADR-0027), both Loki in the cluster, in the
+namespace `logs`:
+
+- **The admin log store** (`log-store-admin`) keeps the records that audit
+  the environment. These are the run outputs, the k3s server log, the
+  Kubernetes API audit log (metadata only), the secret store's audit log
+  and the Kubernetes events. Its data is in the host
+  directory `var/log-store/local/admin/`, so it stays when you remove the
+  cluster. It saves its records within five minutes.
+- **The diagnostic log store** (`log-store-diagnostic`) keeps the pod logs
+  of the workloads and the platform applications. Its data is lost with
+  the cluster.
+
+A namespace chooses where its pod logs go with the annotation
+`brzl.dev/log-routes` (`drop`, `admin`, `diagnostic`, `cold`), and how long
+they stay with `brzl.dev/log-retention` (`7d`, `30d`, `90d`). With no
+annotation, its logs go to the diagnostic log store for 7 days. `cold` has
+no destination before pass 6c.
+
+Two collectors send the records. A collector in the cluster, on each node,
+reads the pod logs, the k3s server log, the API audit log and the events. A
+collector beside the cluster, the container `brzl-log-collector`, reads what
+only your machine has: the run outputs in `var/run/local/` and the secret
+store's audit log in `var/log-store/local/openbao-audit/`. It sends them to
+the collector in the cluster. While there is no cluster, it keeps them in
+its queue in `var/log-store/local/queue/` and sends them later. So the
+records of phases 10 to 30 and of a `down` arrive after the next `up`. Like
+Zot, it stays when you remove the cluster.
+
+To read the logs, open Grafana in the portal (`/grafana/`), then Explore.
+Choose the data source "Admin log store" or "Diagnostic log store". Some
+queries:
+
+```text
+{brzl_source="run-output", brzl_phase="25-bootstrap"}
+{brzl_source="api-audit"} |= "secrets"
+{k8s_namespace_name="chofesh"}
+```
+
+To remove the collector beside the cluster and all log data that is kept
+outside the cluster (the admin log store's data, the queue and the store's
+audit log):
+
+```sh
+docker rm -f brzl-log-collector
+rm -r var/log-store/local
+```
+
 ### The workload's access
 
 The example app is a private repository under a GitHub organization, and
@@ -228,8 +286,10 @@ The next `up` makes a new store. Then give the deploy key again.
 ## Use it
 
 The admin portal is the one place to start: `https://<host>/` (ADR-0028).
-It links to Argo CD (`/argocd/`) and to the example app
-(`/apps/chofesh/`), and lists the CLI commands. The host name and the port
+It links to Argo CD (`/argocd/`), Grafana (`/grafana/`) and the example
+app (`/apps/chofesh/`), and lists the CLI commands. Grafana's user is
+`admin`. Phase 25 makes its password once in the secret store. The portal
+page shows the command that reads it. The host name and the port
 are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
 adapter maps the port to the portal's NodePort when it makes the cluster.
 
@@ -474,7 +534,8 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 | Storage | EBS CSI, `gp3` | `local-path` (k3d built-in) | no cloud block storage on a laptop |
 | Postgres | 3 instances (HA) | 1 instance | laptop footprint; HA isn't the point locally |
 | Backups | CNPG → S3 (Barman) | **off** | no object store locally |
-| Monitoring | kube-prometheus-stack + ServiceMonitor | **off** by default; **on** with `--with-sso` | not needed for plain app iteration |
+| Monitoring | kube-prometheus-stack | the same; the node exporter has no root file-system metrics | the k3d node is a container (`values-local.yaml`) |
+| Logs | admin log store data in S3 (pass 8) | admin log store data in a host directory; a collector beside the cluster sends the run outputs | no object store locally; the driver's machine holds the run outputs |
 | GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
 | Identity / UI SSO | OIDC roles, ingress (prod path) | none by default; **the full SSO edge** with `--with-sso` (see below) | the local cluster is where the SSO gateway is actually built (ADR-0018) |
 
