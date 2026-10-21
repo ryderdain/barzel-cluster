@@ -62,8 +62,7 @@ Order of work (Q120):
    to every substrate, and kube-prometheus-stack's Grafana is the one
    viewer. Loki and the collector come from Helm charts. The local
    collector beside the cluster sends to the one in it, with a queue on
-   disk. **Built 2026-10-19 on branch `pass-6-logs`; the live test is
-   next** (SCRATCHPAD).
+   disk. **DONE 2026-10-21, user-verified** (RETROSPECTIVE).
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
    Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
@@ -242,7 +241,7 @@ Order of work (Q120):
     `error 3` while a cluster is up. It states what it keeps, for example
     the access files, which take browser steps to make again.
 19. **A low-memory mode** (user, Q158, 2026-10-19). The full local
-    environment needs about 5.5 GiB with metrics and logs (pass 6). huginn
+    environment used 5.0 GiB with metrics and logs (pass 6, measured). huginn
     (8 GB) and other small machines cannot run it. A mode that turns off
     or shrinks the heavy parts with few design changes, built only when a
     need for it appears.

@@ -132,6 +132,8 @@ tested the design in two rounds before the build.
   path, the portal's host name and the environment's name. The prod copy
   of the monitoring values went, because the prefixes come from the
   cluster Secret now.
+- **Memory, measured** (2026-10-21): the full local environment used
+  5.0 GiB, the k3d node 4.7 GiB of it. The estimate was 5.5 GiB.
 - **The OpenBao audit device is in the store's configuration** (OpenBao
   2.3 and later), not made through the API.
 

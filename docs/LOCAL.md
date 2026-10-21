@@ -27,11 +27,10 @@ its manifests from that repo, and the platform's own manifests get a thin
   | sleipnir | Apple M5, 10 cores, 32 GB | The main host. Docker Desktop's VM had 7.75 GiB on 2026-10-14; that is a setting, and you can increase it. |
   | huginn | Apple M2, 8 cores, 8 GB | Tight for the full stack. |
 
-  The full environment, with metrics and logs (pass 6), needs about
-  5.5 GiB. This is an estimate from the parts. The cluster with the
-  platform and the example app needs about 3.5 GiB. kube-prometheus-stack
-  needs 1 to 1.5 GiB, and the log stores with the collectors about 0.5 GiB.
-  Give
+  The full environment, with metrics and logs, used 5.0 GiB on sleipnir
+  (measured 2026-10-21, pass 6). The k3d node used 4.7 GiB, and the
+  containers beside it (the collector, OpenBao, Zot, DNS, the load
+  balancer) used 0.3 GiB together. Give
   the engine's VM at least 8 GiB. huginn cannot run the full environment
   until a low-memory mode exists (BACKLOG 19).
 
