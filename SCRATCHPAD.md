@@ -54,5 +54,11 @@ and `path`); uid 10001 writes to a host bind mount.
 hangs at cluster create, that flag is the suspect); first pulls of the new
 images through Zot; ESO must project `grafana-admin` before Grafana starts.
 
-**▶ NEXT:** the user runs the live test (procedure in the chat), then the
+**Live test, 2026-10-21:** step 2 failed with "origin not allowed" in
+Explore. Cause: the portal's `/grafana/` location set its own
+`proxy_set_header` lines, so it inherited no `Host` from the server level.
+Fixed in `dae197d`, with a phase 40 check that queries Grafana as a browser
+does. The check passed on the live cluster about 60 s after the push.
+
+**▶ NEXT:** the user continues the live test (procedure in the chat), then the
 RETROSPECTIVE entry, the memory budget measured into LOCAL.md, merge.
