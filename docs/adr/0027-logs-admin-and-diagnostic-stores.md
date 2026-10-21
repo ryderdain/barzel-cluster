@@ -142,10 +142,16 @@ tested the design in two rounds before the build.
 - The in-cluster collector accepts OTLP from any pod and from any
   container on the local network, without a credential. Something other
   than the platform could write records that look like the admin path's.
-  A credential on that receiver is for pass 6a or pass 8.
+  A credential on that receiver has high priority (BACKLOG 4a), before
+  pass 6a and before any shared environment.
 - The events come from a receiver in each collector pod. With more than
-  one node, each event arrives once from each node. Pass 8 moves the
+  one node, each event arrives once from each node. Each copy names the
+  node of its collector (`brzl.collector.node`, structured metadata), so
+  a reader can tell the copies apart and keep one. Pass 8 moves the
   events to one replica.
+- Every platform record names the node of the collector that read it,
+  added 2026-10-21. With more than one server, it tells which server's
+  k3s log or API audit log a line came from.
 - Open on AWS (pass 8): the admin log store's data in S3, and the k3s
   audit policy and log file through Ansible. Grafana needs the portal's
   host name and its password from the AWS store.

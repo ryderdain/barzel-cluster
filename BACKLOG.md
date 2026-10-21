@@ -63,6 +63,18 @@ Order of work (Q120):
    viewer. Loki and the collector come from Helm charts. The local
    collector beside the cluster sends to the one in it, with a queue on
    disk. **DONE 2026-10-21, user-verified** (RETROSPECTIVE).
+4a. **HIGH PRIORITY: a credential on the collector's OTLP receiver**
+   (user, 2026-10-21). The in-cluster collector accepts OTLP on its host
+   ports 4317 and 4318 without a credential. Any pod, and any container on
+   the local network, can write records that the platform routes into the
+   admin log store, as if they were run outputs or audit records. This
+   breaks the admin path's purpose, the audit trail. Do it before 6a or as
+   its first step, and before any shared environment. Candidates: a bearer
+   token from the cluster secret store, checked by the receiver
+   (`bearertokenauth`), or mTLS with a certificate from the local CA.
+   Either way, only the collector beside the cluster holds the credential.
+   [ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md), "Open
+   after pass 6".
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
    Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
@@ -97,7 +109,7 @@ Order of work (Q120):
     audit policy and log file through Ansible, the portal host annotation
     for Grafana's domain, the Grafana password from the AWS store (the
     bootstrap's `grafana-admin` goes), the events from one collector
-    replica, a credential on the collector's OTLP receiver; exposing nginx through the Gateway API (Q113); the
+    replica (the OTLP credential is item 4a, earlier); exposing nginx through the Gateway API (Q113); the
     CloudWatch Logs exporter is alpha; the live test of model B
     (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
     `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and

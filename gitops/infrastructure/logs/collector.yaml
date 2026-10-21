@@ -12,6 +12,9 @@
 #     OTLP (the run outputs and the secret store's audit log).
 #   - A pod's logs take its namespace's brzl.dev/log-routes; none means
 #     diagnostic. brzl.dev/log-retention (7d|30d|90d) becomes brzl.retention.
+#   - Every platform record names the node of the collector that read it
+#     (brzl.collector.node, structured metadata). A pod's record names its
+#     own node (k8s.node.name).
 #   - `cold` has no destination until pass 6c; a record routed only to cold
 #     is dropped until then.
 #
@@ -140,6 +143,10 @@ config:
       log_statements:
         - set(resource.attributes["brzl.env"], "${env:BRZL_ENV}") where resource.attributes["brzl.env"] == nil
         - set(resource.attributes["brzl.source"], "k8s-event") where resource.attributes["brzl.source"] == nil
+        # The node of the collector that read the record: which server's
+        # k3s or audit log, which collector saw an event (with more nodes,
+        # each one sees it), which node relayed an OTLP record.
+        - set(resource.attributes["brzl.collector.node"], "${env:OTEL_K8S_NODE_NAME}")
         - set(resource.attributes["brzl.routes"], "admin,cold")
         - set(resource.attributes["brzl.retention"], "90d")
     # Pod logs: the namespace's annotation decides; none = diagnostic.

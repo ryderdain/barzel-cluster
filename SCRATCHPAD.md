@@ -35,6 +35,13 @@ everything under the tenant `fake`. The ApplicationSet's helm keys are
 listed in its header. The collector's OTLP receiver takes records from
 anyone who reaches it (open item).
 
-**▶ NEXT: pass 6a, SSO** (BACKLOG item 5): Dex and oauth2-proxy in front
-of nginx, leading to the admin portal; it replaces the legacy local SSO
-path. Start with a short design round.
+**▶ NEXT: BACKLOG 4a, high priority** (user, 2026-10-21): a credential on
+the collector's OTLP receiver, so only the collector beside the cluster
+can write into the admin path. Then pass 6a, SSO (BACKLOG item 5). Each
+starts with a short design round.
+
+Done 2026-10-21 after the merge: every platform record names the node of
+the collector that read it (`brzl.collector.node`), so copies of an event
+from several nodes are distinguishable; phase 40 checks it. Verified with
+a throwaway collector and `otelcol-contrib validate`; live at the next
+`up`.

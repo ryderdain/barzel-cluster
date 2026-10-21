@@ -110,6 +110,12 @@ logs_check() {
     return 1
   fi
   printf 'the admin log store has records from every source: %s\n' "${want[*]}"
+  if [[ "$(loki_query admin 'sum(count_over_time({brzl_source="k8s-event"} | brzl_collector_node != "" [24h]))' \
+        | jq -r '.data.result[0].value[1] // 0' 2>/dev/null)" == 0 ]]; then
+    printf 'fix: the events in the admin log store do not name the node of their collector (brzl_collector_node); see: gitops/infrastructure/logs/collector.yaml\n' >&2
+    return 1
+  fi
+  printf 'the platform records name the node of the collector that read them\n'
   if [[ "$(loki_query diagnostic "sum(count_over_time({k8s_namespace_name=\"$app\"}[24h]))" \
         | jq -r '.data.result[0].value[1] // 0' 2>/dev/null)" == 0 ]]; then
     printf 'fix: the diagnostic log store has no logs of the example app %s; see: kubectl -n logs logs ds/log-collector-agent\n' "$app" >&2
