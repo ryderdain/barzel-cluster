@@ -256,6 +256,16 @@ Order of work (Q120):
     It is an emit script whose preview names every item. It stops with
     `error 3` while a cluster is up. It states what it keeps, for example
     the access files, which take browser steps to make again.
+20. **Argo CD gives up after five failed syncs** (found 2026-10-22, live
+    test of 4a). For about 1 h 40 min, lookups of public names from the
+    pods failed in bursts (CoreDNS forwards to Docker Desktop's resolver),
+    while the node resolved them. `monitoring` used its five retries
+    (`retry.limit: 5`, at most 3 minutes apart) and stopped. Argo CD does
+    not retry an automated sync of the same commit after that, so phase 40
+    waited until an operator refreshed and synced by hand. Options: no
+    limit (`limit: -1`, a negative limit means no limit), a larger limit,
+    or a refresh and sync step in phase 40 before its wait. Decide with
+    the user.
 19. **A low-memory mode** (user, Q158, 2026-10-19). The full local
     environment used 5.0 GiB with metrics and logs (pass 6, measured). huginn
     (8 GB) and other small machines cannot run it. A mode that turns off

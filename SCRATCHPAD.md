@@ -47,6 +47,12 @@ throwaway mTLS pair (the real shipper config delivered; no certificate,
 a server-only certificate and a foreign CA were refused), the two roles in
 a throwaway OpenBao. Then pass 6a, SSO (BACKLOG 5).
 
+Live test 2026-10-22: phase 40 hung at `monitoring`. Cause: DNS lookups
+from the pods failed in bursts from 11:05 to 12:47 UTC (not 4a); the sync
+used its 5 retries; `secret-store` kept a cached comparison error. Fixed
+by a hard refresh and one sync (both Synced/Healthy in about 60 s).
+BACKLOG 20 parks the retry limit. The user continues with the 4a checks.
+
 Done 2026-10-21 after the merge: every platform record names the node of
 the collector that read it (`brzl.collector.node`), so copies of an event
 from several nodes are distinguishable; phase 40 checks it. Verified with
