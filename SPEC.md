@@ -400,6 +400,13 @@ rather than replacing it.
 
 ## 10. Changelog
 
+- **v0.16 (2026-10-22):** BACKLOG 4a (Q163–Q166, ADR-0027 and ADR-0036
+  amendments). The OTLP receiver uses mutual TLS from the store's CA. Its
+  certificate comes from cert-manager, and the client certificate from
+  the driver through the client-only PKI role `log-shipper`. The PKI role
+  `portal` signs server certificates only. The store's CA is made in phase
+  10. gRPC is closed, and workloads never send OTLP to the platform.
+  GLOSSARY gains "Roles".
 - **v0.15 (2026-10-19):** Pass 6 design round (Q158–Q162, ADR-0027
   amendment). Metrics and Grafana go to every substrate, with one Grafana
   for metrics and logs. Loki and the collector come from Helm charts. The

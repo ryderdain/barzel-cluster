@@ -49,8 +49,10 @@
 # (BRZL_LOG_COLLECTOR_NAME, config k3d-otelcol.yaml) reads the run outputs in
 # var/run/<env>/ and the secret store's audit log, and sends them to the
 # in-cluster collector's host port on the server node, over the shared
-# container network; it queues on disk in BRZL_LOG_STORE_DIR/queue while the
-# cluster is absent. It is replaced when its config changes, like Zot.
+# container network, with mutual TLS: its client certificate comes from the
+# store's CA (phase 10, BRZL_SECRET_STORE_DIR/log-shipper/), and it expects
+# the receiver's certificate for log-intake.<portal host> (BACKLOG 4a). It
+# queues on disk in BRZL_LOG_STORE_DIR/queue while the cluster is absent. It is replaced when its config changes, like Zot.
 #
 # Public DNS has a local stand-in (ADR-0036), used only when the portal's host
 # name is not under .localhost (a name the operator chose, as if public): a
@@ -154,11 +156,12 @@ substrate_up() {
 # collector beside the cluster (see the header). The environment's name and
 # its run directories come from the run directory, var/run/<env>/<run>.
 log_collector_up() {
-  local run_dir="$1" name="$BRZL_LOG_COLLECTOR_NAME" dir="$BRZL_LOG_STORE_DIR" runs env endpoint config sha state
+  local run_dir="$1" name="$BRZL_LOG_COLLECTOR_NAME" dir="$BRZL_LOG_STORE_DIR" runs env endpoint intake config sha state
   runs="${run_dir%/*}"; env="${runs##*/}"
-  endpoint="http://k3d-$BRZL_K3D_CLUSTER-server-0:4318"
+  endpoint="https://k3d-$BRZL_K3D_CLUSTER-server-0:4318"
+  intake="log-intake.$BRZL_PORTAL_HOST"         # the receiver's certificate name (BACKLOG 4a)
   config="$repo_root/driver/substrates/k3d-otelcol.yaml"
-  sha="$(cat "$config" <(printf '%s %s %s' "$env" "$endpoint" "$BRZL_LOG_COLLECTOR_IMAGE") | sha256sum)"; sha="${sha%% *}"
+  sha="$(cat "$config" <(printf '%s %s %s %s' "$env" "$endpoint" "$intake" "$BRZL_LOG_COLLECTOR_IMAGE") | sha256sum)"; sha="${sha%% *}"
   state="$(container_state "$name" dev.brzl.log-collector-config-sha256 "$sha")"
   printf '{ # the log store'"'"'s directories beside the cluster: the admin log store'"'"'s data, the collector'"'"'s queue\n'
   printf '  mkdir -p %q %q\n' "$dir/admin" "$dir/queue"
@@ -174,12 +177,13 @@ log_collector_up() {
   [[ "$state" == stale ]] && printf '  docker rm -f %q   # its config changed; the queue stays\n' "$name"
   printf '  docker run -d --name %q --network %q --restart unless-stopped --user 0 \\\n' "$name" "$BRZL_DOCKER_NETWORK"
   printf '    --label %q \\\n' "dev.brzl.log-collector-config-sha256=$sha"
-  printf '    -e %q -e %q \\\n' "BRZL_ENV=$env" "BRZL_OTLP_ENDPOINT=$endpoint"
+  printf '    -e %q -e %q -e %q \\\n' "BRZL_ENV=$env" "BRZL_OTLP_ENDPOINT=$endpoint" "BRZL_LOG_INTAKE_NAME=$intake"
   printf '    -v %q \\\n' \
     "$config:/etc/otelcol-contrib/config.yaml:ro" \
     "$repo_root/$runs:/run-outputs:ro" \
     "$repo_root/$dir/openbao-audit:/openbao-audit:ro" \
-    "$repo_root/$dir/queue:/queue"
+    "$repo_root/$dir/queue:/queue" \
+    "$repo_root/$BRZL_SECRET_STORE_DIR/log-shipper:/tls:ro"
   printf '    %q\n' "$BRZL_LOG_COLLECTOR_IMAGE"
   printf '}\n'
 }

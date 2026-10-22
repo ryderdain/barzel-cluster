@@ -74,7 +74,8 @@ Order of work (Q120):
    (`bearertokenauth`), or mTLS with a certificate from the local CA.
    Either way, only the collector beside the cluster holds the credential.
    [ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md), "Open
-   after pass 6".
+   after pass 6". Decided 2026-10-22 (Q163–Q166): mutual TLS from the
+   store's CA. **DONE 2026-10-22, user-verified** (RETROSPECTIVE).
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
    Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
@@ -109,7 +110,9 @@ Order of work (Q120):
     audit policy and log file through Ansible, the portal host annotation
     for Grafana's domain, the Grafana password from the AWS store (the
     bootstrap's `grafana-admin` goes), the events from one collector
-    replica (the OTLP credential is item 4a, earlier); exposing nginx through the Gateway API (Q113); the
+    replica; the OTLP receiver's certificates on a cloud: a private or a
+    public CA (the user, 2026-10-22), a token only if it brings a clear
+    gain; exposing nginx through the Gateway API (Q113); the
     CloudWatch Logs exporter is alpha; the live test of model B
     (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
     `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and
@@ -252,6 +255,16 @@ Order of work (Q120):
     It is an emit script whose preview names every item. It stops with
     `error 3` while a cluster is up. It states what it keeps, for example
     the access files, which take browser steps to make again.
+20. **Argo CD gives up after five failed syncs** (found 2026-10-22, live
+    test of 4a). For about 1 h 40 min, lookups of public names from the
+    pods failed in bursts (CoreDNS forwards to Docker Desktop's resolver),
+    while the node resolved them. `monitoring` used its five retries
+    (`retry.limit: 5`, at most 3 minutes apart) and stopped. After that,
+    Argo CD does not retry an automated sync of the same commit. So phase
+    40 waited until an operator refreshed and synced by hand. Options: no
+    limit (`limit: -1`, a negative limit means no limit), a larger limit,
+    or a refresh and sync step in phase 40 before its wait. Decide with
+    the user.
 19. **A low-memory mode** (user, Q158, 2026-10-19). The full local
     environment used 5.0 GiB with metrics and logs (pass 6, measured). huginn
     (8 GB) and other small machines cannot run it. A mode that turns off

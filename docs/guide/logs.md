@@ -47,7 +47,9 @@ logs of the workloads and the platform applications.
 ```
 
 The admin log store's data is outside the cluster: a host directory on
-local, a bucket on a cloud.
+local, a bucket on a cloud. The two collectors use mutual TLS: the receiver
+accepts only the client certificate that the driver issued to the
+collector beside the cluster.
 
 **Routes.** The collector in the cluster gives each record a route list:
 `admin`, `diagnostic`, `cold` or `drop`. A record goes to every store in its

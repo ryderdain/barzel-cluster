@@ -428,3 +428,32 @@ low-memory mode).
   has no credential. On a cluster with more nodes, each event arrives once
   from each node. The AWS parts wait for pass 8.
 
+## 2026-10-22 — item 4a: mutual TLS on the OTLP receiver
+
+User-verified on sleipnir. The in-cluster collector accepted OTLP from
+anything that reached it. Now it accepts only the client certificate of the
+collector beside the cluster (Q163–Q166, ADR-0027 and ADR-0036 amendments).
+The store's CA is made in phase 10. The client-only PKI role `log-shipper`
+issues that certificate on every run, valid for 30 days. cert-manager gives
+the receiver its server certificate, `log-intake.<host>`, through the
+portal's issuer. The PKI role `portal` signs server certificates only.
+gRPC is closed. GLOSSARY gained "Roles", the five meanings of "role" and
+the roles themselves. Every platform record now names the node of its
+collector, so copies of an event from several nodes are distinguishable.
+
+- **Bring-up.** A fresh `up`. Phase 40 found records from every admin
+  source. The run outputs and the OpenBao audit log arrive only through
+  the mutual TLS, so the path works.
+- **Refused.** A client on the cluster's network with no certificate got
+  no answer (curl exit 56).
+- **The portal's certificate** carries only TLS Web Server Authentication.
+- **Before the live test.** A throwaway pair with the real shipper config
+  delivered. It refused a client with no certificate, a server-only
+  certificate from the same CA and a foreign CA. A throwaway OpenBao
+  accepted both roles and refused another name.
+- **Found in the live test, not caused by 4a.** Lookups of public names
+  from the pods failed in bursts from 11:05 to 12:47 UTC. The node
+  resolved them. `monitoring` used its five sync retries and stopped, so
+  phase 40 waited. A hard refresh and one sync fixed it in about a minute.
+  BACKLOG 20 parks the retry limit for a decision.
+

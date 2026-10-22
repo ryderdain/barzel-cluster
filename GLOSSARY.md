@@ -171,3 +171,53 @@ _Avoid_: vault (for this meaning), secret backend
 **Secret-store adapter**:
 The steps that write one secret into one type of cluster secret store.
 _Avoid_: secret driver, provider
+
+### Roles
+
+"Role" alone is ambiguous in this platform. It has five meanings, and each
+one has its own name below. Always use that name. A store policy is not a
+role, but an auth role names one, so it is in this list too.
+
+**PKI role**:
+A rule in the cluster secret store's certificate authority. It limits which
+certificates the store signs: the names, the use (server or client) and the
+longest life. Two exist. `portal` signs server certificates for the
+environment's host name and the names under it: the admin portal and the
+log intake. `log-shipper` signs client certificates for the collector
+beside the cluster, and nothing else.
+_Avoid_: issuer (that is cert-manager's object that asks for a signature),
+certificate profile
+
+**Auth role**:
+A rule in the cluster secret store that lets one Kubernetes service account
+log in, and names the store policies that it then has. Two exist. `eso`
+lets External Secrets read secrets (policy `eso-reader`). `cert-manager`
+lets cert-manager ask the `portal` PKI role for a signature (policy
+`pki-issuer`).
+_Avoid_: binding, login role
+
+**Store policy**:
+The paths in the cluster secret store that a token may read or write.
+Three exist: `driver` (the operator's work through the driver), `eso-reader`
+and `pki-issuer`.
+_Avoid_: policy (alone: a follow policy is a different thing), ACL
+
+**Kubernetes role**:
+What a service account may do with the cluster's objects: a Kubernetes Role
+or ClusterRole. The platform's own: the conductor has `cluster-admin`, the
+in-cluster collector reads pods, namespaces, nodes and events, and the
+store's token reviewer has `system:auth-delegator`.
+_Avoid_: permissions, RBAC (for one role)
+
+**Cloud role**:
+An identity in a cloud provider that CI, a node or a person takes on, with
+short-lived credentials. On AWS: `<prefix>-tofu-plan` and
+`<prefix>-tofu-apply` (CI, through GitHub's OIDC provider) and the role of
+each node.
+_Avoid_: IAM user, account
+
+**Access tier**:
+A group of people that sign-on lets through to a set of services: `users`
+(the workloads), `operators` (Grafana, Prometheus) and `admins`. Pass 6a
+decides them again.
+_Avoid_: role tier, group (for this meaning)

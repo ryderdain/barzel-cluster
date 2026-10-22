@@ -12,6 +12,10 @@
 # Inputs: env/<env>.env (BRZL_SUBSTRATE, BRZL_SECRET_STORE and the adapters'
 # values). Output for later phases: <run_dir>/kubeconfig; on first start the
 # secret store's trust files in BRZL_SECRET_STORE_DIR (driver/secret-stores/).
+# In local-ca mode (BRZL_PORTAL_TLS) the store's CA is made here, before the
+# cluster, and it issues the client certificate of the collector beside the
+# cluster (BRZL_SECRET_STORE_DIR/log-shipper/, BACKLOG 4a): that collector
+# starts in this phase, and the in-cluster receiver accepts only it.
 # No credentials for k3d.
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
@@ -34,6 +38,11 @@ phase_up() {
     # Before the cluster: k3d writes the network's members into CoreDNS when it
     # makes the cluster, so the store must exist first (as Zot must).
     secret_store_up
+    if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+      secret_store_prelude
+      secret_store_ca_up "$BRZL_PORTAL_HOST"
+      secret_store_client_cert_up log-shipper log-shipper "$BRZL_SECRET_STORE_DIR/log-shipper"
+    fi
   fi
   substrate_up "$run_dir"
   end_function 0 "emitted 10-substrate up ($BRZL_SUBSTRATE${BRZL_SECRET_STORE:+ + $BRZL_SECRET_STORE})"
@@ -52,6 +61,9 @@ phase_check() {
   phase_init "$env" || return 1
   if [[ -n "${BRZL_SECRET_STORE:-}" ]]; then
     secret_store_check || rc=1
+    if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+      secret_store_client_cert_check "$BRZL_SECRET_STORE_DIR/log-shipper" || rc=1
+    fi
   fi
   substrate_check "$run_dir" || rc=1
   return "$rc"

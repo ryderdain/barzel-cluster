@@ -10,7 +10,13 @@
 # a record waits while the cluster is absent (phases 10 to 30, a `down`) and
 # is sent when it is back; a restart reads no file twice. Inputs from the
 # container's environment: BRZL_ENV, BRZL_OTLP_ENDPOINT (the server node's
-# host port of the in-cluster collector).
+# host port of the in-cluster collector), BRZL_LOG_INTAKE_NAME (the name in
+# the receiver's certificate).
+#
+# Mutual TLS (BACKLOG 4a): /tls holds this collector's client certificate
+# and key and the CA, issued by the store's PKI role log-shipper in phase
+# 10. The receiver accepts no other client. The files are read again every
+# 10 minutes, so a certificate issued by a later run takes effect.
 extensions:
   file_storage:
     directory: /queue
@@ -48,6 +54,12 @@ processors:
 exporters:
   otlphttp/cluster:
     endpoint: ${env:BRZL_OTLP_ENDPOINT}
+    tls:
+      ca_file: /tls/ca.crt
+      cert_file: /tls/tls.crt
+      key_file: /tls/tls.key
+      server_name_override: ${env:BRZL_LOG_INTAKE_NAME}
+      reload_interval: 10m
     retry_on_failure:
       enabled: true
       max_elapsed_time: 0                   # never drop: wait for the cluster

@@ -19,11 +19,11 @@
 #      the registry's upstream credentials file, and reloads the registry;
 #   4. the conductor (driver/conductor/conductor.yaml, rendered with the kiesei
 #      image that phase 20 pushed and the idle limit);
-#   5. in local-ca mode (BRZL_PORTAL_TLS), the store becomes the CA that
-#      cert-manager asks to sign the admin portal's certificate (ADR-0036):
-#      PKI engine, a root made once, a role for the portal's host, and the
-#      auth role cert-manager logs in with. The CA certificate goes to
-#      BRZL_SECRET_STORE_DIR/ca.crt; the check prints how to trust it once.
+#   5. in local-ca mode (BRZL_PORTAL_TLS), cert-manager may ask the store's CA
+#      (made in phase 10) to sign server certificates for the portal's host
+#      and the names under it (ADR-0036): the PKI role `portal`, server
+#      certificates only, and the auth role cert-manager logs in with. The
+#      check prints how to trust the CA (BRZL_SECRET_STORE_DIR/ca.crt) once.
 # Locus: the driver, because a secret resolves where the run sheet runs, and only
 # the driver has the operator's environment and the store's driver token; and
 # because a locus never installs itself (ADR-0021). Later the deploy key gives

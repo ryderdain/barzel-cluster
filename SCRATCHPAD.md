@@ -19,29 +19,21 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-21, opus. Pruned to the current state. The history is in git,
+*(2026-10-22, opus. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 6 (logs) DONE and user-verified** (RETROSPECTIVE 2026-10-21),
-merged to `main`. Two Loki stores in namespace `logs`, the in-cluster
-collector, the collector beside the cluster (`brzl-log-collector`, queue in
-`var/log-store/local/queue/`), kube-prometheus-stack on every substrate,
-Grafana at `/grafana/`. The local cluster is down after the test.
+**Pass 6 and item 4a DONE and user-verified** (RETROSPECTIVE 2026-10-21
+and 2026-10-22), merged to `main`. Two Loki stores, two collectors with
+mutual TLS between them (store CA; client-only role `log-shipper`, issued
+by phase 10; server certificate `log-intake.<host>` from cert-manager),
+metrics and Grafana on every substrate. The local cluster is up.
 
 **Facts to keep in mind:** a portal location must not set its own
-`proxy_set_header` (it then inherits none). Loki with auth off stores
-everything under the tenant `fake`. The ApplicationSet's helm keys are
-listed in its header. The collector's OTLP receiver takes records from
-anyone who reaches it (open item).
+`proxy_set_header`. Loki with auth off stores everything under the tenant
+`fake`. The store's CA is made in phase 10; the portal role is
+server-only. Argo CD stops after five failed syncs of one commit (BACKLOG
+20): a passing DNS fault needed a refresh and a sync by hand.
 
-**▶ NEXT: BACKLOG 4a, high priority** (user, 2026-10-21): a credential on
-the collector's OTLP receiver, so only the collector beside the cluster
-can write into the admin path. Then pass 6a, SSO (BACKLOG item 5). Each
-starts with a short design round.
-
-Done 2026-10-21 after the merge: every platform record names the node of
-the collector that read it (`brzl.collector.node`), so copies of an event
-from several nodes are distinguishable; phase 40 checks it. Verified with
-a throwaway collector and `otelcol-contrib validate`; live at the next
-`up`.
+**▶ NEXT:** the user's decision on BACKLOG 20 (retry limit), then pass 6a,
+SSO (BACKLOG item 5), with a short design round.

@@ -139,11 +139,10 @@ tested the design in two rounds before the build.
 
 ### Open after pass 6
 
-- The in-cluster collector accepts OTLP from any pod and from any
+- The in-cluster collector accepted OTLP from any pod and from any
   container on the local network, without a credential. Something other
   than the platform could write records that look like the admin path's.
-  A credential on that receiver has high priority (BACKLOG 4a), before
-  pass 6a and before any shared environment.
+  Closed on local by BACKLOG 4a (below).
 - The events come from a receiver in each collector pod. With more than
   one node, each event arrives once from each node. Each copy names the
   node of its collector (`brzl.collector.node`, structured metadata), so
@@ -155,3 +154,37 @@ tested the design in two rounds before the build.
 - Open on AWS (pass 8): the admin log store's data in S3, and the k3s
   audit policy and log file through Ansible. Grafana needs the portal's
   host name and its password from the AWS store.
+
+## Amendment (BACKLOG 4a, Q163–Q166, 2026-10-22): the OTLP receiver
+
+- **Mutual TLS from the store's CA** (Q163). The receiver presents a
+  server certificate and accepts only a client certificate from the
+  store's CA. The CA was already there (ADR-0036). mTLS also encrypts the
+  traffic, and it leaves no shared secret that someone could copy and
+  replay.
+- **The receiver's certificate comes from cert-manager** (Q164), through
+  the portal's issuer, as `log-intake.<portal host>`. It renews on its
+  own, on every substrate. The portal's PKI role already allowed names
+  under the host, so no store policy changed and no purge was needed.
+- **The client certificate comes from the driver** (Q164). Its holder,
+  the collector beside the cluster, runs outside the cluster, where
+  cert-manager does not write. The PKI role `log-shipper` signs client
+  certificates for that one name, and no auth role names it. Phase 10
+  issues the certificate on every run, valid for 30 days. The store's CA
+  moved from phase 25 to phase 10 for this, so it exists before the
+  collector starts. A local cluster that lives longer than 30 days queues
+  its run outputs until phase 10 runs again.
+- **The portal role signs server certificates only.** The receiver trusts
+  any client certificate from the CA, so only the client-only role may
+  make one. A test showed that a server-only certificate from the same CA
+  is refused as a client.
+- **Only HTTP on the node's host port is open** (Q165). gRPC is closed.
+  The chart makes no Service for a DaemonSet.
+- **Workloads never send OTLP to the platform's collector** (Q166). What
+  arrives over OTLP is the platform's own records, so the admin route on
+  that intake stays correct. A workload that wants OTLP gets its own
+  collector or a later design.
+- **On a cloud (pass 8)**, the choice is a private CA or a public CA for
+  these certificates (the user, 2026-10-22). A token only if it brings a
+  clear gain.
+
