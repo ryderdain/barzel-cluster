@@ -96,3 +96,15 @@ resolve them, with services that stand in for the public ones consistently.
 - *Records on the home router.* Nothing to run. But it works only on that
   network, and it gives one address per name, not `127.0.0.1` on each
   machine.
+
+## Amendment (BACKLOG 4a, 2026-10-22)
+
+- The store's CA is made in phase 10, before the cluster, as the store is.
+  Phase 25 writes the PKI role `portal` and cert-manager's auth role.
+- The PKI role `portal` signs server certificates only. Its names are the
+  portal's host and the names under it: the admin portal and, from 4a,
+  the log intake `log-intake.<host>`.
+- A second PKI role, `log-shipper`, signs client certificates for that one
+  name. Only the driver can ask it. GLOSSARY, "Roles", names each kind of
+  role.
+

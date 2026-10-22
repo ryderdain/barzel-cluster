@@ -19,16 +19,29 @@
 #   secret_get <path>               EMIT: print the value at <path> on stdout,
 #                                   for a pipe into its consumer
 #   secret_exists <path>            EMIT: succeed if <path> holds a value
-#   secret_store_pki_up <host>      EMIT: a CA in the store (PKI engine, root
-#                                   made once), a role that signs <host>, and
-#                                   the auth role cert-manager logs in with;
-#                                   the CA certificate to <dir>/ca.crt (ADR-0036)
+#   secret_store_ca_up <host>       EMIT: a CA in the store (PKI engine, root
+#                                   made once); the CA certificate to
+#                                   <dir>/ca.crt (ADR-0036). Phase 10: the CA
+#                                   exists before the cluster, as the store does
+#   secret_store_client_cert_up <role> <name> <dir>
+#                                   EMIT: a PKI role that signs client
+#                                   certificates for <name> only, and one such
+#                                   certificate in <dir> (tls.crt, tls.key,
+#                                   ca.crt; 0600), valid 30 days, issued anew
+#                                   on every run
+#   secret_store_pki_up <host>      EMIT: the PKI role `portal`, which signs
+#                                   server certificates for <host> and the
+#                                   names under it, and the auth role
+#                                   cert-manager logs in with
 #   secret_store_check              GENERATOR: unsealed, driver token valid,
 #                                   transit round trip
 #   secret_store_has <path>         GENERATOR: does <path> hold a value?
 #   secret_store_pki_check <host>   GENERATOR: CA, role and auth role exist;
 #                                   prints how to trust the CA on the operator's
 #                                   machine (checked only when run there)
+#   secret_store_client_cert_check <dir>
+#                                   GENERATOR: the client certificate in <dir>
+#                                   exists and is valid for at least one day
 #
 # Trust on the driver side, all under $BRZL_SECRET_STORE_DIR (gitignored, 600):
 #   seal.key      32 bytes (hex); the static seal's key. Lost = the store is
@@ -211,26 +224,70 @@ EOF
 }
 
 # The PKI engine is the CA of local-ca mode (ADR-0036): the root is made once
-# and outlives the cluster, like the rest of the store. The role allows the
-# portal's host and names under it; certificates last at most 90 days
-# (cert-manager renews them). The CA certificate (public) is written beside
-# the trust files, for the operator to trust once and for the checks.
-secret_store_pki_up() {
+# and outlives the cluster, like the rest of the store. The CA certificate
+# (public) is written beside the trust files, for the operator to trust once
+# and for the checks.
+secret_store_ca_up() {
   local host="$1" dir="$BRZL_SECRET_STORE_DIR" bao
   bao="$(openbao_bao)"
-  printf '{ # PKI in the store (local-ca, ADR-0036): the engine, the root CA (once), the portal role, the issuer auth role\n'
+  printf '{ # the CA in the store (local-ca, ADR-0036): the PKI engine and the root, made once\n'
   printf '  %s secrets list -format=json | jq -e '"'"'."pki/"'"'"' >/dev/null 2>&1 \\\n' "$bao"
   printf '    || %s secrets enable -max-lease-ttl=87600h pki\n' "$bao"
   printf '  %s read -field=certificate pki/cert/ca >/dev/null 2>&1 \\\n' "$bao"
   printf '    || %s write -field=serial_number pki/root/generate/internal common_name=%q ttl=87600h key_type=ec key_bits=256 >/dev/null\n' \
     "$bao" "brzl CA for $host"
+  printf '  %s read -field=certificate pki/cert/ca > %q\n' "$bao" "$dir/ca.crt"
+  printf '}\n'
+}
+
+# A client certificate for a program outside the cluster (BACKLOG 4a): today
+# the collector beside a local cluster, which proves itself to the in-cluster
+# collector's OTLP receiver with it. The role signs client certificates for
+# that one name and nothing else; no auth role names it, so only the driver
+# can ask it. The certificate is issued anew on every run of the phase and
+# lasts 30 days; the collector reads its files again on a timer. The issued
+# JSON stays in a shell variable; only its parts reach the files (umask 077).
+secret_store_client_cert_up() {
+  local role="$1" name="$2" dir="$3" bao
+  bao="$(openbao_bao)"
+  printf '{ # a client certificate for %s from the store'"'"'s CA (PKI role %s: client only, this name only, 30 days)\n' "$name" "$role"
+  printf '  %s write pki/roles/%s allowed_domains=%q allow_bare_domains=true enforce_hostnames=false \\\n' "$bao" "$role" "$name"
+  printf '    server_flag=false client_flag=true max_ttl=720h key_type=ec key_bits=256 >/dev/null\n'
+  printf '  mkdir -p %q\n' "$dir"
+  printf '  issued="$(%s write -format=json pki/issue/%s common_name=%q ttl=720h)" \\\n' "$bao" "$role" "$name"
+  printf '    && (umask 077\n'
+  printf '        jq -r .data.certificate <<< "$issued" > %q\n' "$dir/tls.crt"
+  printf '        jq -r .data.private_key <<< "$issued" > %q\n' "$dir/tls.key"
+  printf '        jq -r .data.issuing_ca <<< "$issued" > %q)\n' "$dir/ca.crt"
+  printf '  unset issued\n'
+  printf '}\n'
+}
+
+# The portal role signs server certificates only, for the portal's host and
+# the names under it (the admin portal; the log intake, BACKLOG 4a). It must
+# not sign client certificates: the OTLP receiver trusts any client
+# certificate from this CA, so only the client-only roles may make one.
+# Certificates last at most 90 days (cert-manager renews them).
+secret_store_pki_up() {
+  local host="$1" bao
+  bao="$(openbao_bao)"
+  printf '{ # the PKI role portal (server certificates only) and the auth role cert-manager logs in with\n'
   printf '  %s write pki/roles/portal allowed_domains=%q allow_bare_domains=true allow_subdomains=true \\\n' "$bao" "$host"
-  printf '    max_ttl=2160h key_type=ec key_bits=256 >/dev/null\n'
+  printf '    server_flag=true client_flag=false max_ttl=2160h key_type=ec key_bits=256 >/dev/null\n'
   printf '  %s write auth/kubernetes/role/cert-manager \\\n' "$bao"
   printf '    bound_service_account_names=brzl-pki-client bound_service_account_namespaces=cert-manager \\\n'
   printf '    token_policies=pki-issuer token_ttl=1h audience=openbao\n'
-  printf '  %s read -field=certificate pki/cert/ca > %q\n' "$bao" "$dir/ca.crt"
   printf '}\n'
+}
+
+secret_store_client_cert_check() {
+  local dir="$repo_root/$1" left
+  if ! openssl x509 -in "$dir/tls.crt" -noout -checkend 86400 >/dev/null 2>&1 || [[ ! -s "$dir/tls.key" ]]; then
+    printf 'fix: no valid client certificate in %s (absent, or less than one day left); run the 10-substrate phase again\n' "$1" >&2
+    return 1
+  fi
+  left="$(openssl x509 -in "$dir/tls.crt" -noout -enddate | sed 's/^notAfter=//')"
+  printf 'the client certificate in %s is valid until %s\n' "$1" "$left"
 }
 
 secret_store_pki_check() {
@@ -241,16 +298,19 @@ secret_store_pki_check() {
     return 1
   fi
   if ! openbao_run_bao read -field=certificate pki/cert/ca >/dev/null 2>&1 \
-      || ! openbao_run_bao read pki/roles/portal >/dev/null 2>&1 \
       || ! openbao_run_bao read auth/kubernetes/role/cert-manager >/dev/null 2>&1; then
-    printf 'fix: the store has no CA, portal role or cert-manager auth role; run the 25-bootstrap phase again\n' >&2
+    printf 'fix: the store has no CA or no cert-manager auth role; run the 10-substrate and 25-bootstrap phases again\n' >&2
+    return 1
+  fi
+  if [[ "$(openbao_run_bao read -field=client_flag pki/roles/portal 2>/dev/null)" != false ]]; then
+    printf 'fix: the PKI role portal is absent or also signs client certificates; run the 25-bootstrap phase again\n' >&2
     return 1
   fi
   if [[ ! -s "$ca" ]]; then
-    printf 'fix: no CA certificate at %s; run the 25-bootstrap phase again\n' "$ca" >&2
+    printf 'fix: no CA certificate at %s; run the 10-substrate phase again\n' "$ca" >&2
     return 1
   fi
-  printf 'the store is a CA for %s (role portal; cert-manager may ask it to sign); CA certificate: %s\n' \
+  printf 'the store is a CA for %s (PKI role portal, server certificates only; cert-manager may ask it to sign); CA certificate: %s\n' \
     "$host" "$BRZL_SECRET_STORE_DIR/ca.crt"
   # Trust on the operator's machine can be checked only there; from kiesei
   # the one-time step is printed for the operator's OS (BRZL_HOST_OS). The

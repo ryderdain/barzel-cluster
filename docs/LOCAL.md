@@ -189,7 +189,9 @@ Phase 10 makes them the first time. They are not in git:
 - `driver.token`: the token the driver writes with.
 - `recovery.key`: to make a new root token if `driver.token` is lost.
 - `ca.crt` (not a credential): the certificate of the CA that the store is
-  for the admin portal (ADR-0036). Phase 25 writes it.
+  for the admin portal and the log intake (ADR-0036). Phase 10 writes it.
+- `log-shipper/`: the client certificate and key of the collector beside
+  the cluster (below, "The logs"). Phase 10 issues them on every run.
 
 A store made before 2026-10-15 has a driver token without the PKI
 capabilities. The check of phase 25 says so; purge the store (below) and
@@ -225,6 +227,13 @@ the collector in the cluster. While there is no cluster, it keeps them in
 its queue in `var/log-store/local/queue/` and sends them later. So the
 records of phases 10 to 30 and of a `down` arrive after the next `up`. Like
 Zot, it stays when you remove the cluster.
+
+The two collectors use mutual TLS (BACKLOG 4a). The receiver in the cluster
+is `log-intake.<host>`, with a certificate from cert-manager. It accepts
+only the client certificate in `var/secret-store/local/log-shipper/`, which
+phase 10 issues from the store's CA, valid for 30 days. A cluster that
+lives longer than that keeps its run outputs in the queue until the next
+`up` issues a new certificate. No workload can write over OTLP.
 
 To read the logs, open Grafana in the portal (`/grafana/`), then Explore.
 Choose the data source "Admin log store" or "Diagnostic log store". Some

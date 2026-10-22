@@ -74,7 +74,9 @@ Order of work (Q120):
    (`bearertokenauth`), or mTLS with a certificate from the local CA.
    Either way, only the collector beside the cluster holds the credential.
    [ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md), "Open
-   after pass 6".
+   after pass 6". Decided 2026-10-22 (Q163–Q166): mutual TLS from the
+   store's CA. **Built on branch `item-4a-otlp-mtls`. The live test is
+   next.**
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
    Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
@@ -109,7 +111,9 @@ Order of work (Q120):
     audit policy and log file through Ansible, the portal host annotation
     for Grafana's domain, the Grafana password from the AWS store (the
     bootstrap's `grafana-admin` goes), the events from one collector
-    replica (the OTLP credential is item 4a, earlier); exposing nginx through the Gateway API (Q113); the
+    replica; the OTLP receiver's certificates on a cloud: a private or a
+    public CA (the user, 2026-10-22), a token only if it brings a clear
+    gain; exposing nginx through the Gateway API (Q113); the
     CloudWatch Logs exporter is alpha; the live test of model B
     (`terraform/stack/aws`, never applied); an automated full-teardown sweep;
     `ebs-csi/values.yaml` pins `brzl-dev-k8s` for prod too; the conductor and

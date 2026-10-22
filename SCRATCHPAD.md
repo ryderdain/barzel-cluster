@@ -35,10 +35,17 @@ everything under the tenant `fake`. The ApplicationSet's helm keys are
 listed in its header. The collector's OTLP receiver takes records from
 anyone who reaches it (open item).
 
-**▶ NEXT: BACKLOG 4a, high priority** (user, 2026-10-21): a credential on
-the collector's OTLP receiver, so only the collector beside the cluster
-can write into the admin path. Then pass 6a, SSO (BACKLOG item 5). Each
-starts with a short design round.
+**BACKLOG 4a BUILT on branch `item-4a-otlp-mtls`; the user's live test
+is next.** Q163–Q166: mutual TLS from the store's CA. The receiver's
+certificate `log-intake.<host>` comes from cert-manager through the portal
+issuer; the client certificate comes from the driver in phase 10 through
+the client-only PKI role `log-shipper` (30 days, issued every run). The
+portal role is server-only. The store's CA moved to phase 10. gRPC closed.
+GLOSSARY gained "Roles" (PKI role, auth role, store policy, Kubernetes
+role, cloud role, access tier). Verified without the cluster: renders, a
+throwaway mTLS pair (the real shipper config delivered; no certificate,
+a server-only certificate and a foreign CA were refused), the two roles in
+a throwaway OpenBao. Then pass 6a, SSO (BACKLOG 5).
 
 Done 2026-10-21 after the merge: every platform record names the node of
 the collector that read it (`brzl.collector.node`), so copies of an event

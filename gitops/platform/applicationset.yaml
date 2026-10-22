@@ -33,7 +33,8 @@
 #   hostParams            chart values set to the registry host
 #   prefixParams          chart values set to <prefix>/<path>, for a chart that
 #                         takes the host separately (global.imageRegistry)
-#   portalHostParams      chart values set to the admin portal's host name
+#   portalHostParams      chart values set to <prefix><the admin portal's host
+#                         name>, each a map {name, prefix}
 #   envParams             chart values set to the environment's name
 #
 # A kustomize element's path may carry __ENV__, replaced by the env label: the
@@ -202,7 +203,8 @@ spec:
                       upstream: docker-hub
                       path: curlimages/curl
                   portalHostParams:
-                    - grafana.grafana\.ini.server.domain
+                    - name: grafana.grafana\.ini.server.domain
+                      prefix: ""
                 # The log stack (ADR-0027): two Loki installations from one
                 # chart, set apart by their values files, and the node
                 # collector. The names are the Services the collector and
@@ -254,6 +256,13 @@ spec:
                       path: otel/opentelemetry-collector-contrib
                   envParams:
                     - extraEnvs[0].value
+                  # The OTLP receiver's certificate (BACKLOG 4a), a name
+                  # under the portal's host, from the portal's issuer.
+                  portalHostParams:
+                    - name: extraManifests[0].spec.commonName
+                      prefix: log-intake.
+                    - name: extraManifests[0].spec.dnsNames[0]
+                      prefix: log-intake.
                 - appName: secret-store
                   kind: kustomize
                   wave: "2"
@@ -426,8 +435,8 @@ spec:
                 value: "{{ index $ann (printf "brzl.dev/prefix-%s" .upstream) }}/{{ .path }}"
               {{- end }}
               {{- range .portalHostParams }}
-              - name: {{ . }}
-                value: "{{ index $ann "brzl.dev/portal-host" }}"
+              - name: {{ .name }}
+                value: "{{ .prefix }}{{ index $ann "brzl.dev/portal-host" }}"
               {{- end }}
               {{- range .envParams }}
               - name: {{ . }}

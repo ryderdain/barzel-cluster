@@ -18,8 +18,18 @@
 #   - `cold` has no destination until pass 6c; a record routed only to cold
 #     is dropped until then.
 #
+# The OTLP receiver (BACKLOG 4a): HTTP only, on the node's host port 4318,
+# with mutual TLS. Its server certificate is log-intake.<portal host>, from
+# cert-manager through the portal's issuer (the Certificate below). It
+# accepts only a client certificate from the store's CA, and only the PKI
+# role log-shipper signs client certificates: so only the collector beside
+# a local cluster can write over OTLP. Workloads never send OTLP here
+# (Q166): what arrives over OTLP is the platform's own, and the admin route
+# on that intake stays correct.
+#
 # The ApplicationSet injects the image path (image.repository, through the
-# registry) and the environment's name (extraEnvs[0].value, brzl.env).
+# registry), the environment's name (extraEnvs[0].value, brzl.env) and the
+# certificate's name (extraManifests[0].spec.commonName, dnsNames[0]).
 mode: daemonset
 fullnameOverride: log-collector             # DaemonSet log-collector-agent
 
@@ -57,9 +67,12 @@ clusterRole:
       resources: [events]
       verbs: [list, watch]
 
-# The node's logs, and a place for the read positions that survives a restart
-# of the pod (no file is read twice).
+# The node's logs, a place for the read positions that survives a restart
+# of the pod (no file is read twice), and the receiver's certificate.
 extraVolumes:
+  - name: intake-tls
+    secret:
+      secretName: log-intake-tls
   - name: varlog
     hostPath:
       path: /var/log
@@ -68,15 +81,20 @@ extraVolumes:
       path: /var/lib/brzl/collector
       type: DirectoryOrCreate
 extraVolumeMounts:
+  - name: intake-tls
+    mountPath: /tls
+    readOnly: true
   - name: varlog
     mountPath: /var/log
     readOnly: true
   - name: positions
     mountPath: /var/lib/brzl/collector
 
-# OTLP only; the host ports let the collector beside a local cluster reach
-# this one on the node's address.
+# OTLP over HTTP only; the host port lets the collector beside a local
+# cluster reach this one on the node's address. No gRPC (Q165).
 ports:
+  otlp:
+    enabled: false
   jaeger-compact:
     enabled: false
   jaeger-thrift:
@@ -94,6 +112,16 @@ config:
     jaeger: null
     zipkin: null
     prometheus: null
+    otlp:
+      protocols:
+        grpc: null
+        http:
+          endpoint: ${env:MY_POD_IP}:4318
+          tls:
+            cert_file: /tls/tls.crt
+            key_file: /tls/tls.key
+            client_ca_file: /tls/ca.crt
+            reload_interval: 1h             # cert-manager renews the certificate
     filelog/pods:
       include: [/var/log/pods/*/*/*.log]
       start_at: beginning
@@ -203,3 +231,30 @@ config:
         receivers: [forward/routed]
         processors: [filter/diagnostic-log-store, transform/diagnostic-log-store, batch]
         exporters: [otlphttp/diagnostic-log-store]
+
+# The receiver's server certificate (BACKLOG 4a). The name is replaced by
+# the ApplicationSet with log-intake.<portal host>.
+extraManifests:
+  - apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: log-intake
+      namespace: logs
+      annotations:
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    spec:
+      secretName: log-intake-tls
+      commonName: log-intake.invalid
+      dnsNames:
+        - log-intake.invalid
+      duration: 2160h    # 90 days
+      renewBefore: 720h  # renew 30 days before the end
+      privateKey:
+        algorithm: ECDSA   # the local-ca role signs EC keys only
+        size: 256
+        rotationPolicy: Always
+      usages:
+        - server auth
+      issuerRef:
+        name: brzl-portal
+        kind: ClusterIssuer
