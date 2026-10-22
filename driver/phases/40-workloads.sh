@@ -38,9 +38,24 @@ phase_up() {
   phase_init "$env" || end_function "$?" 'environment definition'
   phase_header "$run_dir" conductor
   cat <<'EOF'
-{ # Argo CD syncs every Application from git; wait until all are Synced and Healthy
-  kubectl -n argocd wait applications --all --for=jsonpath='{.status.sync.status}'=Synced --timeout=900s
-  kubectl -n argocd wait applications --all --for=jsonpath='{.status.health.status}'=Healthy --timeout=900s
+{ # Argo CD syncs every Application from git; wait until all are Synced and Healthy (at most 900 s).
+  # Argo CD retries a failed sync with no limit (BACKLOG 20); an Application that is not
+  # Synced and has failed 3 times or more is named here, with its error, once per count.
+  warned=' '
+  for _ in $(seq 60); do
+    if apps="$(kubectl -n argocd get applications -o json)"; then
+      jq -e '[.items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy")] | length == 0' \
+        <<< "$apps" >/dev/null && { printf 'every Application is Synced and Healthy\n'; break; }
+      while IFS=$'\t' read -r name count message; do
+        [[ "$warned" == *" $name:$count "* ]] && continue
+        printf 'WARNING: Argo CD failed to sync %s %s times: %s\n' "$name" "$count" "$message"
+        warned+="$name:$count "
+      done < <(jq -r '.items[] | .status as $s
+          | select(($s.operationState.retryCount // 0) >= 3 and $s.operationState.phase != "Succeeded" and $s.sync.status != "Synced")
+          | [.metadata.name, $s.operationState.retryCount, ($s.operationState.message // "" | .[0:200])] | @tsv' <<< "$apps")
+    fi
+    sleep 15
+  done
 }
 EOF
   end_function 0 'emitted 40-workloads up'

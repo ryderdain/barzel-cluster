@@ -255,6 +255,12 @@ Order of work (Q120):
     It is an emit script whose preview names every item. It stops with
     `error 3` while a cluster is up. It states what it keeps, for example
     the access files, which take browser steps to make again.
+19. **A low-memory mode** (user, Q158, 2026-10-19). The full local
+    environment used 5.0 GiB with metrics and logs (pass 6, measured). huginn
+    (8 GB) and other small machines cannot run it. A mode that turns off
+    or shrinks the heavy parts with few design changes, built only when a
+    need for it appears.
+
 20. **Argo CD gives up after five failed syncs** (found 2026-10-22, live
     test of 4a). For about 1 h 40 min, lookups of public names from the
     pods failed in bursts (CoreDNS forwards to Docker Desktop's resolver),
@@ -263,13 +269,16 @@ Order of work (Q120):
     Argo CD does not retry an automated sync of the same commit. So phase
     40 waited until an operator refreshed and synced by hand. Options: no
     limit (`limit: -1`, a negative limit means no limit), a larger limit,
-    or a refresh and sync step in phase 40 before its wait. Decide with
-    the user.
-19. **A low-memory mode** (user, Q158, 2026-10-19). The full local
-    environment used 5.0 GiB with metrics and logs (pass 6, measured). huginn
-    (8 GB) and other small machines cannot run it. A mode that turns off
-    or shrinks the heavy parts with few design changes, built only when a
-    need for it appears.
+    or a refresh and sync step in phase 40 before its wait. **Decided and
+    built 2026-10-22 (Q167, Q168).** There is no limit now. Phase 40
+    names an Application that fails 3 times or more. The Prometheus alert
+    `BrzlSyncFailing` fires at 3 (warning) and 5 (critical), shown in
+    Grafana. The live test is next (SCRATCHPAD).
+21. **A channel for alerts** (user, Q168, 2026-10-22). No Alertmanager
+    runs, so an alert such as `BrzlSyncFailing` only shows in Grafana and
+    Prometheus. Choose a channel (e-mail, Slack, ntfy, or Argo CD's own
+    notifications) and its credential, then turn on Alertmanager with that
+    receiver.
 
 Standing concerns (check in every pass):
 

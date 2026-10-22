@@ -35,5 +35,17 @@ metrics and Grafana on every substrate. The local cluster is up.
 server-only. Argo CD stops after five failed syncs of one commit (BACKLOG
 20): a passing DNS fault needed a refresh and a sync by hand.
 
-**▶ NEXT:** the user's decision on BACKLOG 20 (retry limit), then pass 6a,
-SSO (BACKLOG item 5), with a short design round.
+**BACKLOG 20 BUILT on branch `item-20-sync-retries`; the live test is
+next** (Q167, Q168, ADR-0025 amendment). Sync retries have no limit.
+Phase 40's wait names an Application that fails 3+ times (not Synced).
+kube-state-metrics exposes `brzl_argocd_app_sync_retries{name,phase,sync}`;
+the alert `BrzlSyncFailing` fires at 3 (warning) and 5 (critical) when not
+Synced. Verified: renders; kube-state-metrics with the config against the
+live cluster (it showed the stale `monitoring` record: Failed, 5, Synced,
+so the condition needs `sync`); promtool rule tests (stale record quiet,
+failing sync warns at 3 and goes critical at 5, recovered quiet). The
+ApplicationSet change reaches the cluster only through phase 30
+(BACKLOG 15). BACKLOG 21: a channel for alerts.
+
+**▶ NEXT:** the user's live test of BACKLOG 20, then pass 6a, SSO
+(BACKLOG item 5), with a short design round.
