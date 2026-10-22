@@ -47,5 +47,12 @@ failing sync warns at 3 and goes critical at 5, recovered quiet). The
 ApplicationSet change reaches the cluster only through phase 30
 (BACKLOG 15). BACKLOG 21: a channel for alerts.
 
+Live test 2026-10-22, 13:33Z: phase 30 looped "pod not found; reattaching".
+Race: the conductor scaled itself to zero (30 min idle) in the second
+conductor.sh woke it; conductor.sh chose the terminating pod. Fixed in
+conductor.sh: claim a Ready, non-terminating pod, reset its idle timer,
+confirm replicas=1 (3 attempts); stop with a clear message when the pod is
+gone (it reattached for up to an hour before).
+
 **▶ NEXT:** the user's live test of BACKLOG 20, then pass 6a, SSO
 (BACKLOG item 5), with a short design round.
