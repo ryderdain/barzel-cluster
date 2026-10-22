@@ -451,8 +451,8 @@ collector, so copies of an event from several nodes are distinguishable.
   delivered. It refused a client with no certificate, a server-only
   certificate from the same CA and a foreign CA. A throwaway OpenBao
   accepted both roles and refused another name.
-- **Found in the live test, not caused by 4a.** Lookups of public names
-  from the pods failed in bursts from 11:05 to 12:47 UTC. The node
+- **Found in the live test, not caused by 4a.** Pod lookups of public
+  names failed in bursts from 11:05 to 12:47 UTC. The node
   resolved them. `monitoring` used its five sync retries and stopped, so
   phase 40 waited. A hard refresh and one sync fixed it in about a minute.
   BACKLOG 20 parks the retry limit for a decision.
