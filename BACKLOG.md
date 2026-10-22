@@ -273,7 +273,7 @@ Order of work (Q120):
     built 2026-10-22 (Q167, Q168).** There is no limit now. Phase 40
     names an Application that fails 3 times or more. The Prometheus alert
     `BrzlSyncFailing` fires at 3 (warning) and 5 (critical), shown in
-    Grafana. The live test is next (SCRATCHPAD).
+    Grafana. **DONE 2026-10-22, user-verified** (RETROSPECTIVE).
 21. **A channel for alerts** (user, Q168, 2026-10-22). No Alertmanager
     runs, so an alert such as `BrzlSyncFailing` only shows in Grafana and
     Prometheus. Choose a channel (e-mail, Slack, ntfy, or Argo CD's own

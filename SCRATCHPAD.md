@@ -23,36 +23,21 @@ with the agent's internal cycles, not instead of them.
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 6 and item 4a DONE and user-verified** (RETROSPECTIVE 2026-10-21
-and 2026-10-22), merged to `main`. Two Loki stores, two collectors with
-mutual TLS between them (store CA; client-only role `log-shipper`, issued
-by phase 10; server certificate `log-intake.<host>` from cert-manager),
-metrics and Grafana on every substrate. The local cluster is up.
+**Pass 6, item 4a and BACKLOG 20 DONE and user-verified**
+(RETROSPECTIVE 2026-10-21 and 2026-10-22), merged to `main`. Logs with
+two Loki stores and mutual TLS between the collectors; metrics and
+Grafana on every substrate; sync retries with no limit, a warning in
+phase 40 and the alert `BrzlSyncFailing`. The local cluster is up.
 
 **Facts to keep in mind:** a portal location must not set its own
 `proxy_set_header`. Loki with auth off stores everything under the tenant
-`fake`. The store's CA is made in phase 10; the portal role is
-server-only. Argo CD stops after five failed syncs of one commit (BACKLOG
-20): a passing DNS fault needed a refresh and a sync by hand.
+`fake`. The store's CA is made in phase 10; the PKI role `portal` is
+server-only. An Application keeps its last operation record (phase,
+retry count) after its resources converge. The conductor scales itself to
+zero after 30 minutes idle; `conductor.sh` claims a live pod. A stacked
+graph hides series at 0.
 
-**BACKLOG 20 BUILT on branch `item-20-sync-retries`; the live test is
-next** (Q167, Q168, ADR-0025 amendment). Sync retries have no limit.
-Phase 40's wait names an Application that fails 3+ times (not Synced).
-kube-state-metrics exposes `brzl_argocd_app_sync_retries{name,phase,sync}`;
-the alert `BrzlSyncFailing` fires at 3 (warning) and 5 (critical) when not
-Synced. Verified: renders; kube-state-metrics with the config against the
-live cluster (it showed the stale `monitoring` record: Failed, 5, Synced,
-so the condition needs `sync`); promtool rule tests (stale record quiet,
-failing sync warns at 3 and goes critical at 5, recovered quiet). The
-ApplicationSet change reaches the cluster only through phase 30
-(BACKLOG 15). BACKLOG 21: a channel for alerts.
-
-Live test 2026-10-22, 13:33Z: phase 30 looped "pod not found; reattaching".
-Race: the conductor scaled itself to zero (30 min idle) in the second
-conductor.sh woke it; conductor.sh chose the terminating pod. Fixed in
-conductor.sh: claim a Ready, non-terminating pod, reset its idle timer,
-confirm replicas=1 (3 attempts); stop with a clear message when the pod is
-gone (it reattached for up to an hour before).
-
-**▶ NEXT:** the user's live test of BACKLOG 20, then pass 6a, SSO
-(BACKLOG item 5), with a short design round.
+**▶ NEXT: pass 6a, SSO** (BACKLOG item 5): Dex and oauth2-proxy in front
+of nginx, leading to the admin portal; it replaces the legacy local SSO
+path. Start with a short design round. Open: BACKLOG 21 (an alert
+channel) fits with 6a or later.

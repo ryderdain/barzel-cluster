@@ -457,3 +457,31 @@ collector, so copies of an event from several nodes are distinguishable.
   phase 40 waited. A hard refresh and one sync fixed it in about a minute.
   BACKLOG 20 parks the retry limit for a decision.
 
+## 2026-10-22 — BACKLOG 20: sync retries with no limit, and an alert
+
+User-verified on sleipnir. After the DNS incident of item 4a, a failed
+sync is retried with no limit (Q167). Phase 40 names an Application that
+is not Synced and failed 3 times or more, with its error. The alert
+`BrzlSyncFailing` fires at 3 failed attempts (warning) and 5 (critical)
+(Q168, ADR-0025 amendment). kube-state-metrics reads each Application's
+retry count, phase and sync status. No Alertmanager runs, so the alert
+shows only in Grafana and Prometheus (BACKLOG 21: a channel).
+
+- **Checks.** The `monitoring` Application has `retry.limit: -1`. Grafana
+  lists `BrzlSyncFailing` twice, as Normal. Prometheus holds one series of
+  `brzl_argocd_app_sync_retries` for each of the 12 Applications. A
+  stacked graph shows only the five that are not 0, which looked like
+  missing series.
+- **Found before the live test.** kube-state-metrics, run read-only
+  against the cluster, showed the stale record of `monitoring` from the
+  incident: Failed, 5 retries, but Synced. So the alert counts only an
+  Application that is not Synced. Prometheus's rule tests confirmed it:
+  the stale record stays quiet, a failing sync warns at 3 and goes
+  critical at 5, and a recovered one stays quiet.
+- **Found in the live test, a race in the conductor.** After 30 minutes
+  idle, the conductor scaled itself to zero. That was the same second in
+  which `conductor.sh` woke it for phase 30. `conductor.sh` chose the
+  terminating pod and then reattached to it for up to an hour. Fixed: it
+  claims a Ready pod that is not terminating and resets its idle timer.
+  It stops with a message when the pod is gone.
+
