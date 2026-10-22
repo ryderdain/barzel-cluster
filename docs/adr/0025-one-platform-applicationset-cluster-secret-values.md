@@ -90,3 +90,21 @@ platform renames only the registry host. The label
 `brzl.dev/workload-follow` (`branch` or `release`) is the per-environment
 value for workloads, written by the bootstrap or phase 30 like the others.
 The workload's element sits in a nested matrix with an SCM generator.
+
+## Amendment (2026-10-22, Q167 and Q168, BACKLOG 20)
+
+- **A failed sync is retried with no limit** (`retry.limit: -1`): after
+  10 s, then twice as long each time, at most every 3 minutes. The limit
+  of 5 stopped a sync for good after a passing DNS fault. Argo CD does not
+  try the same commit again by itself, so an operator had to refresh and
+  sync by hand. A real fault now keeps retrying, and its error stays on
+  the Application.
+- **Phase 40 names an Application that fails 3 times or more**, with its
+  error, while it waits. It stays read-only.
+- **An alert, `BrzlSyncFailing`**: a warning at 3 failed attempts and a
+  critical alert at 5, from kube-state-metrics, which reads each
+  Application's retry count. It counts only an Application that is not
+  Synced. The count and the phase of the last operation stay on the
+  Application after its resources converge. The alert shows in
+  Grafana and Prometheus. No channel sends it yet (BACKLOG 21).
+

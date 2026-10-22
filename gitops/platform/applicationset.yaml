@@ -399,8 +399,12 @@ spec:
           {{- if eq .serverSideApply "true" }}
           - ServerSideApply=true
           {{- end }}
+        # No limit (Q167, BACKLOG 20): a failed sync is tried again every
+        # 3 minutes, so a passing fault (a DNS outage) heals by itself. A
+        # real fault keeps its error visible on the Application; the retry
+        # count (status.operationState.retryCount) shows how long.
         retry:
-          limit: 5
+          limit: -1
           backoff:
             duration: 10s
             factor: 2

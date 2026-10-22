@@ -400,6 +400,10 @@ rather than replacing it.
 
 ## 10. Changelog
 
+- **v0.17 (2026-10-22):** BACKLOG 20 (Q167, Q168, ADR-0025 amendment). A
+  failed sync is retried with no limit. Phase 40 names an Application that
+  fails 3 times or more. The alert `BrzlSyncFailing` fires at 3 (warning)
+  and 5 (critical) failed attempts. No channel sends it yet (BACKLOG 21).
 - **v0.16 (2026-10-22):** BACKLOG 4a (Q163–Q166, ADR-0027 and ADR-0036
   amendments). The OTLP receiver uses mutual TLS from the store's CA. Its
   certificate comes from cert-manager, and the client certificate from

@@ -23,17 +23,21 @@ with the agent's internal cycles, not instead of them.
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 6 and item 4a DONE and user-verified** (RETROSPECTIVE 2026-10-21
-and 2026-10-22), merged to `main`. Two Loki stores, two collectors with
-mutual TLS between them (store CA; client-only role `log-shipper`, issued
-by phase 10; server certificate `log-intake.<host>` from cert-manager),
-metrics and Grafana on every substrate. The local cluster is up.
+**Pass 6, item 4a and BACKLOG 20 DONE and user-verified**
+(RETROSPECTIVE 2026-10-21 and 2026-10-22), merged to `main`. Logs with
+two Loki stores and mutual TLS between the collectors; metrics and
+Grafana on every substrate; sync retries with no limit, a warning in
+phase 40 and the alert `BrzlSyncFailing`. The local cluster is up.
 
 **Facts to keep in mind:** a portal location must not set its own
 `proxy_set_header`. Loki with auth off stores everything under the tenant
-`fake`. The store's CA is made in phase 10; the portal role is
-server-only. Argo CD stops after five failed syncs of one commit (BACKLOG
-20): a passing DNS fault needed a refresh and a sync by hand.
+`fake`. The store's CA is made in phase 10; the PKI role `portal` is
+server-only. An Application keeps its last operation record (phase,
+retry count) after its resources converge. The conductor scales itself to
+zero after 30 minutes idle; `conductor.sh` claims a live pod. A stacked
+graph hides series at 0.
 
-**▶ NEXT:** the user's decision on BACKLOG 20 (retry limit), then pass 6a,
-SSO (BACKLOG item 5), with a short design round.
+**▶ NEXT: pass 6a, SSO** (BACKLOG item 5): Dex and oauth2-proxy in front
+of nginx, leading to the admin portal; it replaces the legacy local SSO
+path. Start with a short design round. Open: BACKLOG 21 (an alert
+channel) fits with 6a or later.

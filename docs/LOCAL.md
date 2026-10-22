@@ -294,6 +294,13 @@ The next `up` makes a new store. Then give the deploy key again.
 
 ## Use it
 
+**When a sync keeps failing.** Argo CD tries a failed sync again with no
+limit, at most every 3 minutes. So a passing fault heals by itself. Phase
+40 prints a warning, with the error, for an Application that failed 3
+times or more. At other times, Grafana's alert list shows
+`BrzlSyncFailing`: a warning at 3 failed attempts, critical at 5. Nothing
+sends the alert to you yet (BACKLOG 21).
+
 The admin portal is the one place to start: `https://<host>/` (ADR-0028).
 It links to Argo CD (`/argocd/`), Grafana (`/grafana/`) and the example
 app (`/apps/chofesh/`), and lists the CLI commands. Grafana's user is

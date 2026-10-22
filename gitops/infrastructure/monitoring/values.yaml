@@ -73,6 +73,39 @@ prometheus:
 kube-state-metrics:
   image:
     repository: kube-state-metrics/kube-state-metrics
+  # Each Argo CD Application's sync retries, for the alert below (Q168,
+  # BACKLOG 20): brzl_argocd_app_sync_retries{name, phase, sync}. The count
+  # and the phase stay on the Application after the operation ends, even
+  # when the resources converge later (seen 2026-10-22: Failed, 5, but
+  # Synced). So the alert counts only an Application that is not Synced.
+  customResourceState:
+    enabled: true
+    config:
+      kind: CustomResourceStateMetrics
+      spec:
+        resources:
+          - groupVersionKind:
+              group: argoproj.io
+              version: v1alpha1
+              kind: Application
+            metricNamePrefix: brzl_argocd_app
+            labelsFromPath:
+              name: [metadata, name]
+              phase: [status, operationState, phase]
+              sync: [status, sync, status]
+            metrics:
+              - name: sync_retries
+                help: Failed attempts of the Application's latest sync operation
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, operationState, retryCount]
+                    nilIsZero: true
+  rbac:
+    extraRules:
+      - apiGroups: [argoproj.io]
+        resources: [applications]
+        verbs: [list, watch]
 
 prometheus-node-exporter:
   image:
@@ -153,3 +186,30 @@ grafana:
   # every boot, keeping the admin login in sync with the Secret.
   persistence:
     enabled: false
+
+# A sync that keeps failing (Q167, Q168; BACKLOG 20). Argo CD retries a
+# failed sync with no limit (10 s, then doubling to every 3 minutes), so a
+# passing fault heals by itself. These alerts say when it has not: 3 failed
+# attempts (about a minute) is a warning, 5 (about 5 minutes) is critical.
+# They show as firing in Grafana's alert list and in Prometheus. Nothing is
+# sent anywhere: no Alertmanager runs (a channel is a BACKLOG item).
+additionalPrometheusRulesMap:
+  brzl-gitops:
+    groups:
+      - name: brzl-gitops
+        rules:
+          - alert: BrzlSyncFailing
+            expr: max by (name) (brzl_argocd_app_sync_retries{phase!="Succeeded", sync!="Synced"}) >= 3
+            labels:
+              severity: warning
+            annotations:
+              summary: "Argo CD failed to sync {{ $labels.name }} {{ $value }} times"
+              description: "Read the error: kubectl -n argocd get application {{ $labels.name }} -o jsonpath='{.status.operationState.message}'"
+          - alert: BrzlSyncFailing
+            expr: max by (name) (brzl_argocd_app_sync_retries{phase!="Succeeded", sync!="Synced"}) >= 5
+            labels:
+              severity: critical
+            annotations:
+              summary: "Argo CD failed to sync {{ $labels.name }} {{ $value }} times"
+              description: "Read the error: kubectl -n argocd get application {{ $labels.name }} -o jsonpath='{.status.operationState.message}'"
+
