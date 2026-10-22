@@ -260,9 +260,9 @@ Order of work (Q120):
     test of 4a). For about 1 h 40 min, lookups of public names from the
     pods failed in bursts (CoreDNS forwards to Docker Desktop's resolver),
     while the node resolved them. `monitoring` used its five retries
-    (`retry.limit: 5`, at most 3 minutes apart) and stopped. Argo CD does
-    not retry an automated sync of the same commit after that, so phase 40
-    waited until an operator refreshed and synced by hand. Options: no
+    (`retry.limit: 5`, at most 3 minutes apart) and stopped. After that,
+    Argo CD does not retry an automated sync of the same commit. So phase
+    40 waited until an operator refreshed and synced by hand. Options: no
     limit (`limit: -1`, a negative limit means no limit), a larger limit,
     or a refresh and sync step in phase 40 before its wait. Decide with
     the user.
