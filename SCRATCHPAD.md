@@ -19,42 +19,21 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-21, opus. Pruned to the current state. The history is in git,
+*(2026-10-22, opus. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 6 (logs) DONE and user-verified** (RETROSPECTIVE 2026-10-21),
-merged to `main`. Two Loki stores in namespace `logs`, the in-cluster
-collector, the collector beside the cluster (`brzl-log-collector`, queue in
-`var/log-store/local/queue/`), kube-prometheus-stack on every substrate,
-Grafana at `/grafana/`. The local cluster is down after the test.
+**Pass 6 and item 4a DONE and user-verified** (RETROSPECTIVE 2026-10-21
+and 2026-10-22), merged to `main`. Two Loki stores, two collectors with
+mutual TLS between them (store CA; client-only role `log-shipper`, issued
+by phase 10; server certificate `log-intake.<host>` from cert-manager),
+metrics and Grafana on every substrate. The local cluster is up.
 
 **Facts to keep in mind:** a portal location must not set its own
-`proxy_set_header` (it then inherits none). Loki with auth off stores
-everything under the tenant `fake`. The ApplicationSet's helm keys are
-listed in its header. The collector's OTLP receiver takes records from
-anyone who reaches it (open item).
+`proxy_set_header`. Loki with auth off stores everything under the tenant
+`fake`. The store's CA is made in phase 10; the portal role is
+server-only. Argo CD stops after five failed syncs of one commit (BACKLOG
+20): a passing DNS fault needed a refresh and a sync by hand.
 
-**BACKLOG 4a BUILT on branch `item-4a-otlp-mtls`; the user's live test
-is next.** Q163–Q166: mutual TLS from the store's CA. The receiver's
-certificate `log-intake.<host>` comes from cert-manager through the portal
-issuer; the client certificate comes from the driver in phase 10 through
-the client-only PKI role `log-shipper` (30 days, issued every run). The
-portal role is server-only. The store's CA moved to phase 10. gRPC closed.
-GLOSSARY gained "Roles" (PKI role, auth role, store policy, Kubernetes
-role, cloud role, access tier). Verified without the cluster: renders, a
-throwaway mTLS pair (the real shipper config delivered; no certificate,
-a server-only certificate and a foreign CA were refused), the two roles in
-a throwaway OpenBao. Then pass 6a, SSO (BACKLOG 5).
-
-Live test 2026-10-22: phase 40 hung at `monitoring`. Cause: DNS lookups
-from the pods failed in bursts from 11:05 to 12:47 UTC (not 4a); the sync
-used its 5 retries; `secret-store` kept a cached comparison error. Fixed
-by a hard refresh and one sync (both Synced/Healthy in about 60 s).
-BACKLOG 20 parks the retry limit. The user continues with the 4a checks.
-
-Done 2026-10-21 after the merge: every platform record names the node of
-the collector that read it (`brzl.collector.node`), so copies of an event
-from several nodes are distinguishable; phase 40 checks it. Verified with
-a throwaway collector and `otelcol-contrib validate`; live at the next
-`up`.
+**▶ NEXT:** the user's decision on BACKLOG 20 (retry limit), then pass 6a,
+SSO (BACKLOG item 5), with a short design round.

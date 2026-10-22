@@ -75,8 +75,7 @@ Order of work (Q120):
    Either way, only the collector beside the cluster holds the credential.
    [ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md), "Open
    after pass 6". Decided 2026-10-22 (Q163–Q166): mutual TLS from the
-   store's CA. **Built on branch `item-4a-otlp-mtls`. The live test is
-   next.**
+   store's CA. **DONE 2026-10-22, user-verified** (RETROSPECTIVE).
 5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
    leads to the admin portal, which also works without it (Q108, Q112).
    Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
