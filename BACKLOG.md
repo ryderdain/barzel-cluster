@@ -286,7 +286,12 @@ Order of work (Q120):
     GitHub credentials. Sign-on (6a) uses GitHub as the identity provider.
     Then find if a general case exists for the git host, so that GitLab,
     Bitbucket or a self-managed git server can take its place.
-    State what each part would need, and what is specific to GitHub.
+    State what each part would need, and what is specific to GitHub. Each
+    other provider needs its own access script beside
+    `driver/access/github.sh`, with the same output layout: the read
+    credentials, the sign-on client and the teams or groups (user, Q183).
+    The access setup stays separate from the platform's own authentication
+    and authorization.
 23. **The cluster-admin kubeconfig after bootstrap, on a public cloud**
     (user, Q174, 2026-10-23). Phase 10 writes a kubeconfig with
     `cluster-admin` to `var/run/<env>/`, and the driver keeps it. It is a

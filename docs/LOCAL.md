@@ -1,7 +1,7 @@
 # Runbook — Local-dev stack (k3d)
 
 Run the platform and its example app on a developer laptop with **no AWS**
-— the portability proof for the platform (k3s everywhere; ADR-0015 /
+— the first environment of the promotion chain (ADR-0024,
 [ARCHITECTURE](ARCHITECTURE.md)). The example app is
 [chofesh](https://github.com/tzvat/chofesh) (ADR-0034): Argo CD reads
 its manifests from that repo, and the platform's own manifests get a thin
@@ -12,7 +12,8 @@ its manifests from that repo, and the platform's own manifests get a thin
 - A container engine (Docker Desktop, Colima, or equivalent), with the engine
   started, and its `docker` CLI.
 - Internet access. The images come from the upstream registries, through the
-  local Zot cache.
+  local Zot cache. Argo CD reads this repository and the workload's
+  repository from GitHub.
 - No AWS account, profile, or credentials.
 - For a private workload: `gh`, the GitHub CLI, logged in to your account.
   The access script (below, "The workload's access") uses it.
@@ -93,25 +94,31 @@ cluster). The locus is where the run sheet of the phase runs. The command is
 always `driver.sh`, for all phases: the driver sends a conductor phase to the
 conductor. Do not operate `driver/conductor.sh` yourself.
 
-- `10-substrate` (driver) makes the Zot registry, the OpenBao secret store,
-  and the k3d cluster, and writes the kubeconfig to the run directory. If the
-  configuration of Zot or OpenBao changed, it replaces that container. The
+- `10-substrate` (driver) makes the containers beside the cluster: the Zot
+  registry, the OpenBao secret store and its CA, the DNS stand-in and the
+  log collector. It issues the log collector's client certificate. Then it
+  makes the k3d cluster and writes the kubeconfig to the run directory. If
+  the configuration of a container changed, it replaces that container. The
   data stays.
 - `20-images` (driver) pushes the kiesei image to Zot. A workload's image
   is its own: its CI publishes it, and the cluster pulls it through Zot
   like every upstream image (ADR-0034).
-- `25-bootstrap` (driver) connects the secret store to the cluster. It
-  writes the deploy key into the store when you give it. Then it writes the
-  Argo CD repository Secret from the store, and starts the conductor in the
-  namespace `brzl-system`.
+- `25-bootstrap` (driver) connects the secret store to the cluster (the
+  auth roles for External Secrets and cert-manager, the PKI role `portal`).
+  It writes into the store, one time, the deploy key when you give it, the
+  workload's access files and Grafana's admin password. Then it writes the
+  Argo CD repository Secrets and Zot's upstream credentials from the store,
+  and starts the conductor in the namespace `brzl-system`.
 - `30-gitops` (conductor) installs Argo CD and applies the platform
-  ApplicationSet (ADR-0025). Argo CD then deploys CloudNativePG, External
-  Secrets, cert-manager, the admin portal and the example app (with its
-  Postgres) from git.
+  ApplicationSet (ADR-0025). Argo CD then deploys the platform from git:
+  CloudNativePG, External Secrets, cert-manager and the admin portal. It
+  also deploys the metrics (kube-prometheus-stack with Grafana), the two log
+  stores, the log collector, and the example app with its Postgres.
 - `40-workloads` (conductor) waits until all Applications are Synced and
   Healthy, and checks the example app, its Postgres and the portal. It also
   checks that the smoke value from phase 25 came back through External
-  Secrets.
+  Secrets. Then it checks that each log source arrived in its log store,
+  and that Grafana can query the admin log store through the portal.
 
 Argo CD follows the branch that is checked out when phase `30-gitops` is
 emitted. To follow a different branch, export `BRZL_GITOPS_REVISION`. Argo CD
@@ -181,7 +188,7 @@ its data on the volume `brzl-openbao-data`. It exists before the cluster and
 stays when you remove the cluster. The driver reaches it at `127.0.0.1:8200`.
 In the cluster, External Secrets reads it through the store `brzl-secrets`.
 
-Three files in `var/secret-store/local/` are your credential to the store.
+The files in `var/secret-store/local/` are your credential to the store.
 Phase 10 makes them the first time. They are not in git:
 
 - `seal.key`: the key that unseals the store. If you lose this file, the
@@ -309,39 +316,15 @@ page shows the command that reads it. The host name and the port
 are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
 adapter maps the port to the portal's NodePort when it makes the cluster.
 
-**The host name** (ADR-0036). The default is `brzl-local.localhost`: every
-`*.localhost` name resolves to `127.0.0.1` on macOS and in browsers, so a
-first test needs no DNS step. You can choose a name as if it were public,
-for example `local.barzel.sh`. Then a small DNS stand-in beside the cluster
-answers for that one name, and step 1 below tells macOS to ask it. The
-reference setup on sleipnir uses `local.barzel.sh`.
+**The host name** (ADR-0036). `env/local.env` sets `local.barzel.sh`, the
+reference setup on sleipnir. A DNS stand-in beside the cluster answers for
+that one name, and your machine must ask it (below, "Steps on your
+machine"). For a first test without that step, export
+`BRZL_PORTAL_HOST=brzl-local.localhost`: every `*.localhost` name resolves
+to `127.0.0.1` on macOS and in browsers, and no DNS stand-in runs.
 
-The checks of phases 10 and 25 print one or two one-time steps for your
-machine, in a boxed block. The steps are for the operating system of the
-machine that runs the driver. A check that runs in kiesei cannot see your
-machine, so it prints them every time. A check that runs on the host prints
-them only until they are done:
-
-1. **Resolve the name** (only for a chosen name, not for `*.localhost`).
-   The DNS stand-in answers `local.barzel.sh` with `127.0.0.1` on
-   `127.0.0.1:1053`. Tell macOS to ask it for that name only. The directory
-   `/etc/resolver` is macOS's own, and the file in it must carry the host
-   name:
-
-   ```sh
-   sudo mkdir -p /etc/resolver
-   printf 'nameserver 127.0.0.1\nport 1053\n' \
-     | sudo tee /etc/resolver/local.barzel.sh
-   ```
-
-   On Linux, add `127.0.0.1 local.barzel.sh` to `/etc/hosts` instead.
-2. **Trust the CA.** The store is the CA (`local-ca` mode). Until you trust
-   it, the browser warns, and that is acceptable:
-
-   ```sh
-   security add-trusted-cert -r trustRoot \
-     -k ~/Library/Keychains/login.keychain-db var/secret-store/local/ca.crt
-   ```
+Until sign-on (pass 6a), Argo CD and Grafana have their built-in `admin`
+logins. Sign-on turns them off (below, "Sign-on").
 
 The CLI tools are in the kiesei image ([docs/guide/kiesei.md](guide/kiesei.md)):
 
@@ -357,8 +340,67 @@ k3d also adds the cluster to your default kubeconfig, as the context
 `k3d-brzl-local`.
 
 Do a search. The app sends the query to Sefaria, shows the results, and writes
-them to the local Postgres, as in the cloud. The ESO credential projection
-between namespaces uses the same path.
+them to the local Postgres, as in the cloud.
+
+### Steps on your machine
+
+Two steps change your machine, not kiesei. You do them one time, and only
+for a local environment on a laptop. The entries stay across `down` and
+`up`.
+
+1. **Resolve the name** (only for a chosen name, not for `*.localhost`).
+   The DNS stand-in answers `local.barzel.sh` with `127.0.0.1` on
+   `127.0.0.1:1053`. On macOS, tell the system to ask it for that name
+   only. The directory `/etc/resolver` is macOS's own, and the name of the
+   file in it must be the host name:
+
+   ```sh
+   sudo mkdir -p /etc/resolver
+   printf 'nameserver 127.0.0.1\nport 1053\n' \
+     | sudo tee /etc/resolver/local.barzel.sh
+   ```
+
+   On Linux, add `127.0.0.1 local.barzel.sh` to `/etc/hosts` instead.
+2. **Trust the CA.** The store is the CA (`local-ca` mode), and its
+   certificate is `var/secret-store/local/ca.crt`. Until you trust it, the
+   browser warns, and that is acceptable. The commands depend on the
+   operating system. The Linux rows were tested in containers on
+   2026-10-23:
+
+   | System | Commands |
+   | --- | --- |
+   | macOS | `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db var/secret-store/local/ca.crt` (no `sudo`; macOS asks for your password) |
+   | Debian, Ubuntu, Alpine | `sudo cp var/secret-store/local/ca.crt /usr/local/share/ca-certificates/brzl-local.barzel.sh.crt` (the name must end in `.crt`), then `sudo update-ca-certificates` |
+   | Fedora, RHEL | `sudo cp var/secret-store/local/ca.crt /etc/pki/ca-trust/source/anchors/brzl-local.barzel.sh.crt`, then `sudo update-ca-trust` |
+   | openSUSE | `sudo cp var/secret-store/local/ca.crt /etc/pki/trust/anchors/brzl-local.barzel.sh.crt`, then `sudo update-ca-certificates` |
+   | Arch | `sudo trust anchor --store var/secret-store/local/ca.crt` |
+
+   No one command works on all Linux systems: `trust anchor` fails on
+   Ubuntu. On Linux, Firefox and Chrome usually keep their own certificate
+   store (NSS) and do not read the system's. To trust the CA there too,
+   use `certutil` from the NSS tools:
+   `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n brzl-local -i
+   var/secret-store/local/ca.crt` (for Chrome, not tested here).
+   Firefox has a store in each profile. Windows is not a supported driver
+   machine.
+
+**How you get the steps now.** The checks of phases 10 and 25 print them in
+a boxed block. The steps are for the operating system of the machine that
+runs the driver. A check that runs in kiesei cannot see your machine, so it prints
+them every time. A check that runs on the host prints them only until they
+are done.
+
+**From pass 6a (Q180).** The driver writes the steps into a host run sheet
+for your operating system (from `/etc/os-release` on Linux). It shows the
+run sheet, asks you one time to confirm, and runs it with `sudo` on your
+machine, outside kiesei. It records the run sheet like the others, and the
+same checks decide the result. The purge (BACKLOG 18) removes the entries.
+
+**What sign-on changes here: nothing.** Dex is at `/dex/` under the portal
+host (Q172), so your machine needs no other name. The log intake's name,
+`log-intake.<host>`, is used only between the containers. For `kubectl`
+through Dex (pass 6a, step 2), the k3s server must also resolve the portal
+host. The driver sets that up in the cluster, not on your machine.
 
 ## How a change to the example app arrives
 
@@ -459,85 +501,39 @@ bash driver/driver.sh local up | bash driver/kiesei.sh
 Step 4 removes the `.ok` by hand because `up` skips a phase that has one
 (BACKLOG item 16 is the driver action for this).
 
-## Up with the operator SSO gateway (`--with-sso`)
+## Sign-on
 
-At this time, the driver does not make the SSO edge. Until it does, the
-previous script, `gitops/clusters/local/k3d-up.sh`, makes it. That script can
-**recreate** the cluster with the full operator-SSO edge (ADR-0018): host ports
-443/80, the kube-API OIDC args, **cert-manager** + the **FreeDNS DNS-01**
-webhook for a trusted `*.sso.barzel.sh` Let's Encrypt wildcard, **Dex** (GitHub
-IdP), three per-host **oauth2-proxy** gates (operator/users tiers), and a lean
-**Grafana + Prometheus**. This **destroys and rebuilds** the local cluster (the
-plain-up dataset is disposable).
+Pass 6a builds sign-on for every environment (ADR-0035, Q169–Q183). The
+design, in short:
 
-**One-time prerequisites** (all flow in as env — nothing is written to a file
-or git):
+- nginx in the portal asks oauth2-proxy about each request. Without a
+  session, the browser goes to Dex at `/dex/`, and Dex sends it to GitHub.
+- Only members of three teams in the organization pass:
+  `brzl-admins`, `brzl-operators` and `brzl-auditors` (GLOSSARY, "Access
+  tier"). Each environment decides what each tier may do.
+- Argo CD and Grafana each sign in to Dex themselves and map the teams to
+  their roles. Their built-in `admin` logins are turned off. In an
+  emergency, use the CLI with the kubeconfig.
+- Each environment needs a GitHub OAuth App, which you make one time with
+  `driver/access/github.sh`. [SECURITY.md](SECURITY.md) tells what GitHub
+  gives Dex at sign-on. Read it before you try the platform with your own
+  account.
 
-1. **GitHub OAuth App** — Authorization callback URL
-   `https://dex.sso.barzel.sh/callback`.
-2. **FreeDNS / afraid.org** account that manages `barzel.sh` (for the DNS-01
-   TXT).
-3. **`/etc/hosts`**:
-
-   ```text
-   127.0.0.1 dex.sso.barzel.sh grafana.sso.barzel.sh
-   127.0.0.1 prometheus.sso.barzel.sh demo.sso.barzel.sh
-   ```
-
-4. **`kubelogin`** (`brew install int128/kubelogin/kubelogin`) for the
-   kube-API OIDC step.
-
-```sh
-export GITHUB_CLIENT_ID=...  GITHUB_CLIENT_SECRET=...
-# you mint this — hex (URL-safe), NOT base64
-export OAUTH2_PROXY_CLIENT_SECRET="$(openssl rand -hex 32)"
-export FREEDNS_USERNAME=...  FREEDNS_PASSWORD=...
-export ACME_EMAIL=you@example.com         # default ryder.dain@gmail.com
-# MUST equal your GitHub primary email (gates Grafana/Prometheus + kube-admin)
-export OPERATOR_EMAIL=you@example.com
-# Optional: ACME_ISSUER=letsencrypt-prod
-# (default letsencrypt-staging while validating DNS-01)
-
-# preview (creds stay as $VAR literals)
-bash gitops/clusters/local/k3d-up.sh --with-sso
-bash gitops/clusters/local/k3d-up.sh --with-sso | bash   # run it
-```
-
-The cert issuer is config, not a manual step: `ACME_ISSUER` (default
-`letsencrypt-staging`) substitutes the `__ACME_ISSUER__` sentinel in
-[`certificate.yaml`](../gitops/clusters/local/sso/certificate.yaml) at apply.
-Staging is rate-limit-safe for first iteration but is browser-distrusted *and*
-the kube-API server won't trust it. Once DNS-01 validates (`kubectl -n sso get
-certificate sso-wildcard -w`), move to the trusted prod chain —
-**`ACME_ISSUER=letsencrypt-prod`**. On a fresh run, just export it before
-`--with-sso`. On an already-running cluster (to keep data), re-apply just the
-cert with the same substitution — no recreate:
-
-```sh
-sed "s|__ACME_ISSUER__|letsencrypt-prod|g" \
-  gitops/clusters/local/sso/certificate.yaml | kubectl apply -f -
-```
-
-cert-manager re-issues against prod via the same FreeDNS DNS-01 path (a few
-minutes). **AWS promotes identically** — same manifests,
-`ACME_ISSUER=letsencrypt-prod` at bring-up; there is no per-environment manual
-cert step (ADR-0018).
-
-**Try the tiers:** open `https://demo.sso.barzel.sh` (any authenticated GitHub
-user is allowed → `users` tier) and `https://grafana.sso.barzel.sh` (only
-`OPERATOR_EMAIL` is allowed → `operators`; others are denied).
-`https://prometheus.sso.barzel.sh` is operator-only and has no other auth.
-Onboarding + the kube-API OIDC `kubectl` context are in [ACCESS.md](ACCESS.md).
+The legacy path (`gitops/clusters/local/k3d-up.sh --with-sso`, with
+`gitops/clusters/local/sso/`) is stale. It names the old demo app and uses
+Traefik routes. Do not use it. Pass 6a removes it.
 
 ## Down
 
 ```sh
-bash driver/driver.sh local down            # read the procedure
-bash driver/driver.sh local down | bash     # remove the k3d cluster
+bash driver/driver.sh local down                          # read the procedure
+bash driver/driver.sh local down | bash driver/kiesei.sh  # remove the cluster
 ```
 
-This removes the cluster for either path (`driver.sh` or `--with-sso`). The
-next `up` starts a new run.
+This removes the k3d cluster only. The containers beside it (Zot, OpenBao,
+the DNS stand-in, the log collector) stay, with their data, and so do the
+admin log store's data and the steps on your machine. The next `up` starts
+a new run.
 
 ## What differs from the AWS cluster (and why)
 
@@ -553,7 +549,8 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 | Monitoring | kube-prometheus-stack | the same; the node exporter has no root file-system metrics | the k3d node is a container (`values-local.yaml`) |
 | Logs | admin log store data in S3 (pass 8) | admin log store data in a host directory; a collector beside the cluster sends the run outputs | no object store locally; the driver's machine holds the run outputs |
 | GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
-| Identity / UI SSO | OIDC roles, ingress (prod path) | none by default; **the full SSO edge** with `--with-sso` (see below) | the local cluster is where the SSO gateway is actually built (ADR-0018) |
+| Sign-on | the same Dex and oauth2-proxy behind the portal (pass 8) | Dex and oauth2-proxy behind the portal (pass 6a) | one sign-on on every substrate; only the entry point differs (ADR-0035) |
+| Certificates | `letsencrypt` mode (ACME DNS-01) | `local-ca` mode: OpenBao is the CA | a laptop needs nothing public (ADR-0036) |
 
 **Image strategy.** The cluster pulls every image, the example app's
 included, through Zot's cache, as a cloud cluster pulls through ECR

@@ -129,9 +129,13 @@ prerequisite, [BOOTSTRAP.md](BOOTSTRAP.md) phase 1). Once enabled:
 
 ## Operator SSO gateway — Dex → GitHub 🔜 (authored; live bring-up pending)
 
+> **Stale.** This section describes the legacy path, which pass 6a
+> replaces. For the current design, see [LOCAL.md](LOCAL.md#sign-on) and
+> [SECURITY.md](SECURITY.md). Pass 6a rewrites this section.
+
 One GitHub-backed sign-on in front of the operator web UIs **and** the kube-API,
 with role tiers — built on the local k3d cluster (no billing meter) and portable to
-AWS (ADR-0018). Stand it up with [`k3d-up.sh --with-sso`](LOCAL.md#up-with-the-operator-sso-gateway---with-sso);
+AWS (ADR-0018). Stand it up with `k3d-up.sh --with-sso`;
 the manifests live in [`gitops/clusters/local/sso/`](../gitops/clusters/local/sso).
 
 **The three tiers** (web UIs are gated by per-host `oauth2-proxy`, identity issued by

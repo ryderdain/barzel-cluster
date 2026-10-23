@@ -77,6 +77,18 @@ graph hides series at 0.
 - Q181: a rough decision log, local-only in `notes/DECISIONS.md` (user,
   2026-10-23: not in the repo for now); backfilled from the transcript.
 
-Next: Q182 (team names per environment), Q183 (the access script makes the
-teams). Then build step 1 (web sign-on).
+- Q182: one set of teams for all environments: `brzl-admins`,
+  `brzl-operators`, `brzl-auditors`. Each environment decides what each
+  tier may do (its own role mapping), not other teams.
+- Q183: `driver/access/github.sh` gets `teams <org>` (gh api, adds the
+  operator to the admin team) and `oauth_app <org> <env>` (browser form;
+  reads id and secret into `var/access/github/<org>/`, mode 0600). BACKLOG
+  22 now names access scripts for other providers.
+- docs/LOCAL.md brought up to date (phases, host name default, legacy SSO
+  section replaced by "Sign-on", the down, the table) with "Steps on your
+  machine": the resolver, the CA trust table by OS, the Q180 change.
+  docs/ACCESS.md still describes the legacy SSO onboarding: update it in
+  the build.
+
+Next: build step 1 (web sign-on).
 BACKLOG 21 (an alert channel) fits with 6a or later.
