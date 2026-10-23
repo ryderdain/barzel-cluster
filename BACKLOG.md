@@ -313,7 +313,7 @@ Order of work (Q120):
     edition (a separate Grafana organization, possibly). Build it when a
     workload developer who is not an operator exists.
 25. **Review: a read-only check in a script of emitted steps** (user, Q184,
-    2026-10-23; for the user, against the doctrine in `ryderdain/bash`).
+    2026-10-23, for the user, against the doctrine in `ryderdain/bash`).
     `driver/access/github.sh` emits every step except `check` and
     `sign_on_check`, which run directly, as bash-ops §1 says a read-only
     check must. The user found that this reads as inconsistent. Decide if
