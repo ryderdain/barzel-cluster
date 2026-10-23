@@ -78,7 +78,9 @@ Two layers check each person (ADR-0035, Q169–Q172):
    (`auth_request`). Without a valid session cookie, oauth2-proxy sends the
    browser to Dex, and Dex sends it to GitHub. No path of the portal is
    available before the person signs in. This includes services without a
-   login of their own.
+   login of their own. The gate admits only members of the three teams of
+   the access tiers (Q179). Every environment has sign-on, and Argo CD's
+   and Grafana's built-in logins are off (Q175, Q177).
 2. **The application's own login.** Argo CD and Grafana are each a client of
    Dex. Each one gets a signed token from Dex, checks it, and maps the
    person's GitHub teams to its own roles. No application trusts a header
@@ -109,6 +111,49 @@ Two layers check each person (ADR-0035, Q169–Q172):
 
 What sign-on does not cover: the workloads (user, Q144), the log intake
 (flow 5) and the store (flows 1, 3, 4). Those are machine flows.
+
+### What GitHub gives Dex at sign-on
+
+Read this before you try the platform with your own GitHub account.
+
+Dex reads the person's teams from GitHub with a GitHub OAuth App that the
+organization owns, one for each environment (Q176). The first time a person
+signs in, GitHub shows the access that the App asks for, and the person
+approves it. Then GitHub gives Dex a token that acts as that person, with
+the scope `read:org`:
+
+- **What the token can do:** read the person's membership, teams and
+  organization projects. It can do this in **each** organization of the
+  person, not only in the platform's organization. An organization that
+  restricts OAuth Apps shows nothing until one of its owners approves the
+  App.
+- **What the token cannot do:** read code or repositories, or write
+  anything.
+- **Where it is kept:** in Dex's memory, so that Dex can read the teams
+  again when a session is refreshed (Q178). It is lost when Dex restarts.
+
+To try the platform without this exposure, use a GitHub account and an
+organization that you make for the trial. A narrower option is a GitHub
+App with only the permission "Members: read", installed only in the
+platform's organization. The token is then limited to that organization.
+That option is not built, because Dex's GitHub connector is documented for
+OAuth Apps (Q176).
+
+**The same design with an OIDC provider.** The flow stays the same: the
+browser goes to the provider, the person signs in, a signed token comes
+back, and Dex maps the groups to the tiers. The exposure is different.
+GitHub signs people in with OAuth 2.0, not OpenID Connect, so it gives no
+signed list of groups. Dex must ask GitHub's API for the teams, and only a
+token that acts as the person can do that. An OIDC provider puts the
+groups in a signed ID token for one client only. Dex reads that claim and
+gets no token for other APIs. The provider's administrator decides which
+claims each client gets. Examples: Amazon Cognito, Google, GitLab,
+Keycloak, Okta. On AWS, IAM Identity Center signs people in to
+applications mainly with SAML 2.0. Thus Cognito or a SAML connector would
+be between it and the platform. Dex stays in the design either way. The
+kube-API, Argo CD, Grafana and oauth2-proxy trust only Dex. Thus a change
+of provider is a change to Dex's connector only. BACKLOG 22 examines
+the GitHub dependency as a whole.
 
 ## Secret management
 
@@ -167,10 +212,10 @@ What sign-on does not cover: the workloads (user, Q144), the log intake
   `tofu plan -out=FILE`, then a review, then `tofu apply FILE`. Never
   `-auto-approve`. Approval for one step does not carry to the next.
 - **People reach the web services only through the admin portal**
-  (ADR-0028). Sign-on (pass 6a) gates the portal with three access tiers:
-  `admins`, `operators` and `auditors`, from GitHub teams (Q169, Q170,
-  Q173).
-  `kubectl` through the same identity is in ADR-0035.
+  (ADR-0028). Sign-on (pass 6a) gates the portal in every environment,
+  with three access tiers: `admins`, `operators` and `auditors`, from
+  GitHub teams (Q169, Q170, Q173). `kubectl` through the same identity is
+  in ADR-0035.
 
 ## Network
 

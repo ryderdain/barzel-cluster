@@ -297,6 +297,13 @@ Order of work (Q120):
     Then decide the emergency path there, for example a short-lived
     credential from the cloud's identity service. Do it in pass 8, before
     the first public-cloud environment.
+24. **A workload viewer tier** (user, Q170, Q173, Q179, 2026-10-23). A
+    restricted access tier for the people who develop one workload: in
+    Grafana, only that workload's logs (the diagnostic log store, its
+    namespace). The sign-on gate must be able to admit this tier, and only
+    to Grafana. Check first how to limit a data source in Grafana's free
+    edition (a separate Grafana organization, possibly). Build it when a
+    workload developer who is not an operator exists.
 
 Standing concerns (check in every pass):
 

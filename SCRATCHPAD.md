@@ -51,11 +51,19 @@ graph hides series at 0.
   sign-on is tested. BACKLOG 23: the cluster-admin kubeconfig on a cloud.
 - Q175: the built-in Argo CD and Grafana logins are turned off; the
   emergency path is the CLI with the cluster-admin kubeconfig.
-- Q176: leaning (a), a GitHub OAuth App per environment; the user asked
-  for the trade-off again.
+- Q176: a GitHub OAuth App per environment, owned by the organization.
+  SECURITY.md states the wider `read:org` scope and compares an OIDC
+  provider.
+- Q177: sign-on in every environment, no switch. ADR-0028's "also works
+  without it" (from the user's Q108 answer) goes; amend ADR-0028 and
+  ADR-0035 when the round ends.
+- Q178: Dex and oauth2-proxy from their Helm charts, namespace `sign-on`;
+  Dex keeps its state in memory.
+- Q179: the gate admits only the three teams. BACKLOG 24: a workload
+  viewer tier, which the gate must be able to admit later.
 - docs/SECURITY.md rewritten for drift, with the auth-flow diagrams.
 - BACKLOG 22: the GitHub dependency, examined alone.
 
-Next round: Q176 again, Q177 (sign-on in every environment), Q178 (charts
-and Dex's storage), Q179 (who passes the gate). BACKLOG 21 (an alert
-channel) fits with 6a or later.
+Next round: Q180 (the host steps, resolver and CA trust, as a phase), Q181
+(a record of the Q decisions). Then build step 1 (web sign-on).
+BACKLOG 21 (an alert channel) fits with 6a or later.
