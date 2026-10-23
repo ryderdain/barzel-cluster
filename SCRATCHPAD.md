@@ -41,15 +41,21 @@ graph hides series at 0.
 `pass-6a-sign-on`, design round. Decided 2026-10-23:
 
 - Q169: tier membership from GitHub teams in the organization (`tzvat`).
-- Q170: three tiers, `admins`, `operators`, `viewers` (GLOSSARY updated).
-  The user thought of a tier for Grafana only, for workload logs: ask if
-  `viewers` is that tier or a fourth one.
+- Q170, Q173: three tiers, `admins`, `operators`, `auditors` (read
+  everything, change nothing). GLOSSARY updated. A tier for workload
+  developers (Grafana, workload logs only) waits for a real developer.
 - Q171: the gate (nginx `auth_request` to oauth2-proxy) for every path, and
   Argo CD and Grafana each a Dex client (OIDC). No header trust.
 - Q172: Dex at `https://<portal host>/dex/`.
+- Q174: `kubectl` through Dex is a second step of this pass, after web
+  sign-on is tested. BACKLOG 23: the cluster-admin kubeconfig on a cloud.
+- Q175: the built-in Argo CD and Grafana logins are turned off; the
+  emergency path is the CLI with the cluster-admin kubeconfig.
+- Q176: leaning (a), a GitHub OAuth App per environment; the user asked
+  for the trade-off again.
 - docs/SECURITY.md rewritten for drift, with the auth-flow diagrams.
 - BACKLOG 22: the GitHub dependency, examined alone.
 
-Next round: `kubectl` through Dex (now or a second step), the built-in
-admin passwords after sign-on, where Dex's client secrets come from, the
-`viewers` question. BACKLOG 21 (an alert channel) fits with 6a or later.
+Next round: Q176 again, Q177 (sign-on in every environment), Q178 (charts
+and Dex's storage), Q179 (who passes the gate). BACKLOG 21 (an alert
+channel) fits with 6a or later.

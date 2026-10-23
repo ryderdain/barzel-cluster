@@ -64,7 +64,7 @@ diagram, which gives the reason for each flow.
 | 7, 8 | The workload is private. The platform reads it with read-only credentials scoped to its organization. It never holds a credential that can write to the workload (ADR-0034). |
 | 9 | Zot binds to the Docker network and to `127.0.0.1` only. A known local gap: any container on that network can pull the private workload's image. |
 | 10 | One host name and one certificate for every service (ADR-0028). The store is the CA in `local-ca` mode; `letsencrypt` mode is for a public name (ADR-0036). |
-| 11 | Temporary. Sign-on replaces it; the passwords stay for an emergency (decision open, pass 6a). |
+| 11 | Temporary. Sign-on replaces it, and then the built-in logins are turned off (Q175). In an emergency, the operator uses the CLI with the cluster-admin kubeconfig (flow 2). BACKLOG 23 examines that kubeconfig on a public cloud. |
 
 The store's own listener is plain HTTP on the Docker network and on
 `127.0.0.1`. Flows 1, 3 and 4 send their tokens over it. That is a known
@@ -168,7 +168,8 @@ What sign-on does not cover: the workloads (user, Q144), the log intake
   `-auto-approve`. Approval for one step does not carry to the next.
 - **People reach the web services only through the admin portal**
   (ADR-0028). Sign-on (pass 6a) gates the portal with three access tiers:
-  `admins`, `operators` and `viewers`, from GitHub teams (Q169, Q170).
+  `admins`, `operators` and `auditors`, from GitHub teams (Q169, Q170,
+  Q173).
   `kubectl` through the same identity is in ADR-0035.
 
 ## Network

@@ -283,9 +283,20 @@ Order of work (Q120):
     the 6a design). Find each place where the platform needs GitHub. Argo
     CD reads this repo and the workload's repo from it. The workload's
     image comes from its registry. The App and the packages token are
-    GitHub credentials. Sign-on (6a) uses GitHub as the identity provider. Then find if a general case exists for the git host, so that
-    GitLab, Bitbucket or a self-managed git server can take its place.
+    GitHub credentials. Sign-on (6a) uses GitHub as the identity provider.
+    Then find if a general case exists for the git host, so that GitLab,
+    Bitbucket or a self-managed git server can take its place.
     State what each part would need, and what is specific to GitHub.
+23. **The cluster-admin kubeconfig after bootstrap, on a public cloud**
+    (user, Q174, 2026-10-23). Phase 10 writes a kubeconfig with
+    `cluster-admin` to `var/run/<env>/`, and the driver keeps it. It is a
+    standing credential that skips sign-on. Locally it is the emergency
+    path (Q175). On a public-cloud substrate, it must not stay after
+    bootstrap without a decision. Add a validation check that fails when a
+    public-cloud environment still has such a kubeconfig after bootstrap.
+    Then decide the emergency path there, for example a short-lived
+    credential from the cloud's identity service. Do it in pass 8, before
+    the first public-cloud environment.
 
 Standing concerns (check in every pass):
 
