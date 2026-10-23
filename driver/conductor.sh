@@ -78,7 +78,7 @@ fi
 local_sum="$(sha256sum < "$run_dir/$name.sh")"
 follow_only=false
 # shellcheck disable=SC2016  # $(cat ...) is for the pod's shell
-if kubectl -n "$ns" exec "$pod" -- sh -c "[ -s '$remote.pid' ] && kill -0 \"\$(cat '$remote.pid')\" 2>/dev/null"; then
+if kubectl -n "$ns" exec "$pod" -- sh -c "[ -s '$remote.pid' ] && kill -0 \"\$(cat '$remote.pid')\" 2>/dev/null" 2>/dev/null; then
   if [[ "$(kubectl -n "$ns" exec "$pod" -- sh -c "sha256sum < '$remote.sh'")" == "$local_sum" ]]; then
     say "an earlier run of $name.sh still runs in $pod, with the same commands; following it"
     follow_only=true
