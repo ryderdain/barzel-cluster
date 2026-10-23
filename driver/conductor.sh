@@ -11,7 +11,10 @@
 #      pod: a Ready one that is not terminating, whose idle timer is reset at
 #      once (the conductor scales itself to zero when idle; if that happens
 #      while it is woken, the old pod is going away: wake it again);
-#   2. copy <run_dir>/<name>.sh into the pod and verify the copy by checksum;
+#   2. if an earlier run of <name>.sh still runs in the pod (a driver that
+#      was interrupted leaves its run going), follow that run when it has
+#      the same commands, and stop otherwise; else copy <run_dir>/<name>.sh
+#      into the pod and verify the copy by checksum;
 #   3. run it detached in the pod: its output goes to a log file in the pod and
 #      to the pod's stdout (so the cluster's log collector sees it), and its exit
 #      status to <name>.rc in the pod;
@@ -68,36 +71,60 @@ if [[ -z "$pod" ]]; then
   exit 1
 fi
 
-# 2. Copy and verify.
+# 2. An earlier run of this run sheet that still runs (seen 2026-10-23: the
+#    driver was interrupted, its run went on, and it wrote its .rc during the
+#    next run, which took that status as its own). The launcher keeps its
+#    process id in <name>.pid while it runs.
 local_sum="$(sha256sum < "$run_dir/$name.sh")"
-if ! kubectl -n "$ns" exec -i "$pod" -- sh -c "cat > '$remote.sh'" < "$run_dir/$name.sh"; then
-  say "could not copy $name.sh to $pod"
-  exit 1
+follow_only=false
+# shellcheck disable=SC2016  # $(cat ...) is for the pod's shell
+if kubectl -n "$ns" exec "$pod" -- sh -c "[ -s '$remote.pid' ] && kill -0 \"\$(cat '$remote.pid')\" 2>/dev/null"; then
+  if [[ "$(kubectl -n "$ns" exec "$pod" -- sh -c "sha256sum < '$remote.sh'")" == "$local_sum" ]]; then
+    say "an earlier run of $name.sh still runs in $pod, with the same commands; following it"
+    follow_only=true
+  else
+    say "an earlier run of $name.sh, with other commands, still runs in $pod. Wait until it ends, or stop it, then run the phase again:"
+    say "  kubectl -n $ns exec $pod -- sh -c 'kill \$(cat $remote.pid)'"
+    exit 1
+  fi
 fi
-remote_sum="$(kubectl -n "$ns" exec "$pod" -- sh -c "sha256sum < '$remote.sh'")"
-if [[ "$local_sum" != "$remote_sum" ]]; then
-  say "copy of $name.sh in $pod does not match; not running it"
-  exit 1
-fi
-say "running $name.sh in $pod"
 
-# 3. Run detached. The commands go to the pod's shell on stdin, so they are
-#    parsed once, there (STYLE.md §1.8). A small launcher file holds the
-#    detached part; setsid + nohup keep it alive if this session drops.
-if ! kubectl -n "$ns" exec -i "$pod" -- bash -s <<EOF
+# 2b, 3. start_run — copy the run sheet, verify the copy, and run it
+# detached. The commands go to the pod's shell on stdin, so they are parsed
+# once, there (STYLE.md §1.8). A small launcher file holds the detached
+# part; setsid + nohup keep it alive if this session drops. The launcher
+# keeps its process id in <name>.pid while it runs (step 2).
+start_run() {
+  if ! kubectl -n "$ns" exec -i "$pod" -- sh -c "cat > '$remote.sh'" < "$run_dir/$name.sh"; then
+    say "could not copy $name.sh to $pod"
+    return 1
+  fi
+  local remote_sum
+  remote_sum="$(kubectl -n "$ns" exec "$pod" -- sh -c "sha256sum < '$remote.sh'")"
+  if [[ "$local_sum" != "$remote_sum" ]]; then
+    say "copy of $name.sh in $pod does not match; not running it"
+    return 1
+  fi
+  say "running $name.sh in $pod"
+
+  if ! kubectl -n "$ns" exec -i "$pod" -- bash -s <<EOF
 touch /work/run/.activity
 rm -f '$remote.rc' '$remote.log'
 cat > '$remote.launch' <<'LAUNCH'
+printf '%s\n' "\$\$" > "\$1.pid"
 bash "\$1.sh" > >(tee "\$1.log" > /proc/1/fd/1) 2>&1
 printf '%s\n' "\$?" > "\$1.rc"
+rm -f "\$1.pid"
 touch /work/run/.activity
 LAUNCH
 setsid nohup bash '$remote.launch' '$remote' > /dev/null 2>&1 < /dev/null &
 EOF
-then
-  say "could not start $name.sh in $pod"
-  exit 1
-fi
+  then
+    say "could not start $name.sh in $pod"
+    return 1
+  fi
+}
+[[ "$follow_only" == true ]] || start_run || exit 1
 
 # 4. Follow until the .rc exists. Each round streams only the bytes added since
 #    the last round (tracked by the log's size), so a dropped connection costs

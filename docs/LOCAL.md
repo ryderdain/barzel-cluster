@@ -131,6 +131,9 @@ is ahead of its remote.
 
 For a conductor phase, the driver copies the run sheet into the conductor pod,
 operates it there, shows its output, and copies back the exit status. The
+run goes on in the conductor if you stop the driver with Ctrl-C. When you
+run the phase again while that run goes on, the driver follows it, and
+starts no second run. The
 conductor stops itself after `BRZL_CONDUCTOR_IDLE_SECONDS` with no work. The
 next conductor phase starts it again.
 
