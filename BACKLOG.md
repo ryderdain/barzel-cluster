@@ -320,6 +320,17 @@ Order of work (Q120):
     the doctrine changes (for example, a check in an emit script also
     emits), or if the script makes the difference plainer (one `check`, or
     a usage line for each step). Until then, the script stays as it is.
+26. **Sign-out** (user, Q185, 2026-10-23, to revisit later). Grafana's and
+    the portal's "Sign out" sign the person in again at once: Grafana
+    signs in automatically, Dex keeps no session, and GitHub keeps its
+    own. The proposal: one sign-out for the portal, Grafana and Argo CD
+    (Grafana's `signout_redirect_url`, Argo CD's `logoutURL`), ending on a
+    static page outside the gate that says GitHub keeps its session.
+27. **oauth2-proxy trusts `X-Forwarded-*` from any address** (found
+    2026-10-23, pass 6a). With `reverse_proxy` on and no
+    `trusted_proxy_ip`, any pod that reaches oauth2-proxy directly can set
+    those headers. Limit them to the portal (its pod network, or a
+    NetworkPolicy that admits only the portal).
 
 Standing concerns (check in every pass):
 

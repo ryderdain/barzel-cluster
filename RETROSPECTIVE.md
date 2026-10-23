@@ -485,3 +485,42 @@ shows only in Grafana and Prometheus (BACKLOG 21: a channel).
   claims a Ready pod that is not terminating and resets its idle timer.
   It stops with a message when the pod is gone.
 
+## 2026-10-23 — pass 6a, step 1: web sign-on
+
+User-verified on sleipnir. Every environment has sign-on in front of the
+admin portal (ADR-0035 amendment, Q169–Q185). Dex is the OIDC issuer at
+`/dex/`, with GitHub as the identity provider and one OAuth App for each
+environment. nginx asks oauth2-proxy about each request. Argo CD and
+Grafana are clients of Dex, and their built-in logins are off. Three
+access tiers are three GitHub teams. The workloads are outside sign-on.
+Phase 10 writes a host run sheet for the steps on the operator's machine,
+and `driver/kiesei.sh` runs it on the host (Q180). The legacy `--with-sso`
+path is removed.
+
+- **Checks.** The teams and the OAuth App were made with
+  `driver/access/github.sh`. After a new `up`, phase 40 passed. In the
+  browser, GitHub's approval led to the portal page. Argo CD's "Log in via
+  GitHub" gave the admin tier, and Grafana signed in as Admin. The example
+  app opened without sign-in in a private window. The host run sheet
+  reported its steps done.
+- **Sign-out.** Grafana's and the portal's "Sign out" sign the person in
+  again at once, because GitHub keeps its own session. Kept as it is for
+  now (Q185, BACKLOG 26).
+- **Found in the live test, each fixed and pushed:**
+  - The Dex image names its user, not its number, so the kubelet could
+    not verify `runAsNonRoot`. Then Dex needed a writable `/tmp` for its
+    expanded config.
+  - On a new cluster, the `grafana-admin` ExternalSecret failed while the
+    External Secrets webhook was not ready. The sync then waited for
+    Grafana without end. The ExternalSecret now has its own sync wave.
+  - An interrupted driver left phase 40 running in the conductor. The
+    next run started a second run, and the first run's exit status was
+    taken as the second's. `conductor.sh` now follows a run that still
+    runs, and never starts a second.
+  - nginx made the redirect to sign in absolute, with its container port
+    8443. Its redirects are relative now.
+  - argocd-server reads the Secrets that `oidc.config` names only when it
+    starts, and it started before External Secrets made the Secret. Its
+    settings API showed the right issuer, so phase 40 passed, but the
+    sign-in failed. Phase 25 now writes that Secret from the store and
+    restarts argocd-server when it changes. Phase 40 checks the order.

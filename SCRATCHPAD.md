@@ -38,29 +38,16 @@ zero after 30 minutes idle; `conductor.sh` claims a live pod. A stacked
 graph hides series at 0.
 
 **▶ IN FLIGHT: pass 6a, sign-on** (BACKLOG item 5), branch
-`pass-6a-sign-on`. Design Q169–Q183 done (ADR-0035 amendment; the decision
-log is `notes/DECISIONS.md`, local only). **Step 1, web sign-on, built
-2026-10-23; waiting for the user's live test.**
+`pass-6a-sign-on`. Design Q169–Q185 (ADR-0035 amendment; the decision log
+is `notes/DECISIONS.md`, local only). **Step 1, web sign-on: DONE and
+user-verified 2026-10-23** (RETROSPECTIVE). Sign-out stays as it is
+(Q185, BACKLOG 26); oauth2-proxy's trusted proxies are BACKLOG 27.
 
-What step 1 built:
-
-- `driver/access/github.sh` `teams`, `oauth_app`, `sign_on_check`;
-  `BRZL_SIGN_ON_ORG=tzvat` in `env/local.env`.
-- Phase 10: CoreDNS rule (ConfigMap `kube-system/coredns-custom`, the
-  portal host is the portal Service in the cluster) and the host run sheet
-  `10-host.sh` (resolver, CA trust by OS; Q180); `driver/kiesei.sh` runs it
-  on the host after the stream, with the terminal.
-- Phase 25: store entries `sign-on-*` and `portal-ca`; error 3 without the
-  OAuth App.
-- GitOps: `sign-on-secrets` (6 ExternalSecrets), `dex` (chart 0.25.2,
-  memory), `oauth2-proxy` (chart 10.6.2), nginx `auth_request`; Argo CD
-  OIDC (`$brzl-argocd-oidc:*`), RBAC, admin off; Grafana generic OAuth,
-  login form and basic auth off. `portalHostParams` has `suffix`.
-- Phase 40: the redirect to sign in, Dex at the issuer, Argo CD names the
-  issuer, Grafana healthy, `/apps/chofesh/` open. The Grafana query check
-  is gone (it needed the admin password).
-
-Untested by me: the sign-in itself, `argocd login --sso` from kiesei (the
-callback on localhost:8085 needs host networking), the host sheet with a
-terminal. Next: the user's live test, then step 2 (`kubectl` through Dex).
+**Next: step 2, `kubectl` through Dex** (Q174). A short design round
+first. Facts: k3d v5.9.0 has `--host-alias ip:host` (it writes the nodes'
+/etc/hosts and CoreDNS's NodeHosts); kubelogin is not in kiesei. The k3s
+API server runs in the node's network namespace, where kube-proxy routes
+a ClusterIP, so a host alias to a fixed portal ClusterIP would let it
+reach Dex at the issuer URL, and could replace the CoreDNS rule. k3s
+args are set at create: step 2 needs a new cluster.
 BACKLOG 21 (an alert channel) fits with 6a or later.
