@@ -1,0 +1,83 @@
+# Dex (chart dex 0.25.2, Dex v2.45.1): the OIDC issuer of sign-on (ADR-0035,
+# pass 6a), with GitHub as the identity provider. Served by the admin portal
+# under /dex/ (Q172), so the issuer is https://<portal host>/dex; the
+# ApplicationSet replaces each "localhost" below with the portal's host name
+# (portalHostParams). Browsers reach it through the portal, and so do the
+# pods of Argo CD, oauth2-proxy and Grafana: in the cluster, the portal's host
+# name is the portal's Service (the substrate adapter's DNS rule).
+#
+# State in memory (Q178): a restart loses the signing keys and the sessions,
+# so everyone signs in again. Nothing else is lost.
+#
+# The access tiers (Q169, Q170, Q182) are three teams of the organization.
+# Dex lets in only members of those teams, and names them as groups
+# "<org>:<team>". The same names are in argocd/values.yaml (RBAC),
+# monitoring/values.yaml (Grafana's roles) and oauth2-proxy.yaml.
+image:
+  repository: ghcr.io/dexidp/dex   # the ApplicationSet sets the registry path
+# Memory storage needs no Kubernetes objects of its own.
+rbac:
+  create: false
+# The secrets (ExternalSecret dex-env, sign-on/secrets/).
+envFrom:
+  - secretRef:
+      name: dex-env
+config:
+  issuer: https://localhost/dex
+  storage:
+    type: memory
+  web:
+    http: 0.0.0.0:5556
+  oauth2:
+    skipApprovalScreen: true
+  enablePasswordDB: false
+  connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: $GITHUB_CLIENT_ID
+        clientSecret: $GITHUB_CLIENT_SECRET
+        redirectURI: https://localhost/dex/callback
+        orgs:
+          - name: tzvat
+            teams:
+              - brzl-admins
+              - brzl-operators
+              - brzl-auditors
+        teamNameField: slug
+        useLoginAsID: true
+  # One client for each application. Each confidential client's secret is
+  # an environment variable from dex-env.
+  staticClients:
+    - id: oauth2-proxy
+      name: Admin portal
+      secretEnv: OAUTH2_PROXY_CLIENT_SECRET
+      redirectURIs:
+        - https://localhost/oauth2/callback
+    - id: argo-cd
+      name: Argo CD
+      secretEnv: ARGOCD_CLIENT_SECRET
+      redirectURIs:
+        - https://localhost/argocd/auth/callback
+    - id: grafana
+      name: Grafana
+      secretEnv: GRAFANA_CLIENT_SECRET
+      redirectURIs:
+        - https://localhost/grafana/login/generic_oauth
+    # The Argo CD CLI (`argocd login <host> --sso`): a public client, with a
+    # callback on the operator's own machine.
+    - id: argo-cd-cli
+      name: Argo CD CLI
+      public: true
+      redirectURIs:
+        - http://localhost:8085/auth/callback
+resources:
+  requests: { cpu: 10m, memory: 32Mi }
+  limits: { memory: 128Mi }
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: ["ALL"] }
+  seccompProfile: { type: RuntimeDefault }

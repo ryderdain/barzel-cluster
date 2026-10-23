@@ -83,6 +83,9 @@ Order of work (Q120):
    management UI of its own (chofesh has none). The legacy local SSO path
    (`gitops/clusters/local/{k3d-up.sh,sso/,kustomization.yaml}`) still
    names the demo-app and is stale since pass 5d. This pass replaces it.
+   Designed 2026-10-23 (Q169–Q183, ADR-0035 and ADR-0028 amendments).
+   **Step 1, web sign-on: built 2026-10-23, waiting for the live test.**
+   The legacy path is removed. Step 2: `kubectl` through Dex (Q174).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records

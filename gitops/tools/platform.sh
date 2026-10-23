@@ -7,7 +7,7 @@
 #
 # ENVIRONMENT — `ENV=dev` (default) or `ENV=prod`. AWS environments only; everything
 # (state dir, SSM params, name prefix) is scoped to `brzl-<env>`. local-dev (k3d) is
-# a LAPTOP concern run via gitops/clusters/local/k3d-up.sh and is rejected here.
+# a LAPTOP concern run via driver/driver.sh local and is rejected here.
 #
 # EXECUTION LOCUS — run this FROM THE CONDUCTOR (instance-role creds, no AWS_PROFILE)
 # for AWS dev/prod ops; that's the audited, IAM-gated, identical-toolchain box
@@ -71,13 +71,13 @@ region="${AWS_REGION:-eu-central-1}"
 
 # Target environment (AWS only): ENV=dev | prod. This orchestrator drives the AWS
 # environments and is meant to run FROM THE CONDUCTOR. local-dev (k3d) is a LAPTOP
-# concern driven by gitops/clusters/local/k3d-up.sh — reject it here so the
+# concern driven by driver/driver.sh local — reject it here so the
 # environment + execution-locus boundary can't be crossed by accident.
 env_name="${ENV:-dev}"
 case "$env_name" in
   dev|prod) ;;
   local|local-dev)
-    printf 'error: local-dev runs on the laptop via gitops/clusters/local/k3d-up.sh,\n' >&2
+    printf 'error: local-dev runs on the laptop via driver/driver.sh local,\n' >&2
     printf '       not platform.sh (which drives the AWS dev/prod environments).\n' >&2
     # shellcheck disable=SC2317
     { return 2 2>/dev/null || exit 2; } ;;

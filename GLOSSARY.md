@@ -113,8 +113,7 @@ _Avoid_: run-log, log, transcript
 
 **Admin portal**:
 The landing page of an environment, over HTTPS. It links to every service in
-the cluster and gives the matching CLI commands. It is available with or
-without sign-on; sign-on, when there is one, leads to it.
+the cluster and gives the matching CLI commands. Sign-on leads to it.
 _Avoid_: dashboard, homepage, launcher
 
 **TLS mode**:

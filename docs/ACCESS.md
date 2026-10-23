@@ -127,61 +127,40 @@ prerequisite, [BOOTSTRAP.md](BOOTSTRAP.md) phase 1). Once enabled:
   alternative (mirrors the ECR→Harbor "cloud-native demo, portable OSS prod"
   thread in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-## Operator SSO gateway — Dex → GitHub 🔜 (authored; live bring-up pending)
+## Sign-on — Dex → GitHub (pass 6a)
 
-> **Stale.** This section describes the legacy path, which pass 6a
-> replaces. For the current design, see [LOCAL.md](LOCAL.md#sign-on) and
-> [SECURITY.md](SECURITY.md). Pass 6a rewrites this section.
+One GitHub-backed sign-on in front of the admin portal, in every
+environment (ADR-0035). The design and its flows are in
+[SECURITY.md](SECURITY.md). The steps for a local environment are in
+[LOCAL.md](LOCAL.md#sign-on).
 
-One GitHub-backed sign-on in front of the operator web UIs **and** the kube-API,
-with role tiers — built on the local k3d cluster (no billing meter) and portable to
-AWS (ADR-0018). Stand it up with `k3d-up.sh --with-sso`;
-the manifests live in [`gitops/clusters/local/sso/`](../gitops/clusters/local/sso).
+**The three access tiers** are three teams of the GitHub organization. Dex
+admits only their members and names them as groups `<org>:<team>`:
 
-**The three tiers** (web UIs are gated by per-host `oauth2-proxy`, identity issued by
-**Dex** federating a GitHub OAuth App):
+| Tier | Team | Argo CD | Grafana | Kubernetes (step 2) |
+| --- | --- | --- | --- | --- |
+| admins | `brzl-admins` | `role:admin` | Admin | `cluster-admin` |
+| operators | `brzl-operators` | read and sync, no settings | Editor | view |
+| auditors | `brzl-auditors` | `role:readonly` | Viewer | view |
 
-| Tier | Who | Gets | Enforced by |
-| --- | --- | --- | --- |
-| `users` | any authenticated GitHub user | `demo.sso.barzel.sh` (the app) | oauth2-proxy `--email-domain=*` |
-| `operators` | `OPERATOR_EMAIL` (the GitHub primary email) | + `grafana` (Admin) + `prometheus` | oauth2-proxy email allowlist; Grafana `auth.proxy` |
-| `admins` | (GitHub-org only) | distinct from operators via team groups | Dex `teams:`→groups (see below) |
+The gate (oauth2-proxy in front of nginx) refuses a person in no team. The
+workloads are outside sign-on.
 
-A user who clears the **demo** gate is **denied** Grafana/Prometheus (those require the
-operator allowlist) — access to the app UI never grants the operational UIs, the
-standing requirement. Grafana's local login form is **off**: the only way in is the gate.
+**Onboard a person.** Add them to one team on GitHub. Nothing in the
+platform changes.
 
-**Personal vs. org GitHub.** The demo uses a *personal* account → Dex emits no group
-claims, so tiers key on the **operator email**. With a GitHub **org**, add `orgs:`/`teams:`
-to the Dex connector; the tiers become group claims (`oidc:brzl-admins`/`-operators`/
-`-users`) and you swap the oauth2-proxy `--authenticated-emails-file` for `--allowed-group`
-and the RBAC `User` subject for `Group` — same topology, different subject.
+**Offboard a person.** Remove them from the team on GitHub. Their portal
+session ends when its cookie expires (7 days). Argo CD's and Grafana's
+sessions end at their next sign-in. For a faster end, rotate the cookie
+secret ([SECRETS.md](SECRETS.md), "Rotation & lifecycle").
 
-**Onboard / offboard a human.** Add them as a collaborator on the GitHub OAuth App
-(or org team); to grant the operator tier, add their GitHub primary email to
-`OPERATOR_EMAIL` (the oauth2-proxy allowlist) and re-run the bring-up. **Revoke** by
-removing them from the OAuth App / allowlist — central, immediate, no per-service
-password to rotate.
+**The Argo CD CLI.** `argocd login <host> --grpc-web-root-path argocd --sso`
+signs in through Dex in the browser. The gate accepts the token that the CLI
+then holds.
 
-**kubectl by GitHub identity (oidc-login).** The k3s API server trusts the same Dex
-issuer (`--oidc-issuer-url`), so add a kubelogin context:
-
-```sh
-kubectl config set-credentials oidc \
-  --exec-api-version=client.authentication.k8s.io/v1 \
-  --exec-command=kubectl \
-  --exec-arg=oidc-login,get-token,\
---oidc-issuer-url=https://dex.sso.barzel.sh,\
---oidc-client-id=kubernetes,\
---oidc-extra-scope=email,--oidc-extra-scope=groups
-kubectl config set-context brzl-local-oidc --cluster=k3d-brzl-local --user=oidc
-kubectl --context=brzl-local-oidc get nodes   # browser → Dex → GitHub; RBAC by email/group
-```
-
-The operator email is bound to `cluster-admin` ([`sso/rbac.yaml`](../gitops/clusters/local/sso/rbac.yaml));
-a non-member authenticates but is RBAC-denied. Requires the **prod** LE issuer (the
-staging chain isn't trusted by the API server). Keep the admin kubeconfig as break-glass
-until OIDC is proven.
+**`kubectl` by GitHub identity** is step 2 of pass 6a (Q174). Until then,
+use the kubeconfig in the run directory. It is also the emergency path when
+Dex or GitHub fails (Q175).
 
 ## In-cluster access (kubectl / ArgoCD)
 

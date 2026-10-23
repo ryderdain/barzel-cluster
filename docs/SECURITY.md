@@ -51,7 +51,14 @@ diagram, which gives the reason for each flow.
   Zot -------(8) packages token (read:packages) -------------> ghcr.io
   k3s nodes -(9) nothing (plain HTTP, Docker network only) --> Zot
   browser --(10) checks the server certificate (store CA) ---> admin portal
-  person ---(11) built-in admin password (until sign-on) ----> Argo CD, Grafana
+  person ---(11) GitHub sign-in, then a session cookie ------> the portal's gate
+                   (oauth2-proxy, through Dex)                  (oauth2-proxy)
+  person ---(12) a token from Dex, in each application ------> Argo CD, Grafana
+  oauth2-proxy, Argo CD, Grafana
+  ----------(13) client secret; trusts the store CA --------> Dex, at the issuer
+                   (through the portal, as browsers do)          URL
+  argocd CLI (14) a token from Dex (public client) ----------> the gate, Argo CD
+  Dex ------(15) the OAuth App's client secret --------------> GitHub
 ```
 
 | Flow | Why this way |
@@ -64,15 +71,19 @@ diagram, which gives the reason for each flow.
 | 7, 8 | The workload is private. The platform reads it with read-only credentials scoped to its organization. It never holds a credential that can write to the workload (ADR-0034). |
 | 9 | Zot binds to the Docker network and to `127.0.0.1` only. A known local gap: any container on that network can pull the private workload's image. |
 | 10 | One host name and one certificate for every service (ADR-0028). The store is the CA in `local-ca` mode; `letsencrypt` mode is for a public name (ADR-0036). |
-| 11 | Temporary. Sign-on replaces it, and then the built-in logins are turned off (Q175). In an emergency, the operator uses the CLI with the cluster-admin kubeconfig (flow 2). BACKLOG 23 examines that kubeconfig on a public cloud. |
+| 11 | The gate (Q171): no path of the portal opens without a session, so a service without a login of its own is safe too. Only the three teams pass (Q179). Outside the gate: Dex, oauth2-proxy, Argo CD's public settings and the workloads (Q144). |
+| 12 | Each application checks a signed token and maps the teams to its own roles. No application trusts a header that another pod set. The built-in logins are off (Q175). In an emergency, the operator uses the CLI with the cluster-admin kubeconfig (flow 2); BACKLOG 23 examines that kubeconfig on a public cloud. |
+| 13 | Each client has its own secret, made once in the store. In the cluster, a DNS rule makes the portal's host name the portal's Service, so the pods use the same issuer URL as the browser. In `local-ca` mode they trust the store's CA, from the store. |
+| 14 | The CLI cannot carry the gate's cookie. It signs in through Dex in the browser, and the gate accepts its token. It reads Argo CD's public settings first, so that one path is outside the gate. |
+| 15 | One OAuth App for each environment, owned by the organization (Q176). Its scope is wider than necessary (below, "What GitHub gives Dex at sign-on"). |
 
 The store's own listener is plain HTTP on the Docker network and on
 `127.0.0.1`. Flows 1, 3 and 4 send their tokens over it. That is a known
 local gap. Pass 8 uses the cloud's store over TLS.
 
-### Sign-on, as designed for pass 6a
+### Sign-on (pass 6a)
 
-Two layers check each person (ADR-0035, Q169–Q172):
+Two layers check each person (ADR-0035 amendment, Q169–Q183):
 
 1. **The gate.** nginx asks oauth2-proxy about each request
    (`auth_request`). Without a valid session cookie, oauth2-proxy sends the

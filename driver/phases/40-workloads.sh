@@ -22,6 +22,15 @@
 # asks with a query, not Loki's /ready. The run outputs of the earlier phases
 # waited in the queue of the collector beside the cluster, so the check waits
 # up to three minutes for them.
+#
+# Sign-on (ADR-0035): a check cannot sign in to GitHub, so it checks what
+# sign-on is made of. The portal refuses a request without a session and
+# sends it to sign in; Dex answers at the issuer URL through the portal;
+# Argo CD's public settings name that issuer (so Argo CD read its Secret);
+# oauth2-proxy is ready (it starts only when it reaches Dex from its pod,
+# through the cluster's DNS rule and the CA); Grafana is healthy. The
+# workload's path stays open (Q144). The sign-in itself is the operator's
+# test (docs/LOCAL.md, "Sign-on").
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
@@ -140,17 +149,17 @@ logs_check() {
 }
 
 # portal_check — the admin portal answers over TLS at its host name, from this
-# machine, and passes /argocd/, /grafana/ and the example app's /apps/<name>/
-# through.
+# machine, with sign-on in front of it (see the header), and passes the
+# example app's /apps/<name>/ through without it.
 # The name is resolved here (--resolve),
 # so the check does not depend on the operating system's resolver; the CA is
 # the store's in local-ca mode.
 portal_check() {
-  local url="https://$BRZL_PORTAL_HOST" code
-  local -a curl=(curl -sS -o /dev/null -w '%{http_code}' --max-time 10
-                 --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
+  local url="https://$BRZL_PORTAL_HOST" issuer="https://$BRZL_PORTAL_HOST/dex" code out
+  local -a get=(curl -sS --max-time 10 --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
   [[ "$BRZL_PORTAL_PORT" == 443 ]] || url+=":$BRZL_PORTAL_PORT"
-  [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]] && curl+=(--cacert "$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt")
+  [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]] && get+=(--cacert "$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt")
+  local -a status=("${get[@]}" -o /dev/null -w '%{http_code} %{redirect_url}')
   if ! kubectl -n portal wait --for=condition=Ready certificate/portal --timeout=180s >/dev/null 2>&1; then
     printf 'fix: the admin portal has no ready certificate; see: kubectl -n portal describe certificate portal\n' >&2
     return 1
@@ -159,56 +168,43 @@ portal_check() {
     printf 'fix: the admin portal is not rolled out; see: kubectl -n portal describe deploy/portal\n' >&2
     return 1
   fi
-  code="$("${curl[@]}" "$url/" 2>&1)"
-  if [[ "$code" != 200 ]]; then
-    printf 'fix: the admin portal does not answer at %s/ (%s); see: kubectl -n portal logs deploy/portal; docker ps (host port %s)\n' \
-      "$url" "$code" "$BRZL_PORTAL_PORT" >&2
+  if ! kubectl -n sign-on rollout status deploy/dex deploy/oauth2-proxy --timeout=180s >/dev/null; then
+    printf 'fix: Dex or oauth2-proxy is not ready; see: kubectl -n sign-on logs deploy/oauth2-proxy; kubectl -n sign-on logs deploy/dex\n' >&2
     return 1
   fi
-  code="$("${curl[@]}" "$url/argocd/" 2>&1)"
-  if [[ "$code" != 200 ]]; then
-    printf 'fix: the portal does not pass /argocd/ through (%s); see: kubectl -n argocd logs deploy/argocd-server\n' "$code" >&2
+  # The gate: without a session, a redirect to sign in; sign-in leads to Dex.
+  out="$("${status[@]}" "$url/" 2>&1)"
+  if [[ "$out" != "302 $url/oauth2/sign_in?"* ]]; then
+    printf 'fix: the admin portal does not send a request without a session to sign in (%s); see: kubectl -n portal logs deploy/portal; kubectl -n sign-on logs deploy/oauth2-proxy; docker ps (host port %s)\n' \
+      "$out" "$BRZL_PORTAL_PORT" >&2
     return 1
   fi
-  code="$("${curl[@]}" "$url/apps/$BRZL_EXAMPLE_APP_NAME/" 2>&1)"
+  out="$("${status[@]}" "$url/oauth2/sign_in?rd=$url/" 2>&1)"
+  if [[ "$out" != "302 $issuer/auth?"* ]]; then
+    printf 'fix: sign-in does not lead to Dex at %s (%s); see: kubectl -n sign-on logs deploy/oauth2-proxy\n' "$issuer" "$out" >&2
+    return 1
+  fi
+  if [[ "$("${get[@]}" "$url/dex/.well-known/openid-configuration" 2>/dev/null | jq -r '.issuer // empty' 2>/dev/null)" != "$issuer" ]]; then
+    printf 'fix: Dex does not answer as %s through the portal; see: kubectl -n sign-on logs deploy/dex\n' "$issuer" >&2
+    return 1
+  fi
+  if [[ "$("${get[@]}" "$url/argocd/api/v1/settings" 2>/dev/null | jq -r '.oidcConfig.issuer // empty' 2>/dev/null)" != "$issuer" ]]; then
+    printf 'fix: Argo CD does not name the issuer %s in its settings; see: kubectl -n argocd describe externalsecret brzl-argocd-oidc; kubectl -n argocd logs deploy/argocd-server\n' "$issuer" >&2
+    return 1
+  fi
+  code="$("${get[@]}" -o /dev/null -w '%{http_code}' "$url/apps/$BRZL_EXAMPLE_APP_NAME/" 2>&1)"
   if [[ "$code" != 200 ]]; then
-    printf 'fix: the portal does not pass /apps/%s/ through (%s); see: kubectl -n portal logs deploy/portal; kubectl -n %s logs deploy/%s\n' \
+    printf 'fix: the portal does not pass /apps/%s/ through without sign-on (%s); see: kubectl -n portal logs deploy/portal; kubectl -n %s logs deploy/%s\n' \
       "$BRZL_EXAMPLE_APP_NAME" "$code" "$BRZL_EXAMPLE_APP_NAME" "$BRZL_EXAMPLE_APP_NAME" >&2
     return 1
   fi
-  code="$("${curl[@]}" "$url/grafana/api/health" 2>&1)"
-  if [[ "$code" != 200 ]]; then
-    printf 'fix: the portal does not pass /grafana/ through (%s); see: kubectl -n monitoring logs deploy/monitoring-grafana; kubectl -n monitoring describe externalsecret grafana-admin\n' "$code" >&2
+  if [[ "$(kubectl get --raw /api/v1/namespaces/monitoring/services/monitoring-grafana:80/proxy/grafana/api/health 2>/dev/null \
+        | jq -r '.database // empty' 2>/dev/null)" != ok ]]; then
+    printf 'fix: Grafana is not healthy; see: kubectl -n monitoring logs deploy/monitoring-grafana; kubectl -n monitoring describe externalsecret grafana-oidc\n' >&2
     return 1
   fi
-  grafana_query_check "$url" || return 1
-  printf 'the admin portal answers at %s/ and passes /argocd/, /grafana/ and /apps/%s/ through\n' "$url" "$BRZL_EXAMPLE_APP_NAME"
-}
-
-# grafana_query_check <url> — what a browser does in
-# Explore: log in through the portal, then query the admin log store, with
-# the browser's Origin header. Grafana refuses a query whose origin is not
-# the Host it receives ("origin not allowed"), so this catches a portal that
-# passes the wrong Host. The password goes from the Secret to curl's stdin;
-# nothing prints it.
-grafana_query_check() {
-  local url="$1" jar out
-  local -a c=(curl -sS --max-time 20 --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
-  [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]] && c+=(--cacert "$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt")
-  jar="$(mktemp)" || return 1
-  kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d \
-    | jq -Rs '{user: "admin", password: .}' \
-    | "${c[@]}" -c "$jar" -X POST -H 'Content-Type: application/json' -d @- "$url/grafana/login" >/dev/null 2>&1
-  out="$("${c[@]}" -b "$jar" -X POST -H 'Content-Type: application/json' -H "Origin: $url" \
-    -d '{"queries":[{"refId":"A","datasource":{"uid":"admin-log-store"},"expr":"{brzl_source=\"run-output\"}","queryType":"range"}],"from":"now-1h","to":"now"}' \
-    "$url/grafana/api/ds/query" 2>&1)"
-  rm -f "$jar"
-  if [[ "$(jq -r '.results.A.status // empty' <<< "$out" 2>/dev/null)" != 200 ]]; then
-    printf 'fix: a query in Grafana on the admin log store failed through the portal: %s; see: kubectl -n monitoring logs deploy/monitoring-grafana\n' \
-      "$(head -c 200 <<< "$out")" >&2
-    return 1
-  fi
-  printf 'Grafana queries the admin log store through the portal, as a browser does\n'
+  printf 'the admin portal at %s/ sends a request without a session to sign in at %s; Argo CD names that issuer; Grafana is healthy; /apps/%s/ is open\n' \
+    "$url" "$issuer" "$BRZL_EXAMPLE_APP_NAME"
 }
 
 if [[ "$is_sourced" == false ]]; then

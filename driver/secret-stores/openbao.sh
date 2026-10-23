@@ -36,9 +36,12 @@
 #   secret_store_check              GENERATOR: unsealed, driver token valid,
 #                                   transit round trip
 #   secret_store_has <path>         GENERATOR: does <path> hold a value?
-#   secret_store_pki_check <host>   GENERATOR: CA, role and auth role exist;
-#                                   prints how to trust the CA on the operator's
-#                                   machine (checked only when run there)
+#   secret_store_pki_check <host> [run_dir]
+#                                   GENERATOR: CA, role and auth role exist;
+#                                   names the host run sheet that trusts the CA
+#                                   on the operator's machine
+#   secret_store_host_steps         print the host run sheet's part that trusts
+#                                   the CA on the operator's machine (Q180)
 #   secret_store_client_cert_check <dir>
 #                                   GENERATOR: the client certificate in <dir>
 #                                   exists and is valid for at least one day
@@ -290,6 +293,52 @@ secret_store_client_cert_check() {
   printf 'the client certificate in %s is valid until %s\n' "$1" "$left"
 }
 
+# secret_store_host_steps — print the part of the host run sheet (phase 10,
+# Q180) that makes the operator's machine trust the store's CA, in local-ca
+# mode. The commands depend on the system; the Linux ones were tested in
+# containers (docs/LOCAL.md, "Steps on your machine"). Each step is added
+# only when it is not done; the sheet runs on the host, so it can tell. On
+# Linux, browsers keep their own store (NSS): the CA goes there too when
+# certutil and the user's NSS database exist.
+secret_store_host_steps() {
+  local ca="$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt" name qca dest update family
+  name="brzl-$BRZL_PORTAL_HOST"
+  qca="$(printf '%q' "$ca")"
+  # The CA is made when phase 10 runs, after this is emitted: the sheet reads
+  # its name when it runs (OpenSSL and LibreSSL print the subject alike).
+  printf '# trust the CA of the store, %s\n' "$BRZL_SECRET_STORE_DIR/ca.crt"
+  printf 'cn="$(openssl x509 -in %s -noout -subject 2>/dev/null | sed -n '"'"'s/.*CN *= *//p'"'"')"\n' "$qca"
+  printf 'if [[ ! -s %s ]]; then\n' "$qca"
+  printf '  printf '"'"'no CA certificate at %%s yet: run phase 10 first\\n'"'"' %s\n' "$qca"
+  printf 'elif [[ "$(uname)" == Darwin ]]; then\n'
+  printf '  security find-certificate -c "$cn" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1 \\\n'
+  printf '    || steps+=(%s)\n' "$(squote "security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db $qca")"
+  printf 'else\n'
+  printf '  [[ -r /etc/os-release ]] && . /etc/os-release\n'
+  printf '  case " ${ID:-} ${ID_LIKE:-} " in\n'
+  for family in debian fedora suse; do
+    case "$family" in
+      debian) printf '    *" debian "*|*" ubuntu "*|*" alpine "*)\n'
+              dest="/usr/local/share/ca-certificates/$name.crt"; update='sudo update-ca-certificates' ;;
+      fedora) printf '    *" fedora "*|*" rhel "*|*" centos "*)\n'
+              dest="/etc/pki/ca-trust/source/anchors/$name.crt"; update='sudo update-ca-trust' ;;
+      suse)   printf '    *" suse "*|*" opensuse "*)\n'
+              dest="/etc/pki/trust/anchors/$name.crt"; update='sudo update-ca-certificates' ;;
+    esac
+    printf '      [[ "$(cat %s 2>/dev/null)" == "$(cat %s)" ]] \\\n' "$dest" "$qca"
+    printf '        || steps+=(%s %s) ;;\n' "$(squote "sudo cp $qca $dest")" "$(squote "$update")"
+  done
+  printf '    *" arch "*)\n'
+  printf '      trust list 2>/dev/null | grep -qF "$cn" || steps+=(%s) ;;\n' "$(squote "sudo trust anchor --store $qca")"
+  printf '    *) printf '"'"'no CA step for this system (%%s): see docs/LOCAL.md, "Steps on your machine"\\n'"'"' "${ID:-unknown}" ;;\n'
+  printf '  esac\n'
+  printf '  if command -v certutil >/dev/null 2>&1 && [[ -d "$HOME/.pki/nssdb" ]] \\\n'
+  printf '      && ! certutil -d "sql:$HOME/.pki/nssdb" -L -n %q >/dev/null 2>&1; then\n' "$name"
+  printf '    steps+=(%s)\n' "$(squote "certutil -d \"sql:\$HOME/.pki/nssdb\" -A -t C,, -n $name -i $qca")"
+  printf '  fi\n'
+  printf 'fi\n'
+}
+
 secret_store_pki_check() {
   local host="$1" ca="$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt" caps
   caps="$(openbao_run_bao token capabilities pki/roles/portal 2>/dev/null)"
@@ -312,27 +361,22 @@ secret_store_pki_check() {
   fi
   printf 'the store is a CA for %s (PKI role portal, server certificates only; cert-manager may ask it to sign); CA certificate: %s\n' \
     "$host" "$BRZL_SECRET_STORE_DIR/ca.crt"
-  # Trust on the operator's machine can be checked only there; from kiesei
-  # the one-time step is printed for the operator's OS (BRZL_HOST_OS). The
-  # CA was made once, under the host name of that time: its subject is read
-  # from the file, not rebuilt from today's host.
+  # Trust on the operator's machine can be checked only there. In kiesei
+  # (BRZL_HOST_OS is set) the check names the host run sheet as
+  # information; on macOS it reads the login keychain. The CA was made once,
+  # under the host name of that time: its subject is read from the file.
+  if [[ -n "${BRZL_HOST_OS:-}" ]]; then
+    printf 'whether your machine trusts this CA is in the host run sheet (10-host.sh, docs/LOCAL.md)\n'
+    return 0
+  fi
   local cn
   cn="$(openssl x509 -in "$ca" -noout -subject -nameopt sep_multiline,utf8 2>/dev/null | sed -n 's/^ *CN=//p')"
-  case "$(host_os)" in
-    Darwin)
-      if [[ "$(uname)" == Darwin && -n "$cn" ]] \
-          && security find-certificate -c "$cn" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
-        return 0
-      fi
-      operator_step "so that the browser trusts the CA of $host (skip if done):" \
-        "security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db $BRZL_SECRET_STORE_DIR/ca.crt"
-      ;;
-    *)
-      operator_step "so that the system trusts the CA of $host (skip if done; Debian/Ubuntu shown; Firefox keeps its own store):" \
-        "sudo cp $BRZL_SECRET_STORE_DIR/ca.crt /usr/local/share/ca-certificates/brzl-$host.crt" \
-        "sudo update-ca-certificates"
-      ;;
-  esac
+  if [[ "$(uname)" == Darwin && -n "$cn" ]] \
+      && security find-certificate -c "$cn" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+    return 0
+  fi
+  operator_step "so that your machine trusts the CA of $host (skip if done), the host run sheet does it:" \
+    "bash ${2:-var/run/<env>/current}/10-host.sh"
 }
 
 secret_put() {

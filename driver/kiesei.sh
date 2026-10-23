@@ -29,6 +29,15 @@
 #     in the container's trust store, so argocd, curl and kubectl trust the
 #     portal without a flag.
 #
+# When the stream ends, a phase may have left a host run sheet
+# (var/run/<env>/current/<NN>-host.sh, Q180): steps for this machine that
+# kiesei cannot do, such as name resolution and trust of the store's CA.
+# This script then runs it on the host, with the terminal as its input: the
+# sheet shows its steps and asks once before it uses sudo. Its output and exit
+# status go beside it (.out with the run-output header, .rc), as a phase's
+# do. A sheet runs again only when a phase writes it anew. Without a
+# terminal, this script names the sheet and leaves it.
+#
 # Execution-locus script (neither emit nor generator: like `bash`, it runs what
 # it is given). Inputs: BRZL_KIESEI_IMAGE (exported, or from env/local.env).
 # Needs only the docker CLI on the host. Credentials: only what a BRZL_*
@@ -93,10 +102,32 @@ if [[ "${1:-}" == shell ]]; then
     "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
     "$image" -c "$prelude; exec bash -l"
 fi
-exec docker run --rm -i \
+docker run --rm -i \
   --network host \
   --user 0:0 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$repo_root:$repo_root" -w "$repo_root" \
   "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
   "$image" -c "$prelude; exec bash -s"
+rc=$?
+
+# The host run sheets (see the header), newer than their .rc.
+for sheet in "$repo_root"/var/run/*/current/*-host.sh; do
+  [[ -e "$sheet" ]] || continue
+  base="${sheet%.sh}"
+  [[ -e "$base.rc" && ! "$sheet" -nt "$base.rc" ]] && continue
+  if ! { : < /dev/tty; } 2>/dev/null; then
+    printf 'kiesei: the host run sheet %s waits for you: bash %q\n' "${sheet#"$repo_root"/}" "$sheet" >&2
+    continue
+  fi
+  env="${sheet#"$repo_root"/var/run/}"; env="${env%%/*}"
+  run="$(cd -- "${sheet%/*}" && pwd -P)"; run="${run##*/}"
+  printf '\nkiesei: steps on your machine, from %s\n' "${sheet#"$repo_root"/}" >&2
+  {
+    printf '# brzl run-output env=%s run=%s phase=%s start=%s\n' \
+      "$env" "$run" "${base##*/}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    bash "$sheet" < /dev/tty
+    printf '%s\n' "$?" > "$base.rc"
+  } 2>&1 | tee "$base.out"
+done
+exit "$rc"

@@ -23,7 +23,15 @@
 #      (made in phase 10) to sign server certificates for the portal's host
 #      and the names under it (ADR-0036): the PKI role `portal`, server
 #      certificates only, and the auth role cert-manager logs in with. The
-#      check prints how to trust the CA (BRZL_SECRET_STORE_DIR/ca.crt) once.
+#      host run sheet of phase 10 trusts the CA on the operator's machine;
+#   6. sign-on (ADR-0035, pass 6a): the GitHub OAuth App of this environment
+#      seeds the store once from var/access/github/<BRZL_SIGN_ON_ORG>/
+#      (oauth-<env>-client-id, oauth-<env>-client-secret, from
+#      driver/access/github.sh oauth_app); the clients' secrets (oauth2-proxy,
+#      Argo CD, Grafana) and the cookie secret are made once in the store;
+#      the issuer URL and the CA certificate are written on every run. ESO
+#      projects them (gitops/infrastructure/sign-on/). Sign-on is in every
+#      environment (Q177): without the OAuth App the phase stops.
 # Locus: the driver, because a secret resolves where the run sheet runs, and only
 # the driver has the operator's environment and the store's driver token; and
 # because a locus never installs itself (ADR-0021). Later the deploy key gives
@@ -113,6 +121,38 @@ workload_access_up() {
   printf '}\n'
 }
 
+# sign_on_up <env> — EMIT: the store's entries for sign-on (see the header).
+# The entries that are random are made once: Dex, oauth2-proxy, Argo CD and
+# Grafana must agree on them, and a new value on every run would sign
+# everyone out.
+sign_on_up() {
+  local env="$1" dir="var/access/github/$BRZL_SIGN_ON_ORG" name
+  printf '{ # sign-on: the GitHub OAuth App of %s, seeded once from %s\n' "$env" "$dir"
+  printf '  if [[ -s %q && -s %q ]]; then\n' "$dir/oauth-$env-client-id" "$dir/oauth-$env-client-secret"
+  printf '    %s\n' "$(secret_put_file sign-on-github-client-id "$dir/oauth-$env-client-id")"
+  printf '    %s\n' "$(secret_put_file sign-on-github-client-secret "$dir/oauth-$env-client-secret")"
+  printf '  fi\n'
+  printf '  %s \\\n' "$(secret_exists sign-on-github-client-secret)"
+  printf "    || error 3 %s\n" "$(squote "no GitHub OAuth App for sign-on in the store: bash driver/access/github.sh oauth_app $BRZL_SIGN_ON_ORG $env, then run this phase again; nothing after this ran")"
+  printf '}\n'
+  for name in sign-on-oauth2-proxy-client-secret sign-on-argocd-client-secret sign-on-grafana-client-secret sign-on-cookie-secret; do
+    printf '{ # sign-on: %s, made once in the store\n' "$name"
+    printf '  if ! %s; then\n' "$(secret_exists "$name")"
+    # 32 characters: oauth2-proxy takes a cookie secret of 16, 24 or 32 bytes.
+    printf '    value="$(openssl rand -hex 16)"\n'
+    printf '    %s\n' "$(secret_put "$name" value)"
+    printf '    unset value\n'
+    printf '  fi\n'
+    printf '}\n'
+  done
+  printf '{ # sign-on: the issuer URL and the CA certificate, on every run (not secrets)\n'
+  printf '  issuer=%q\n' "https://$BRZL_PORTAL_HOST/dex"
+  printf '  %s\n' "$(secret_put sign-on-issuer issuer)"
+  printf '  unset issuer\n'
+  printf '  %s\n' "$(secret_put_file portal-ca "$BRZL_SECRET_STORE_DIR/ca.crt")"
+  printf '}\n'
+}
+
 phase_up() {
   local env="$1" run_dir="$2" url image manifest org
   phase_init "$env" || end_function "$?" 'environment definition'
@@ -168,6 +208,7 @@ phase_up() {
   printf '    | kubectl apply -f -\n'
   printf '}\n'
   workload_access_up "$org"
+  sign_on_up "$env"
   printf '{ # the conductor: service account, RBAC, deployment (image from phase 20)\n'
   printf "  kubectl apply -f - <<'EOF'\n%s\nEOF\n" "$manifest"
   printf '}\n'
@@ -176,7 +217,7 @@ phase_up() {
 
 # The check reads only whether the key is there; it never prints it.
 phase_check() {
-  local env="$1" run_dir="$2" type key rc=0
+  local env="$1" run_dir="$2" type key name missing rc=0
   phase_init "$env" || return 1
   export KUBECONFIG="$run_dir/kubeconfig"
   if ! secret_store_has repo-deploy-key; then
@@ -198,7 +239,18 @@ phase_check() {
     rc=1
   fi
   if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
-    secret_store_pki_check "$BRZL_PORTAL_HOST" || rc=1
+    secret_store_pki_check "$BRZL_PORTAL_HOST" "$run_dir" || rc=1
+  fi
+  missing=''
+  for name in sign-on-github-client-id sign-on-github-client-secret sign-on-oauth2-proxy-client-secret \
+      sign-on-argocd-client-secret sign-on-grafana-client-secret sign-on-cookie-secret sign-on-issuer portal-ca; do
+    secret_store_has "$name" || missing+=" $name"
+  done
+  if [[ -n "$missing" ]]; then
+    printf 'fix: the store holds no%s for sign-on; see driver/access/github.sh oauth_app, then run the 25-bootstrap phase again\n' "$missing" >&2
+    rc=1
+  else
+    printf 'the store holds the sign-on entries (the OAuth App, the clients'"'"' secrets, the issuer, the CA)\n'
   fi
   type="$(kubectl -n argocd get secret "$secret_name" \
     -o jsonpath='{.metadata.labels.argocd\.argoproj\.io/secret-type}' 2>/dev/null)"

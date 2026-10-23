@@ -150,6 +150,47 @@ substrate_up() {
   printf '    --port %q --wait\n' "127.0.0.1:$BRZL_PORTAL_PORT:$BRZL_PORTAL_NODE_PORT@server:0"
   printf '  k3d kubeconfig get %q > %q\n' "$BRZL_K3D_CLUSTER" "$run_dir/kubeconfig"
   printf '}\n'
+  cluster_dns_up
+}
+
+# cluster_dns_up — EMIT: in the cluster, the portal's host name is the
+# portal's Service. Browsers reach Dex at https://<host>/dex through the
+# portal; Argo CD, oauth2-proxy and Grafana must reach the same issuer URL
+# from their pods (sign-on, pass 6a). k3s's CoreDNS reads extra rules from
+# the ConfigMap coredns-custom; the restart makes it read them at once.
+cluster_dns_up() {
+  local svc=portal.portal.svc.cluster.local
+  printf '{ # in the cluster, %s is the portal'"'"'s Service (so pods reach Dex at the issuer URL)\n' "$BRZL_PORTAL_HOST"
+  printf "  kubectl apply -f - <<'EOF'\n"
+  printf 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: coredns-custom\n  namespace: kube-system\n'
+  printf 'data:\n  brzl-portal.override: |\n'
+  printf '    rewrite stop {\n      name exact %s %s\n      answer name %s %s\n    }\n' \
+    "$BRZL_PORTAL_HOST" "$svc" "$svc" "$BRZL_PORTAL_HOST"
+  printf 'EOF\n'
+  printf '  kubectl -n kube-system rollout restart deployment/coredns\n'
+  printf '}\n'
+}
+
+# substrate_host_steps — print the part of the host run sheet (phase 10,
+# Q180) that makes the operator's machine resolve the portal's host name:
+# on macOS a file in /etc/resolver that sends the name to the DNS stand-in,
+# on Linux a line in /etc/hosts. Each step is added only when it is not
+# done; the sheet runs on the host, so it can tell. Nothing for a .localhost
+# name.
+# shellcheck disable=SC2016  # the host run sheet expands these, not this script
+substrate_host_steps() {
+  local host="$BRZL_PORTAL_HOST" want
+  dns_needed || return 0
+  want="nameserver 127.0.0.1"$'\n'"port $BRZL_DNS_PORT"
+  printf '# resolve %s: ask the DNS stand-in on 127.0.0.1:%s (macOS), or /etc/hosts (Linux)\n' "$host" "$BRZL_DNS_PORT"
+  printf 'if [[ "$(uname)" == Darwin ]]; then\n'
+  printf '  if [[ "$(cat %s 2>/dev/null)" != %q ]]; then\n' "/etc/resolver/$host" "$want"
+  printf '    steps+=(%s\n' "$(squote "sudo mkdir -p /etc/resolver")"
+  printf '           %s)\n' "$(squote "printf 'nameserver 127.0.0.1\\nport $BRZL_DNS_PORT\\n' | sudo tee /etc/resolver/$host >/dev/null")"
+  printf '  fi\n'
+  printf 'elif ! grep -Eq %s /etc/hosts; then\n' "$(squote "^127\\.0\\.0\\.1[[:space:]]+(.*[[:space:]])?${host//./\\.}([[:space:]]|\$)")"
+  printf '  steps+=(%s)\n' "$(squote "printf '127.0.0.1 $host\\n' | sudo tee -a /etc/hosts >/dev/null")"
+  printf 'fi\n'
 }
 
 # log_collector_up <run_dir> — EMIT: the log store's directories and the
@@ -216,12 +257,13 @@ dns_up() {
   printf '}\n'
 }
 
-# dns_check — GENERATOR: the stand-in runs (and answers, where dig exists).
+# dns_check <run_dir> — GENERATOR: the stand-in runs (and answers, where dig exists).
 # Whether the operator's machine asks it is checked only when the check runs
-# on that machine (macOS); from kiesei it cannot be, so the one-time line is
-# printed as information. Never a failure: it is the operator's machine.
+# on that machine; in kiesei (BRZL_HOST_OS is set) it cannot be, so the check
+# names the host run sheet as information. Never a failure: it is the
+# operator's machine.
 dns_check() {
-  local answer resolver="/etc/resolver/$BRZL_PORTAL_HOST"
+  local answer
   if ! dns_needed; then
     printf 'portal host %s is under .localhost: it resolves to 127.0.0.1 by itself (no DNS stand-in)\n' "$BRZL_PORTAL_HOST"
     return 0
@@ -239,24 +281,17 @@ dns_check() {
     fi
   fi
   printf 'local DNS stand-in %s runs: %s -> 127.0.0.1 on 127.0.0.1:%s\n' "$BRZL_DNS_NAME" "$BRZL_PORTAL_HOST" "$BRZL_DNS_PORT"
-  case "$(host_os)" in
-    Darwin)
-      if [[ "$(uname)" == Darwin ]] \
-          && [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" == *'ip_address: 127.0.0.1'* ]]; then
-        return 0
-      fi
-      operator_step "so that your machine asks the stand-in for $BRZL_PORTAL_HOST (skip if done):" \
-        "sudo mkdir -p /etc/resolver" \
-        "printf 'nameserver 127.0.0.1\\nport $BRZL_DNS_PORT\\n' | sudo tee $resolver >/dev/null"
-      ;;
-    *)
-      if [[ "$(uname)" != Darwin ]] && getent hosts "$BRZL_PORTAL_HOST" >/dev/null 2>&1; then
-        return 0
-      fi
-      operator_step "so that your machine resolves $BRZL_PORTAL_HOST (skip if done; /etc/resolver is macOS-only):" \
-        "printf '127.0.0.1 $BRZL_PORTAL_HOST\\n' | sudo tee -a /etc/hosts >/dev/null"
-      ;;
-  esac
+  if [[ -n "${BRZL_HOST_OS:-}" ]]; then
+    printf 'whether your machine resolves %s is in the host run sheet (10-host.sh, docs/LOCAL.md)\n' "$BRZL_PORTAL_HOST"
+    return 0
+  fi
+  if [[ "$(uname)" == Darwin ]]; then
+    [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" == *'ip_address: 127.0.0.1'* ]] && return 0
+  else
+    getent hosts "$BRZL_PORTAL_HOST" >/dev/null 2>&1 && return 0
+  fi
+  operator_step "your machine does not resolve $BRZL_PORTAL_HOST yet. The host run sheet does it:" \
+    "bash $1/10-host.sh"
 }
 
 substrate_down() {
@@ -330,7 +365,14 @@ substrate_check() {
     return 1
   fi
   printf 'the collector beside the cluster %s runs\n' "$BRZL_LOG_COLLECTOR_NAME"
-  dns_check
+  if [[ "$(kubectl --kubeconfig "$run_dir/kubeconfig" -n kube-system get configmap coredns-custom \
+        -o jsonpath='{.data.brzl-portal\.override}' 2>/dev/null)" != *"name exact $BRZL_PORTAL_HOST "* ]]; then
+    printf 'fix: the cluster'"'"'s CoreDNS does not answer %s with the portal'"'"'s Service (ConfigMap kube-system/coredns-custom); run the 10-substrate phase again\n' \
+      "$BRZL_PORTAL_HOST" >&2
+    return 1
+  fi
+  printf 'in the cluster, %s is the portal'"'"'s Service\n' "$BRZL_PORTAL_HOST"
+  dns_check "$run_dir"
 }
 
 substrate_check_down() {

@@ -38,57 +38,29 @@ zero after 30 minutes idle; `conductor.sh` claims a live pod. A stacked
 graph hides series at 0.
 
 **▶ IN FLIGHT: pass 6a, sign-on** (BACKLOG item 5), branch
-`pass-6a-sign-on`, design round. Decided 2026-10-23:
+`pass-6a-sign-on`. Design Q169–Q183 done (ADR-0035 amendment; the decision
+log is `notes/DECISIONS.md`, local only). **Step 1, web sign-on, built
+2026-10-23; waiting for the user's live test.**
 
-- Q169: tier membership from GitHub teams in the organization (`tzvat`).
-- Q170, Q173: three tiers, `admins`, `operators`, `auditors` (read
-  everything, change nothing). GLOSSARY updated. A tier for workload
-  developers (Grafana, workload logs only) waits for a real developer.
-- Q171: the gate (nginx `auth_request` to oauth2-proxy) for every path, and
-  Argo CD and Grafana each a Dex client (OIDC). No header trust.
-- Q172: Dex at `https://<portal host>/dex/`.
-- Q174: `kubectl` through Dex is a second step of this pass, after web
-  sign-on is tested. BACKLOG 23: the cluster-admin kubeconfig on a cloud.
-- Q175: the built-in Argo CD and Grafana logins are turned off; the
-  emergency path is the CLI with the cluster-admin kubeconfig.
-- Q176: a GitHub OAuth App per environment, owned by the organization.
-  SECURITY.md states the wider `read:org` scope and compares an OIDC
-  provider.
-- Q177: sign-on in every environment, no switch. ADR-0028's "also works
-  without it" (from the user's Q108 answer) goes; amend ADR-0028 and
-  ADR-0035 when the round ends.
-- Q178: Dex and oauth2-proxy from their Helm charts, namespace `sign-on`;
-  Dex keeps its state in memory.
-- Q179: the gate admits only the three teams. BACKLOG 24: a workload
-  viewer tier, which the gate must be able to admit later.
-- docs/SECURITY.md rewritten for drift, with the auth-flow diagrams.
-- BACKLOG 22: the GitHub dependency, examined alone.
+What step 1 built:
 
-- Q180: the host steps (resolver file, CA trust) become a host run sheet
-  that `driver/kiesei.sh` runs with `sudo` after phase 10, with a one-time
-  confirmation in the run sheet; laptop substrate only. CA trust tested in
-  containers 2026-10-23: Debian/Ubuntu/Alpine `/usr/local/share/
-  ca-certificates/*.crt` + `update-ca-certificates`; Fedora/RHEL
-  `/etc/pki/ca-trust/source/anchors/` + `update-ca-trust`; openSUSE
-  `/etc/pki/trust/anchors/` + `update-ca-certificates`; Arch `trust anchor
-  --store`. `trust anchor` fails on Ubuntu, so no one command for all.
-  Chosen by `/etc/os-release` (`ID`, `ID_LIKE`). Browsers on Linux keep
-  their own NSS store (not tested here). macOS: login keychain, as now.
-- Q181: a rough decision log, local-only in `notes/DECISIONS.md` (user,
-  2026-10-23: not in the repo for now); backfilled from the transcript.
+- `driver/access/github.sh` `teams`, `oauth_app`, `sign_on_check`;
+  `BRZL_SIGN_ON_ORG=tzvat` in `env/local.env`.
+- Phase 10: CoreDNS rule (ConfigMap `kube-system/coredns-custom`, the
+  portal host is the portal Service in the cluster) and the host run sheet
+  `10-host.sh` (resolver, CA trust by OS; Q180); `driver/kiesei.sh` runs it
+  on the host after the stream, with the terminal.
+- Phase 25: store entries `sign-on-*` and `portal-ca`; error 3 without the
+  OAuth App.
+- GitOps: `sign-on-secrets` (6 ExternalSecrets), `dex` (chart 0.25.2,
+  memory), `oauth2-proxy` (chart 10.6.2), nginx `auth_request`; Argo CD
+  OIDC (`$brzl-argocd-oidc:*`), RBAC, admin off; Grafana generic OAuth,
+  login form and basic auth off. `portalHostParams` has `suffix`.
+- Phase 40: the redirect to sign in, Dex at the issuer, Argo CD names the
+  issuer, Grafana healthy, `/apps/chofesh/` open. The Grafana query check
+  is gone (it needed the admin password).
 
-- Q182: one set of teams for all environments: `brzl-admins`,
-  `brzl-operators`, `brzl-auditors`. Each environment decides what each
-  tier may do (its own role mapping), not other teams.
-- Q183: `driver/access/github.sh` gets `teams <org>` (gh api, adds the
-  operator to the admin team) and `oauth_app <org> <env>` (browser form;
-  reads id and secret into `var/access/github/<org>/`, mode 0600). BACKLOG
-  22 now names access scripts for other providers.
-- docs/LOCAL.md brought up to date (phases, host name default, legacy SSO
-  section replaced by "Sign-on", the down, the table) with "Steps on your
-  machine": the resolver, the CA trust table by OS, the Q180 change.
-  docs/ACCESS.md still describes the legacy SSO onboarding: update it in
-  the build.
-
-Next: build step 1 (web sign-on).
+Untested by me: the sign-in itself, `argocd login --sso` from kiesei (the
+callback on localhost:8085 needs host networking), the host sheet with a
+terminal. Next: the user's live test, then step 2 (`kubectl` through Dex).
 BACKLOG 21 (an alert channel) fits with 6a or later.

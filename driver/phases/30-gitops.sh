@@ -130,6 +130,7 @@ phase_up() {
   printf '  helm repo update argo\n'
   printf '  helm upgrade --install argocd argo/argo-cd --version %q \\\n' "$chart_version"
   printf '    --namespace argocd --create-namespace --set global.image.repository=%q \\\n' "$argocd_image"
+  printf '    --set configs.cm.url=%q \\\n' "https://$BRZL_PORTAL_HOST/argocd"
   printf "    --wait -f - <<'EOF'\n"
   cat "$repo_root/gitops/infrastructure/argocd/values.yaml"
   printf 'EOF\n'

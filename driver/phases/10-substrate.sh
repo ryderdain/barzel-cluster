@@ -16,6 +16,11 @@
 # cluster, and it issues the client certificate of the collector beside the
 # cluster (BRZL_SECRET_STORE_DIR/log-shipper/, BACKLOG 4a): that collector
 # starts in this phase, and the in-cluster receiver accepts only it.
+# Output for the operator's machine: <run_dir>/10-host.sh, the host run sheet
+# (Q180): the steps that make the machine resolve the portal's host name and
+# trust the store's CA. It runs on the host, not in kiesei: driver/kiesei.sh
+# offers to run it when the stream ends (docs/LOCAL.md, "Steps on your
+# machine").
 # No credentials for k3d.
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
@@ -45,7 +50,55 @@ phase_up() {
     fi
   fi
   substrate_up "$run_dir"
+  host_sheet_up "$run_dir"
   end_function 0 "emitted 10-substrate up ($BRZL_SUBSTRATE${BRZL_SECRET_STORE:+ + $BRZL_SECRET_STORE})"
+}
+
+# host_sheet_up <run_dir> — EMIT: write the host run sheet (see the header).
+# Its steps come from the adapters: the substrate's name resolution and, in
+# local-ca mode, the store's CA. Each step is added only when the sheet,
+# running on the host, finds it not done; then it shows the steps, asks once
+# and runs them. Bash 3.2 (macOS) runs it.
+host_sheet_up() {
+  local run_dir="$1" sheet="$1/10-host.sh" steps
+  steps="$(substrate_host_steps)"
+  if [[ -n "${BRZL_SECRET_STORE:-}" && "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+    steps+=$'\n'"$(secret_store_host_steps)"
+  fi
+  [[ -n "${steps//[[:space:]]/}" ]] || return 0
+  printf '{ # the steps on your machine: the host run sheet %s (driver/kiesei.sh offers to run it at the end)\n' "$sheet"
+  printf "  cat > %q <<'EOF'\n" "$sheet"
+  cat <<SHEET
+#!/usr/bin/env bash
+# 10-host.sh — the steps on your machine for this environment (docs/LOCAL.md,
+# "Steps on your machine"; Q180), written by phase 10. It runs on your
+# machine, not in kiesei: driver/kiesei.sh offers to run it when a stream
+# ends, or run it yourself:  bash $sheet
+# It adds only the steps that are not done, shows them, asks once, and runs
+# them; sudo asks for your password.
+steps=()
+$steps
+if [ \${#steps[@]} -eq 0 ]; then
+  printf 'the steps on your machine are done\n'
+  exit 0
+fi
+printf 'These commands change your machine:\n'
+printf '  %s\n' "\${steps[@]}"
+printf 'Run them now? [y/N] '
+read -r answer || answer=
+case "\$answer" in
+  y|Y|yes) ;;
+  *) printf 'not run. To run them later: bash %s\n' "\$0"; exit 3 ;;
+esac
+rc=0
+for step in "\${steps[@]}"; do
+  printf '+ %s\n' "\$step"
+  bash -c "\$step" || rc=\$?
+done
+exit "\$rc"
+SHEET
+  printf 'EOF\n'
+  printf '}\n'
 }
 
 phase_down() {

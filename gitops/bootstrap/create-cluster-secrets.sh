@@ -17,7 +17,7 @@
 # `gitops/tools/ui-forward.sh` reads the Secret back to print the Grafana login.
 #
 # Sibling secret-creators sharing this shape (sourceable main() + runlib emit_k8s_secret):
-#   create-pullthrough-secrets.sh (AWS Secrets Manager) · create-sso-secrets.sh (SSO).
+#   create-pullthrough-secrets.sh (AWS Secrets Manager).
 # The ArgoCD repo deploy key is intentionally NOT here — it stays the gitignored
 # `repo-deploy-key.yaml` (committed `.example`), applied by bootstrap-argocd.sh, so
 # the SSH private key is never assembled on a command line.

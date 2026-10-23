@@ -78,7 +78,27 @@ Phase 25 reads them once and puts them into the cluster secret store. You
 can delete the directory after the first `up`. For a public workload, skip
 this section.
 
-## 5. Up
+## 5. Sign-on
+
+Every environment has sign-on (ADR-0035). Before the first `up`, make the
+three teams of the access tiers in the organization, and one GitHub OAuth
+App for this environment. `BRZL_SIGN_ON_ORG` in `env/local.env` names the
+organization. Your `gh` login needs the `admin:org` scope.
+
+```sh
+# the teams brzl-admins, brzl-operators, brzl-auditors; you in brzl-admins
+bash driver/access/github.sh teams tzvat | bash
+# the OAuth App: opens GitHub's form and prints what to type in
+bash driver/access/github.sh oauth_app tzvat local | bash
+# verify
+bash driver/access/github.sh sign_on_check tzvat local
+```
+
+The OAuth App's callback URL contains the portal's host name, so make it
+after you choose the host name. Read [SECURITY.md](SECURITY.md), "What
+GitHub gives Dex at sign-on", before you use your own GitHub account.
+
+## 6. Up
 
 ```sh
 bash driver/driver.sh local up                      # read the procedure first
@@ -91,19 +111,20 @@ need the tools of the kiesei image (`yq`, `kubectl`, `helm`, `k3d`). On a
 host without them, a phase cannot be emitted, and the driver stops and says
 so.
 
-The driver runs five phases and checks each one. Two checks print a boxed
-one-time step for your machine: trust the local CA in your keychain, and,
-only if you chose a host name of your own in `env/local.env`, a resolver
-file. Do them when they appear. The default host name,
-`brzl-local.localhost`, needs no resolver step.
+The driver runs five phases and checks each one. Phase 10 also writes a
+host run sheet with the steps for your machine: trust the local CA and,
+for a host name that is not under `.localhost`, a resolver entry. When the
+stream ends, `driver/kiesei.sh` shows those steps and asks you once before
+it runs them with `sudo` (LOCAL.md, "Steps on your machine").
+`env/local.env` sets `local.barzel.sh`. To use `brzl-local.localhost`,
+which needs no resolver entry, export `BRZL_PORTAL_HOST` before the first
+`up` and before you make the OAuth App.
 
-## 6. See it work
+## 7. See it work
 
-- `https://brzl-local.localhost/` is the admin portal. Argo CD is at
-  `/argocd/` (user `admin`, the password is in the Secret
-  `argocd-initial-admin-secret`), Grafana at `/grafana/` (user `admin`, the
-  page shows how to read the password), the example app at
-  `/apps/chofesh/`.
+- `https://<host>/` is the admin portal: you sign in with GitHub. Argo CD
+  is at `/argocd/` (press "Log in via GitHub"), Grafana at `/grafana/`, the
+  example app at `/apps/chofesh/` (no sign-on).
 - In Grafana, Explore, the data source "Admin log store" shows every run
   output of the driver: `{brzl_source="run-output"}`.
 - Run a search on the app's page. It writes to the app's own Postgres.
@@ -111,7 +132,7 @@ file. Do them when they appear. The default host name,
   Within ten minutes Argo CD deploys that commit (LOCAL.md, "How a change to
   the example app arrives").
 
-## 7. Down
+## 8. Down
 
 ```sh
 bash driver/driver.sh local down | bash driver/kiesei.sh

@@ -81,6 +81,10 @@ operator_step() {
   } >&2
 }
 
+# squote <text> — single-quote text for an emitted stream, readably (plain
+# POSIX quoting, unlike printf %q's backslashes). driver.sh has the same.
+squote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+
 host_os() {
   if [[ -n "${BRZL_HOST_OS:-}" ]]; then printf '%s' "$BRZL_HOST_OS"; else uname; fi
 }

@@ -97,28 +97,32 @@ conductor. Do not operate `driver/conductor.sh` yourself.
 - `10-substrate` (driver) makes the containers beside the cluster: the Zot
   registry, the OpenBao secret store and its CA, the DNS stand-in and the
   log collector. It issues the log collector's client certificate. Then it
-  makes the k3d cluster and writes the kubeconfig to the run directory. If
-  the configuration of a container changed, it replaces that container. The
-  data stays.
+  makes the k3d cluster and writes the kubeconfig to the run directory, and
+  adds the cluster's DNS rule for the portal's host name. It writes the host
+  run sheet (below, "Steps on your machine"). If the configuration of a
+  container changed, it replaces that container. The data stays.
 - `20-images` (driver) pushes the kiesei image to Zot. A workload's image
   is its own: its CI publishes it, and the cluster pulls it through Zot
   like every upstream image (ADR-0034).
 - `25-bootstrap` (driver) connects the secret store to the cluster (the
   auth roles for External Secrets and cert-manager, the PKI role `portal`).
   It writes into the store, one time, the deploy key when you give it, the
-  workload's access files and Grafana's admin password. Then it writes the
+  workload's access files, Grafana's admin password and the sign-on entries
+  (below, "Sign-on"). Then it writes the
   Argo CD repository Secrets and Zot's upstream credentials from the store,
   and starts the conductor in the namespace `brzl-system`.
 - `30-gitops` (conductor) installs Argo CD and applies the platform
   ApplicationSet (ADR-0025). Argo CD then deploys the platform from git:
-  CloudNativePG, External Secrets, cert-manager and the admin portal. It
-  also deploys the metrics (kube-prometheus-stack with Grafana), the two log
-  stores, the log collector, and the example app with its Postgres.
+  CloudNativePG, External Secrets, cert-manager, sign-on (Dex, oauth2-proxy)
+  and the admin portal. It also deploys the metrics (kube-prometheus-stack
+  with Grafana), the two log stores, the log collector, and the example app
+  with its Postgres.
 - `40-workloads` (conductor) waits until all Applications are Synced and
   Healthy, and checks the example app, its Postgres and the portal. It also
   checks that the smoke value from phase 25 came back through External
   Secrets. Then it checks that each log source arrived in its log store,
-  and that Grafana can query the admin log store through the portal.
+  and the parts of sign-on: the portal sends a request without a session
+  to sign in, Dex answers at the issuer URL, and Argo CD names it.
 
 Argo CD follows the branch that is checked out when phase `30-gitops` is
 emitted. To follow a different branch, export `BRZL_GITOPS_REVISION`. Argo CD
@@ -310,9 +314,8 @@ sends the alert to you yet (BACKLOG 21).
 
 The admin portal is the one place to start: `https://<host>/` (ADR-0028).
 It links to Argo CD (`/argocd/`), Grafana (`/grafana/`) and the example
-app (`/apps/chofesh/`), and lists the CLI commands. Grafana's user is
-`admin`. Phase 25 makes its password once in the secret store. The portal
-page shows the command that reads it. The host name and the port
+app (`/apps/chofesh/`), and lists the CLI commands. You sign in with
+GitHub first (below, "Sign-on"). The host name and the port
 are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
 adapter maps the port to the portal's NodePort when it makes the cluster.
 
@@ -323,18 +326,21 @@ machine"). For a first test without that step, export
 `BRZL_PORTAL_HOST=brzl-local.localhost`: every `*.localhost` name resolves
 to `127.0.0.1` on macOS and in browsers, and no DNS stand-in runs.
 
-Until sign-on (pass 6a), Argo CD and Grafana have their built-in `admin`
-logins. Sign-on turns them off (below, "Sign-on").
+You sign in with GitHub (below, "Sign-on"). Argo CD and Grafana have no
+built-in admin login.
 
 The CLI tools are in the kiesei image ([docs/guide/kiesei.md](guide/kiesei.md)):
 
 ```sh
 bash driver/kiesei.sh shell
 export KUBECONFIG=var/run/local/current/kubeconfig
-argocd login local.barzel.sh --grpc-web-root-path argocd --username admin
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath='{.data.password}' | base64 -d
+argocd login local.barzel.sh --grpc-web-root-path argocd --sso --sso-launch-browser=false
+argocd --core app list    # in an emergency: no sign-on, the kubeconfig
 ```
+
+`argocd login --sso` prints a URL: open it in your browser. The CLI waits
+for the callback on `localhost:8085`, so the container must share the
+host's network (Docker Desktop: "Enable host networking").
 
 k3d also adds the cluster to your default kubeconfig, as the context
 `k3d-brzl-local`.
@@ -384,17 +390,17 @@ for a local environment on a laptop. The entries stay across `down` and
    Firefox has a store in each profile. Windows is not a supported driver
    machine.
 
-**How you get the steps now.** The checks of phases 10 and 25 print them in
-a boxed block. The steps are for the operating system of the machine that
-runs the driver. A check that runs in kiesei cannot see your machine, so it prints
-them every time. A check that runs on the host prints them only until they
-are done.
-
-**From pass 6a (Q180).** The driver writes the steps into a host run sheet
-for your operating system (from `/etc/os-release` on Linux). It shows the
-run sheet, asks you one time to confirm, and runs it with `sudo` on your
-machine, outside kiesei. It records the run sheet like the others, and the
-same checks decide the result. The purge (BACKLOG 18) removes the entries.
+**The host run sheet (Q180).** Phase 10 writes the steps into
+`var/run/local/current/10-host.sh`. When the stream ends,
+`driver/kiesei.sh` runs that sheet on your machine, outside kiesei. The
+sheet finds which steps are not done, for your system (`/etc/os-release` on
+Linux). It shows them, asks you one time to confirm, and runs them with
+`sudo`. When all are done, it asks nothing. Its output and exit status go
+beside it (`10-host.out`, `10-host.rc`), and the admin log store receives
+the output. It runs again only when phase 10 writes it again. Without a
+terminal, or with `| bash` in place of `| bash driver/kiesei.sh`, run it
+yourself: `bash var/run/local/current/10-host.sh`. The checks of phases 10
+and 25 name the sheet. The purge (BACKLOG 18) removes the entries.
 
 **What sign-on changes here: nothing.** Dex is at `/dex/` under the portal
 host (Q172), so your machine needs no other name. The log intake's name,
@@ -503,8 +509,8 @@ Step 4 removes the `.ok` by hand because `up` skips a phase that has one
 
 ## Sign-on
 
-Pass 6a builds sign-on for every environment (ADR-0035, Q169–Q183). The
-design, in short:
+Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
+[SECURITY.md](SECURITY.md):
 
 - nginx in the portal asks oauth2-proxy about each request. Without a
   session, the browser goes to Dex at `/dex/`, and Dex sends it to GitHub.
@@ -512,16 +518,37 @@ design, in short:
   `brzl-admins`, `brzl-operators` and `brzl-auditors` (GLOSSARY, "Access
   tier"). Each environment decides what each tier may do.
 - Argo CD and Grafana each sign in to Dex themselves and map the teams to
-  their roles. Their built-in `admin` logins are turned off. In an
-  emergency, use the CLI with the kubeconfig.
-- Each environment needs a GitHub OAuth App, which you make one time with
-  `driver/access/github.sh`. [SECURITY.md](SECURITY.md) tells what GitHub
-  gives Dex at sign-on. Read it before you try the platform with your own
-  account.
+  their roles. In Argo CD, press "Log in via GitHub". Grafana signs you in
+  at once. Their built-in `admin` logins are off.
+- The workloads (`/apps/<workload>/`) are outside sign-on.
+- In the cluster, the portal's host name is the portal's Service (a rule in
+  k3s's CoreDNS, phase 10), so the pods reach Dex at the same URL as your
+  browser.
 
-The legacy path (`gitops/clusters/local/k3d-up.sh --with-sso`, with
-`gitops/clusters/local/sso/`) is stale. It names the old demo app and uses
-Traefik routes. Do not use it. Pass 6a removes it.
+[SECURITY.md](SECURITY.md) tells what GitHub gives Dex at sign-in. Read it
+before you try the platform with your own account.
+
+**Before the first `up` with sign-on**, do these one time (gh logged in,
+with the `admin:org` scope). `BRZL_SIGN_ON_ORG` in `env/local.env` names
+the organization:
+
+```sh
+# the three teams; you in brzl-admins
+bash driver/access/github.sh teams tzvat | bash
+# the OAuth App, in the browser
+bash driver/access/github.sh oauth_app tzvat local | bash
+# verify
+bash driver/access/github.sh sign_on_check tzvat local
+```
+
+The second step opens GitHub's form for a new OAuth App and prints the
+values to type in. The callback URL is `https://<host>/dex/callback`. Then
+it tells you how to put the client id and secret into
+`var/access/github/tzvat/`. Phase 25 puts them into the store and stops if
+they are absent.
+
+**In an emergency** (Dex or GitHub fails), use the CLI with the
+kubeconfig: `kubectl`, `argocd --core`, or a port-forward.
 
 ## Down
 
@@ -549,7 +576,7 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 | Monitoring | kube-prometheus-stack | the same; the node exporter has no root file-system metrics | the k3d node is a container (`values-local.yaml`) |
 | Logs | admin log store data in S3 (pass 8) | admin log store data in a host directory; a collector beside the cluster sends the run outputs | no object store locally; the driver's machine holds the run outputs |
 | GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
-| Sign-on | the same Dex and oauth2-proxy behind the portal (pass 8) | Dex and oauth2-proxy behind the portal (pass 6a) | one sign-on on every substrate; only the entry point differs (ADR-0035) |
+| Sign-on | the same Dex and oauth2-proxy behind the portal (pass 8) | Dex and oauth2-proxy behind the portal; in the cluster, a DNS rule makes the portal's host name the portal's Service | one sign-on on every substrate; only the entry point differs (ADR-0035) |
 | Certificates | `letsencrypt` mode (ACME DNS-01) | `local-ca` mode: OpenBao is the CA | a laptop needs nothing public (ADR-0036) |
 
 **Image strategy.** The cluster pulls every image, the example app's

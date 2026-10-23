@@ -37,7 +37,7 @@ Status legend: ✅ live · 🔜 pending (built in a later PLAN.md block).
 > run **from the conductor** (audited, IAM-gated, identical toolchain); the laptop only
 > bootstraps the trust anchor, launches the conductor, and ships the tree. The same
 > driver does the DR `restore` and the `teardown`. (local-dev is separate —
-> `gitops/clusters/local/k3d-up.sh`, no AWS.)
+> `driver/driver.sh local`, no AWS; [LOCAL.md](LOCAL.md).)
 
 ## Prerequisites
 - OpenTofu `>= 1.6` (`tofu`), AWS CLI v2, an admin identity for phases 0–1.

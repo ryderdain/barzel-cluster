@@ -7,7 +7,19 @@ prometheus-node-exporter:
   hostRootFsMount:
     enabled: false
 
-# Grafana's admin login, from the cluster secret store (Q105): phase 25 makes
+# Grafana trusts the store's CA when it reaches Dex: in local-ca mode the
+# store is the CA of the portal (ExternalSecret portal-ca, sign-on/secrets/).
+grafana:
+  extraSecretMounts:
+    - name: portal-ca
+      secretName: portal-ca
+      mountPath: /etc/brzl/ca
+      readOnly: true
+  grafana.ini:
+    auth.generic_oauth:
+      tls_client_ca: /etc/brzl/ca/ca.crt
+
+# Grafana's admin password, from the cluster secret store (Q105): phase 25 makes
 # the password once (store key grafana-admin), and ESO projects it into the
 # Secret that values.yaml names. On AWS this moves to values.yaml when the
 # AWS store exists (pass 8).

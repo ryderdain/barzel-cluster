@@ -7,7 +7,8 @@ Accepted; built in pass 5c (2026-10-15) · **Date:**
 ADR-0018 (the per-host edge with Traefik `IngressRoute`; its sign-on part
 stays for pass 6a) · **Amended by:** ADR-0036 (cert-manager renews the
 certificate, the default TLS mode depends on the kind of substrate, the
-certificate is not copied into the store, and a local DNS stand-in)
+certificate is not copied into the store, and a local DNS stand-in),
+ADR-0035 amendment (sign-on in every environment, Q177)
 
 ## Context
 
@@ -55,3 +56,12 @@ encrypt the traffic, not to prove the page to the user.
   wildcard DNS and certificates, and a page filled in for each environment.
   Homepage (a dashboard product that finds services by annotation): more to
   run and less control over the CLI instructions.
+
+## Amendment (pass 6a, Q177, 2026-10-23)
+
+Sign-on is in every environment, so the portal no longer works without it.
+The reason is Q175: the built-in logins of Argo CD and Grafana are off, so
+a portal without sign-on would have no login at all. nginx sends each
+request to oauth2-proxy first (`auth_request`). Outside the gate: Dex
+(`/dex/`), oauth2-proxy (`/oauth2/`), Argo CD's public settings, and the
+workloads (ADR-0035 amendment).

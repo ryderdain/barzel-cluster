@@ -3,12 +3,15 @@
 # (ADR-0034): a GitHub App on the workload's organization, read-only, for
 # Argo CD and the ApplicationSet's SCM generator, and a token with
 # read:packages for the registry's pull-through of the workload's image.
+# And sign-on (ADR-0035, pass 6a): the teams of the three access tiers, and
+# one GitHub OAuth App for each environment, which Dex signs people in with.
 # GitHub-specific; an alternative host gets its own script with the same
-# output layout.
+# output layout (BACKLOG 22).
 #
 # Output: var/access/github/<org>/ (gitignored), the contract phase 25-bootstrap
 # reads once to seed the cluster secret store:
 #   app-id  app-slug  app.pem  installation-id  packages-user  packages-token
+#   oauth-<env>-client-id  oauth-<env>-client-secret        (sign-on)
 #
 # Steps, in this order; each one is an emit script (preview it, then pipe it
 # to bash on this machine, where gh is logged in), except `check`:
@@ -18,8 +21,13 @@
 #   bash driver/access/github.sh installation <org>          # the installation id
 #   bash driver/access/github.sh packages_token <org>        # the token page, in the browser
 #   bash driver/access/github.sh check <org>/<repo>          # GENERATOR: verify all of it
+# Sign-on, for the organization of the access tiers (BRZL_SIGN_ON_ORG):
+#   bash driver/access/github.sh teams <org>                 # the three teams; you in brzl-admins
+#   bash driver/access/github.sh oauth_app <org> <env>       # the OAuth App's form, in the browser
+#   bash driver/access/github.sh sign_on_check <org> <env>   # GENERATOR: verify it
 #
-# Needs: gh (logged in; `installation` needs the admin:org scope), jq, curl.
+# Needs: gh (logged in; `installation` and `teams` need the admin:org scope),
+# jq, curl.
 # Credentials: your own GitHub login in gh; the files written are the
 # platform's. Nothing is printed: the App's key and the token go to files
 # with mode 0600.
@@ -167,13 +175,9 @@ installation() {
 # GitHub makes tokens only in the browser, and only a classic token can pull
 # packages.
 packages_token() {
-  local org="$1" dir paste
+  local org="$1" dir
   need_org "$org" packages_token || end_function "$?" 'usage'
   dir="$(access_dir "$org")"
-  case "$(host_os)" in
-    Darwin) paste='pbpaste' ;;
-    *) paste='xclip -o -selection clipboard' ;;
-  esac
   printf 'cd %q || exit 1\n' "$repo_root"
   printf '{ # the login the packages token belongs to (the registry wants user and token)\n'
   printf '  umask 077\n'
@@ -183,10 +187,122 @@ packages_token() {
   printf '}\n'
   operator_step "to make the packages token: on the page that opened, keep only read:packages, generate the token, and copy it." \
     "THE TOKEN GOES INTO THE FILE $dir/packages-token (mode 0600). This writes it from the clipboard:" \
-    "  (umask 077; $paste > $dir/packages-token)" \
+    "  (umask 077; $(clipboard_cmd) > $dir/packages-token)" \
     "then verify everything:" \
     "  bash driver/access/github.sh check $org/<repo>"
   end_function 0 "emitted the packages token step for $org"
+}
+
+# The teams of the access tiers (Q169, Q170, Q182): one set for every
+# environment; each environment decides what each tier may do. The same
+# names are in Dex's, Argo CD's, Grafana's and oauth2-proxy's values
+# (gitops/infrastructure/sign-on/, argocd/, monitoring/).
+tier_teams=(brzl-admins brzl-operators brzl-auditors)
+
+# clipboard_cmd — the command that prints the clipboard, for the driver
+# machine's OS.
+clipboard_cmd() {
+  case "$(host_os)" in
+    Darwin) printf 'pbpaste' ;;
+    *) printf 'xclip -o -selection clipboard' ;;
+  esac
+}
+
+# shellcheck disable=SC2016  # $me is for the emitted stream to expand
+# teams <org> — EMIT: make the three teams (closed, visible to members) when
+# they are absent, and make you a maintainer of brzl-admins only. GitHub adds
+# the person who makes a team to it, so the other two teams then lose you.
+teams() {
+  local org="$1" team
+  need_org "$org" teams || end_function "$?" 'usage'
+  printf 'cd %q || exit 1\n' "$repo_root"
+  awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+  printf '{ # who you are on GitHub\n'
+  printf '  me="$(gh api user --jq .login)" \\\n'
+  printf "    || error 3 'gh is not logged in: gh auth login'\n"
+  printf '}\n'
+  for team in "${tier_teams[@]}"; do
+    printf '{ # the team %s on %s (an access tier, ADR-0035): make it when absent\n' "$team" "$org"
+    printf '  gh api %q --silent 2>/dev/null \\\n' "/orgs/$org/teams/$team"
+    printf '    || gh api -X POST %q -f name=%q -f privacy=closed \\\n' "/orgs/$org/teams" "$team"
+    printf '         -f description=%q --silent\n' "barzel-cluster access tier ($team)"
+    if [[ "$team" == brzl-admins ]]; then
+      printf '  gh api -X PUT "%s/$me" -f role=maintainer --silent\n' "/orgs/$org/teams/$team/memberships"
+    else
+      # When you are not a member, GitHub answers 404: visible, and harmless.
+      printf '  gh api -X DELETE "%s/$me" --silent\n' "/orgs/$org/teams/$team/memberships"
+    fi
+    printf '}\n'
+  done
+  end_function 0 "emitted the teams for $org"
+}
+
+# oauth_app <org> <env> — EMIT: open the organization's form for a new OAuth
+# App and print the values to type in. GitHub has no API that makes an OAuth
+# App. An App has one callback URL, so each environment has its own. The
+# client id and secret go from the clipboard into two files, mode 0600.
+oauth_app() {
+  local org="$1" env="${2:-}" dir host
+  need_org "$org" oauth_app || end_function "$?" 'usage'
+  if [[ -z "$env" ]]; then
+    printf 'usage: github.sh oauth_app <org> <env>\n' >&2
+    end_function 2 'usage'
+    return 2
+  fi
+  phase_init "$env" || end_function "$?" 'environment definition'
+  dir="$(access_dir "$org")"; host="$BRZL_PORTAL_HOST"
+  printf 'cd %q || exit 1\n' "$repo_root"
+  printf '{ # the form for a new OAuth App on %s (sign-on for %s)\n' "$org" "$env"
+  printf '  mkdir -p %q\n' "$dir"
+  printf '  %s %q\n' "$(open_cmd)" "https://github.com/organizations/$org/settings/applications/new"
+  printf '}\n'
+  operator_step "to register the OAuth App: on the page that opened, type in" \
+    "  Application name:            brzl-sign-on-$env" \
+    "  Homepage URL:                https://$host/" \
+    "  Authorization callback URL:  https://$host/dex/callback" \
+    "leave \"Enable Device Flow\" off, then press \"Register application\". Copy the Client ID, then:" \
+    "  (umask 077; $(clipboard_cmd) > $dir/oauth-$env-client-id)" \
+    "press \"Generate a new client secret\", copy it, then:" \
+    "  (umask 077; $(clipboard_cmd) > $dir/oauth-$env-client-secret)" \
+    "then verify:" \
+    "  bash driver/access/github.sh sign_on_check $org $env"
+  end_function 0 "emitted the OAuth App step for $org ($env)"
+}
+
+# sign_on_check <org> <env> — GENERATOR: the three teams exist, you are in
+# brzl-admins, and the OAuth App's two files are there. GitHub cannot list an
+# organization's OAuth Apps through the API, so the App itself is checked at
+# the first sign-in.
+sign_on_check() {
+  local org="$1" env="${2:-}" dir rc=0 team me f
+  if [[ -z "$org" || -z "$env" ]]; then
+    printf 'usage: github.sh sign_on_check <org> <env>\n' >&2
+    return 2
+  fi
+  require_tools gh jq || return 1
+  dir="$(access_dir "$org")"
+  me="$(gh api user --jq .login 2>/dev/null)" || { printf 'fix: gh auth login\n' >&2; return 1; }
+  for team in "${tier_teams[@]}"; do
+    if ! gh api "/orgs/$org/teams/$team" --silent 2>/dev/null; then
+      printf 'fix: the team %s/%s is absent: bash driver/access/github.sh teams %s | bash\n' "$org" "$team" "$org" >&2
+      rc=1
+    fi
+  done
+  if [[ "$(gh api "/orgs/$org/teams/brzl-admins/memberships/$me" --jq .state 2>/dev/null)" != active ]]; then
+    printf 'fix: you (%s) are not an active member of %s/brzl-admins: bash driver/access/github.sh teams %s | bash\n' "$me" "$org" "$org" >&2
+    rc=1
+  else
+    printf 'the teams %s exist on %s; you (%s) are in brzl-admins\n' "${tier_teams[*]}" "$org" "$me"
+  fi
+  for f in "oauth-$env-client-id" "oauth-$env-client-secret"; do
+    if [[ ! -s "$repo_root/$dir/$f" ]]; then
+      printf 'fix: %s/%s is missing: bash driver/access/github.sh oauth_app %s %s | bash\n' "$dir" "$f" "$org" "$env" >&2
+      rc=1
+    fi
+  done
+  (( rc == 0 )) && printf 'the OAuth App files for %s are in %s (%s bytes of client id)\n' \
+    "$env" "$dir" "$(wc -c < "$repo_root/$dir/oauth-$env-client-id" | tr -d ' ')"
+  return "$rc"
 }
 
 # check <org>/<repo> — GENERATOR: the files are there, the repository is
