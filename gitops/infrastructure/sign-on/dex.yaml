@@ -75,8 +75,12 @@ config:
 resources:
   requests: { cpu: 10m, memory: 32Mi }
   limits: { memory: 128Mi }
+# The image names its user (dex) and not its number, so the kubelet cannot
+# verify runAsNonRoot without the number: 1001 in the image's /etc/passwd.
 securityContext:
   runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
   capabilities: { drop: ["ALL"] }

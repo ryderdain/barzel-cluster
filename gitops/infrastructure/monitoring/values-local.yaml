@@ -31,6 +31,12 @@ extraManifests:
       namespace: monitoring
       annotations:
         argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+        # Before Grafana (wave 0), which cannot start without this Secret.
+        # On a new cluster the apply can fail while External Secrets'
+        # webhook is not ready; in its own wave that fails the sync, and
+        # Argo CD tries again. In Grafana's wave, Argo CD waited for Grafana
+        # without end (found 2026-10-23).
+        argocd.argoproj.io/sync-wave: "-1"
     spec:
       refreshInterval: 1h
       secretStoreRef:
