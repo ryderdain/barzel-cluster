@@ -75,6 +75,14 @@ config:
 resources:
   requests: { cpu: 10m, memory: 32Mi }
   limits: { memory: 128Mi }
+# Dex writes its config, with the environment expanded, to a temporary file:
+# a writable /tmp, while the rest of the file system stays read-only.
+volumes:
+  - name: tmp
+    emptyDir: {}
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
 # The image names its user (dex) and not its number, so the kubelet cannot
 # verify runAsNonRoot without the number: 1001 in the image's /etc/passwd.
 securityContext:
