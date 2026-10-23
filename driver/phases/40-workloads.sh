@@ -189,7 +189,20 @@ portal_check() {
     return 1
   fi
   if [[ "$("${get[@]}" "$url/argocd/api/v1/settings" 2>/dev/null | jq -r '.oidcConfig.issuer // empty' 2>/dev/null)" != "$issuer" ]]; then
-    printf 'fix: Argo CD does not name the issuer %s in its settings; see: kubectl -n argocd describe externalsecret brzl-argocd-oidc; kubectl -n argocd logs deploy/argocd-server\n' "$issuer" >&2
+    printf 'fix: Argo CD does not name the issuer %s in its settings; see: kubectl -n argocd get secret brzl-argocd-oidc; kubectl -n argocd logs deploy/argocd-server\n' "$issuer" >&2
+    return 1
+  fi
+  # Argo CD's settings read the Secret on each request, but its sign-in reads
+  # it only when argocd-server starts (seen 2026-10-23): the server must have
+  # started after the Secret's last change.
+  local changed started
+  changed="$(kubectl -n argocd get secret brzl-argocd-oidc -o json 2>/dev/null \
+    | jq -r '[.metadata.creationTimestamp, (.metadata.managedFields[]?.time // empty)] | max')"
+  started="$(kubectl -n argocd get pods -l app.kubernetes.io/name=argocd-server -o json 2>/dev/null \
+    | jq -r '[.items[] | select(.metadata.deletionTimestamp == null) | .status.startTime] | min // empty')"
+  if [[ -z "$changed" || -z "$started" || "$started" < "$changed" ]]; then
+    printf 'fix: argocd-server started (%s) before its OIDC Secret last changed (%s), so its sign-in uses the old values: kubectl -n argocd rollout restart deployment/argocd-server\n' \
+      "${started:-?}" "${changed:-?}" >&2
     return 1
   fi
   code="$("${get[@]}" -o /dev/null -w '%{http_code}' "$url/apps/$BRZL_EXAMPLE_APP_NAME/" 2>&1)"

@@ -39,8 +39,10 @@ configs:
   # login is off. In an emergency, use the CLI with the cluster's kubeconfig
   # (`argocd --core`). The ApplicationSet replaces "localhost" in `url` with
   # the portal's host name. oidc.config reads `$<Secret>:<key>` from the
-  # Secret brzl-argocd-oidc (ExternalSecret, sign-on/secrets/): the issuer,
-  # the client secret and, in local-ca mode, the store's CA certificate.
+  # Secret brzl-argocd-oidc, which phase 25 writes from the store: the
+  # issuer, the client secret and, in local-ca mode, the store's CA
+  # certificate. argocd-server reads it only when it starts, so phase 25
+  # restarts argocd-server when the Secret changes.
   cm:
     url: https://localhost/argocd
     admin.enabled: "false"

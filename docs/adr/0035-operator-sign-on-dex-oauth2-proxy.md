@@ -77,7 +77,10 @@ builds on the new platform.
   `local-ca` mode each client trusts the store's CA, from the store
   (`portal-ca`).
 - Argo CD's `oidc.config` names its issuer, client secret and CA as
-  `$brzl-argocd-oidc:<key>`, from an ExternalSecret.
+  `$brzl-argocd-oidc:<key>`. Phase 25 writes that Secret from the store,
+  as it writes Argo CD's repository Secrets. argocd-server reads it only
+  when it starts, and it starts before External Secrets exists (found in
+  the live test). Phase 25 restarts argocd-server when the Secret changes.
 - **Outside the gate:** Dex (`/dex/`), oauth2-proxy (`/oauth2/`), the
   workloads (Q144), and Argo CD's public settings
   (`/argocd/api/v1/settings`). The Argo CD CLI reads those settings before

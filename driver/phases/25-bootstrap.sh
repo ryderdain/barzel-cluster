@@ -30,8 +30,12 @@
 #      driver/access/github.sh oauth_app); the clients' secrets (oauth2-proxy,
 #      Argo CD, Grafana) and the cookie secret are made once in the store;
 #      the issuer URL and the CA certificate are written on every run. ESO
-#      projects them (gitops/infrastructure/sign-on/). Sign-on is in every
-#      environment (Q177): without the OAuth App the phase stops.
+#      projects them (gitops/infrastructure/sign-on/), except Argo CD's
+#      Secret brzl-argocd-oidc, which this phase writes from the store:
+#      argocd-server reads it only when it starts, and it starts (phase 30)
+#      before External Secrets exists; when the Secret changes, this phase
+#      restarts argocd-server. Sign-on is in every environment (Q177):
+#      without the OAuth App the phase stops.
 # Locus: the driver, because a secret resolves where the run sheet runs, and only
 # the driver has the operator's environment and the store's driver token; and
 # because a locus never installs itself (ADR-0021). Later the deploy key gives
@@ -151,6 +155,21 @@ sign_on_up() {
   printf '  unset issuer\n'
   printf '  %s\n' "$(secret_put_file portal-ca "$BRZL_SECRET_STORE_DIR/ca.crt")"
   printf '}\n'
+  printf '{ # sign-on: Argo CD'"'"'s OIDC Secret, from the store; argocd-server reads it only when it starts,\n'
+  printf '  # so it restarts when the Secret changed (see the header)\n'
+  printf '  kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -\n'
+  printf '  before="$(kubectl -n argocd get secret brzl-argocd-oidc -o jsonpath='"'"'{.data}'"'"' 2>/dev/null | sha256sum)"\n'
+  printf '  %s \\\n' "$(secret_get sign-on-argocd-client-secret)"
+  printf '    | kubectl -n argocd create secret generic brzl-argocd-oidc --dry-run=client -o yaml \\\n'
+  printf '        --from-literal=issuer=%q --from-file=clientSecret=/dev/stdin --from-file=rootCA=%q \\\n' \
+    "https://$BRZL_PORTAL_HOST/dex" "$BRZL_SECRET_STORE_DIR/ca.crt"
+  printf '    | kubectl label --local -f - app.kubernetes.io/part-of=argocd -o yaml \\\n'
+  printf '    | kubectl apply -f -\n'
+  printf '  if [[ "$(kubectl -n argocd get secret brzl-argocd-oidc -o jsonpath='"'"'{.data}'"'"' | sha256sum)" != "$before" ]] \\\n'
+  printf '      && kubectl -n argocd get deployment argocd-server >/dev/null 2>&1; then\n'
+  printf '    kubectl -n argocd rollout restart deployment/argocd-server\n'
+  printf '  fi\n'
+  printf '}\n'
 }
 
 phase_up() {
@@ -246,6 +265,11 @@ phase_check() {
       sign-on-argocd-client-secret sign-on-grafana-client-secret sign-on-cookie-secret sign-on-issuer portal-ca; do
     secret_store_has "$name" || missing+=" $name"
   done
+  if [[ "$(kubectl -n argocd get secret brzl-argocd-oidc -o json 2>/dev/null \
+        | jq -r '[.metadata.labels["app.kubernetes.io/part-of"], (.data | has("issuer") and has("clientSecret") and has("rootCA"))] | @tsv')" \
+        != $'argocd\ttrue' ]]; then
+    missing+=' argocd/brzl-argocd-oidc(Secret)'
+  fi
   if [[ -n "$missing" ]]; then
     printf 'fix: the store holds no%s for sign-on; see driver/access/github.sh oauth_app, then run the 25-bootstrap phase again\n' "$missing" >&2
     rc=1
