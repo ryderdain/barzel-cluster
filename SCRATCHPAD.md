@@ -64,6 +64,19 @@ graph hides series at 0.
 - docs/SECURITY.md rewritten for drift, with the auth-flow diagrams.
 - BACKLOG 22: the GitHub dependency, examined alone.
 
-Next round: Q180 (the host steps, resolver and CA trust, as a phase), Q181
-(a record of the Q decisions). Then build step 1 (web sign-on).
+- Q180: the host steps (resolver file, CA trust) become a host run sheet
+  that `driver/kiesei.sh` runs with `sudo` after phase 10, with a one-time
+  confirmation in the run sheet; laptop substrate only. CA trust tested in
+  containers 2026-10-23: Debian/Ubuntu/Alpine `/usr/local/share/
+  ca-certificates/*.crt` + `update-ca-certificates`; Fedora/RHEL
+  `/etc/pki/ca-trust/source/anchors/` + `update-ca-trust`; openSUSE
+  `/etc/pki/trust/anchors/` + `update-ca-certificates`; Arch `trust anchor
+  --store`. `trust anchor` fails on Ubuntu, so no one command for all.
+  Chosen by `/etc/os-release` (`ID`, `ID_LIKE`). Browsers on Linux keep
+  their own NSS store (not tested here). macOS: login keychain, as now.
+- Q181: a rough decision log, local-only in `notes/DECISIONS.md` (user,
+  2026-10-23: not in the repo for now); backfilled from the transcript.
+
+Next: Q182 (team names per environment), Q183 (the access script makes the
+teams). Then build step 1 (web sign-on).
 BACKLOG 21 (an alert channel) fits with 6a or later.
