@@ -217,7 +217,8 @@ each node.
 _Avoid_: IAM user, account
 
 **Access tier**:
-A group of people that sign-on lets through to a set of services: `users`
-(the workloads), `operators` (Grafana, Prometheus) and `admins`. Pass 6a
-decides them again.
+A group of people that sign-on lets through, with the same access in each
+service. Three exist: `admins` (all access), `operators` (operate the
+platform, but not administer it) and `viewers` (read only). Membership is a
+team in the GitHub organization.
 _Avoid_: role tier, group (for this meaning)

@@ -37,7 +37,19 @@ retry count) after its resources converge. The conductor scales itself to
 zero after 30 minutes idle; `conductor.sh` claims a live pod. A stacked
 graph hides series at 0.
 
-**▶ NEXT: pass 6a, SSO** (BACKLOG item 5): Dex and oauth2-proxy in front
-of nginx, leading to the admin portal; it replaces the legacy local SSO
-path. Start with a short design round. Open: BACKLOG 21 (an alert
-channel) fits with 6a or later.
+**▶ IN FLIGHT: pass 6a, sign-on** (BACKLOG item 5), branch
+`pass-6a-sign-on`, design round. Decided 2026-10-23:
+
+- Q169: tier membership from GitHub teams in the organization (`tzvat`).
+- Q170: three tiers, `admins`, `operators`, `viewers` (GLOSSARY updated).
+  The user thought of a tier for Grafana only, for workload logs: ask if
+  `viewers` is that tier or a fourth one.
+- Q171: the gate (nginx `auth_request` to oauth2-proxy) for every path, and
+  Argo CD and Grafana each a Dex client (OIDC). No header trust.
+- Q172: Dex at `https://<portal host>/dex/`.
+- docs/SECURITY.md rewritten for drift, with the auth-flow diagrams.
+- BACKLOG 22: the GitHub dependency, examined alone.
+
+Next round: `kubectl` through Dex (now or a second step), the built-in
+admin passwords after sign-on, where Dex's client secrets come from, the
+`viewers` question. BACKLOG 21 (an alert channel) fits with 6a or later.

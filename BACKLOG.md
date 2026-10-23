@@ -279,6 +279,13 @@ Order of work (Q120):
     Prometheus. Choose a channel (e-mail, Slack, ntfy, or Argo CD's own
     notifications) and its credential, then turn on Alertmanager with that
     receiver.
+22. **The GitHub dependency, examined alone** (user, 2026-10-23, during
+    the 6a design). Find each place where the platform needs GitHub. Argo
+    CD reads this repo and the workload's repo from it. The workload's
+    image comes from its registry. The App and the packages token are
+    GitHub credentials. Sign-on (6a) uses GitHub as the identity provider. Then find if a general case exists for the git host, so that
+    GitLab, Bitbucket or a self-managed git server can take its place.
+    State what each part would need, and what is specific to GitHub.
 
 Standing concerns (check in every pass):
 
