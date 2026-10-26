@@ -84,8 +84,14 @@ Order of work (Q120):
    (`gitops/clusters/local/{k3d-up.sh,sso/,kustomization.yaml}`) still
    names the demo-app and is stale since pass 5d. This pass replaces it.
    Designed 2026-10-23 (Q169–Q183, ADR-0035 and ADR-0028 amendments).
-   **Step 1, web sign-on: built 2026-10-23, waiting for the live test.**
-   The legacy path is removed. Step 2: `kubectl` through Dex (Q174).
+   **Step 1, web sign-on: done and user-verified 2026-10-23**
+   (RETROSPECTIVE). The legacy path is removed. Step 2: `kubectl` through
+   Dex (Q174), designed 2026-10-26 after a review of every auth flow
+   (`notes/AUTH-FLOWS.md`, local). When the decisions of this pass are
+   made: bring the relevant parts of that review into SECURITY.md and
+   SECRETS.md, and add to SECRETS.md one table per root of trust (the
+   store's files, the cluster-admin kubeconfig, the operator's `gh` login)
+   that lists what derives from it (user, 2026-10-26).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
@@ -331,6 +337,21 @@ Order of work (Q120):
     `trusted_proxy_ip`, any pod that reaches oauth2-proxy directly can set
     those headers. Limit them to the portal (its pod network, or a
     NetworkPolicy that admits only the portal).
+28. **An emergency Grafana for the backed-up logs** (user, 2026-10-26).
+    Since sign-on, Grafana has no emergency path: its login form and
+    basic auth are off, so `grafana-admin` opens nothing (found in the
+    auth-flows review, `notes/AUTH-FLOWS.md`). When the cluster is down
+    or out of reach, the operator needs the admin log store. Prepare a
+    thin image that runs Grafana alone, outside the cluster, as a UI for
+    the backed-up logs (local: `var/log-store/<env>/admin/`).
+29. **The driver is a machine identity in every scenario** (found
+    2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
+    `system:admin` (the kubeconfig) and as the store token `driver`. The
+    API audit log and the store's audit log cannot name the person who
+    ran a phase; only the shell on the operator's machine knows. Step 2 of
+    pass 6a (`kubectl` through Dex) names a person for `kubectl`, not for
+    the phases. Decide with item 23 whether the driver should act with a
+    person's identity on a public cloud.
 
 Standing concerns (check in every pass):
 
