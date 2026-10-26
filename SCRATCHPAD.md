@@ -43,6 +43,14 @@ is `notes/DECISIONS.md`, local only). **Step 1, web sign-on: DONE and
 user-verified 2026-10-23** (RETROSPECTIVE). Sign-out stays as it is
 (Q185, BACKLOG 26); oauth2-proxy's trusted proxies are BACKLOG 27.
 
+**2026-10-26: a throwaway round before Q186–Q188.** The user wants the
+full view first: `notes/AUTH-FLOWS.md` (local only), in Mermaid. Part A:
+the flows and secrets now, by scenario. Part B: the `kubectl` through Dex
+proposal, and what it changes. Part C: production shapes against it. A
+browser copy is `var/scratch/auth-flows.html`. Findings: Grafana has no
+emergency path since sign-on (its login form is off). SECRETS.md could
+carry a by-flow view. Q186–Q188 wait for the user's answers.
+
 **Next: step 2, `kubectl` through Dex** (Q174). A short design round
 first. Facts: k3d v5.9.0 has `--host-alias ip:host` (it writes the nodes'
 /etc/hosts and CoreDNS's NodeHosts); kubelogin is not in kiesei. The k3s
