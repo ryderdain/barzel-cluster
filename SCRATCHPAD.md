@@ -49,7 +49,17 @@ the flows and secrets now, by scenario. Part B: the `kubectl` through Dex
 proposal, and what it changes. Part C: production shapes against it. A
 browser copy is `var/scratch/auth-flows.html`. Findings: Grafana has no
 emergency path since sign-on (its login form is off). SECRETS.md could
-carry a by-flow view. Q186–Q188 wait for the user's answers.
+carry a by-flow view. **Decided.** Q186 (a): one host alias to a fixed
+portal ClusterIP. Q187 (a): the browser callback. kiesei already has the
+host's network, and the step is once per sign-in. Q188 (a): phase 10
+writes `kubeconfig-sign-on`. Q189 (a): kubelogin's cache under the run
+directory. Q190 (a): `preferred_username` and `groups`, prefix `oidc:`.
+**An outside review** (`notes/AUTH-FLOWS-FableAudit-202610261655.md`)
+added conditions, taken on in BACKLOG item 5: the structured
+`AuthenticationConfiguration` file, 1-hour ID tokens, `cookie_refresh`,
+a PKCE check, and a NetworkPolicy for the admin Loki store. BACKLOG 28
+to 31 hold the rest. Open: Q191 (the 1-hour ID token also signs Argo CD's
+UI out every hour) and the user's "go" for the build.
 
 **Next: step 2, `kubectl` through Dex** (Q174). A short design round
 first. Facts: k3d v5.9.0 has `--host-alias ip:host` (it writes the nodes'

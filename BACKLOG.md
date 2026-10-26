@@ -93,6 +93,27 @@ Order of work (Q120):
    lists what derives from it (user, 2026-10-26). The roots are the
    store's files, the cluster-admin kubeconfig and the operator's `gh`
    login.
+   **An outside security review** of that document (the user's second
+   session, 2026-10-26, `notes/AUTH-FLOWS-FableAudit-202610261655.md`)
+   approved the design with conditions. Step 2 takes them on:
+   - The kube-API trusts Dex through a structured
+     `AuthenticationConfiguration` file, not `--oidc-*` flags (k3s
+     v1.31). The file reloads when it changes, so a later change needs
+     no new cluster.
+   - Dex's ID tokens last 1 hour, and its refresh tokens get a bound.
+   - The gate checks the teams again every hour (`cookie_refresh`, with
+     the `offline_access` scope).
+   - Phase 40 checks that Dex advertises PKCE S256.
+   - A NetworkPolicy admits only the collector and Grafana to the admin
+     Loki store. This was the review's highest finding: any pod could
+     write into the audit trail.
+   Doc items for the end of the pass, into SECURITY.md: a fourth root of
+   trust, the host user, who holds the Docker socket and `seal.key`. The
+   revocation latency of each session. A Dex compromise is a harvest of
+   the people's GitHub tokens. A certificate for the portal's host from
+   the store's CA could serve a false issuer to the kube-API (a residual
+   risk). Branch protection on the workload repo is an assumed control.
+   Items 30 and 31 hold the rest of the review.
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
@@ -352,7 +373,25 @@ Order of work (Q120):
     ran a phase. Only the shell on the operator's machine knows. Step 2 of
     pass 6a (`kubectl` through Dex) names a person for `kubectl`, not for
     the phases. Decide with item 23 whether the driver should act with a
-    person's identity on a public cloud.
+    person's identity on a public cloud. The store token `driver` is a
+    standing credential of the same kind. OpenBao can issue a short-lived
+    token for each run from a local auth method (review finding 5).
+30. **Narrower `kubectl` roles for the tiers** (user, after the
+    auth-flows review, 2026-10-26). Step 2 binds `brzl-auditors` and
+    `brzl-operators` to the built-in `view` ClusterRole. `view` reads
+    `pods/log` and ConfigMaps in every namespace, so an auditor reads the
+    workloads' logs and their configuration (not Secrets). And `view`
+    cannot `rollout restart`, so an operator restarts through Argo CD.
+    Build: a narrower auditor ClusterRole. A read-only role for the
+    people who develop one workload, limited to its namespace (with item
+    24, the Grafana side). Decide the operator's `kubectl` rights.
+31. **Image integrity** (review findings, 2026-10-26). Nodes pull from
+    Zot over plain HTTP on the Docker network. Applications name tags, and
+    nothing checks a signature or a digest. Zot could serve TLS with a
+    certificate from the store's CA today. Then: digest pinning, or a
+    signature policy (cosign). Branch protection on the workload's
+    development branch is a control outside the platform. Name it as
+    assumed in SECURITY.md.
 
 Standing concerns (check in every pass):
 
