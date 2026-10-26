@@ -92,3 +92,29 @@ builds on the new platform.
 - The legacy `--with-sso` path is removed
   (`gitops/clusters/local/{k3d-up.sh,sso/,kustomization.yaml,namespaces.yaml}`,
   `gitops/bootstrap/create-sso-secrets.sh`).
+
+### As built (pass 6a, step 2: `kubectl` through Dex, Q186–Q191)
+
+- The kube-API trusts Dex through a structured `AuthenticationConfiguration`
+  (`apiserver.config.k8s.io/v1beta1` on k3s v1.31), a file that phase 10
+  writes into the run directory and the server node mounts. The API server
+  reads it again when it changes. Its path is a k3s argument, set when the
+  cluster is made. The person is `oidc:<login>` (`preferred_username`), and
+  the teams are `oidc:<org>:<team>`. The audience is the public Dex client
+  `kubernetes` (Q190).
+- On the nodes and in CoreDNS, the portal's host name is the portal's fixed
+  Service address (`BRZL_PORTAL_CLUSTER_IP`, k3d `--host-alias`, Q186).
+  This replaces the CoreDNS rewrite rule of step 1.
+- Phase 10 writes `kubeconfig-sign-on` beside the admin kubeconfig (Q188).
+  Its user runs kubelogin (in kiesei, pinned) with the browser callback on
+  localhost (Q187). kiesei has the host's network. kubelogin keeps the
+  tokens in `oidc-cache/` in the run directory (Q189).
+- The bindings for the tiers are `gitops/clusters/<env>/access/`. Admins
+  are `cluster-admin`, and operators and auditors are `view` (Q170).
+  Narrower roles are BACKLOG 30.
+- From the security review of 2026-10-26: Dex's ID tokens last 1 hour, and
+  its refresh tokens 7 days (Q191). The gate refreshes its session every
+  hour (`cookie_refresh`), and Grafana uses refresh tokens, so a removed
+  person loses access within the hour. Phase 40 checks that Dex advertises
+  PKCE S256. A NetworkPolicy admits only the collector, Grafana and the
+  store itself to the admin log store.

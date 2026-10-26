@@ -5,6 +5,10 @@
 # that carries a token from Dex for the Argo CD CLI (extra-jwt-issuers), so
 # `argocd login <host> --sso` works through the portal. The ApplicationSet
 # replaces each "localhost" in extraArgs with the portal's host name.
+# Every hour it refreshes the session with Dex (cookie_refresh, with a
+# refresh token from the offline_access scope). Dex then reads the teams
+# from GitHub again and refuses a person who left them, so a removed person
+# loses the portal within the hour (the security review of 2026-10-26).
 # The chart takes the registry host and the path apart (it writes quay.io when
 # the registry is empty): the ApplicationSet sets both (hostParams,
 # prefixParams).
@@ -18,7 +22,8 @@ config:
     provider = "oidc"
     email_domains = ["*"]
     upstreams = ["static://202"]
-    scope = "openid profile email groups"
+    scope = "openid profile email groups offline_access"
+    cookie_refresh = "1h"
     oidc_groups_claim = "groups"
     allowed_groups = ["tzvat:brzl-admins", "tzvat:brzl-operators", "tzvat:brzl-auditors"]
     code_challenge_method = "S256"

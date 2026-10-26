@@ -6,7 +6,9 @@
 #   substrate_network_up            EMIT: the container network the registry,
 #                                   the secret store and the cluster share
 #   substrate_up <run_dir>          EMIT: make the registry and the cluster;
-#                                   write <run_dir>/kubeconfig
+#                                   write <run_dir>/kubeconfig and the
+#                                   kube-API's authentication configuration,
+#                                   <run_dir>/apiserver/
 #   substrate_down                  EMIT: remove the cluster (the registry and
 #                                   the collector beside it stay)
 #   substrate_image_ref <name:tag>  print the reference to push a locally built
@@ -62,6 +64,15 @@
 # to the cluster's own CoreDNS. A .localhost name (the default,
 # brzl-<env>.localhost) resolves to 127.0.0.1 by itself on macOS and in
 # browsers, so it needs no stand-in.
+#
+# Sign-on (ADR-0035). On the nodes and in the cluster's CoreDNS, the portal's
+# host name is the portal's fixed Service address (BRZL_PORTAL_CLUSTER_IP,
+# `--host-alias`), so the pods and the kube-API reach Dex at the issuer URL,
+# as browsers do. The kube-API trusts Dex through a structured authentication
+# configuration (api_auth_config_up), a file in <run_dir>/apiserver/ that the
+# server node mounts; the API server reads it again when it changes. Its
+# path is a k3s argument, fixed when the cluster is made: a cluster from
+# before it needs `down`, then `up`.
 #
 # Sourced by driver/phases/*.sh, never run on its own. Inputs: BRZL_K3D_*,
 # BRZL_K3S_IMAGE, BRZL_DOCKER_NETWORK, BRZL_ZOT_*, BRZL_DNS_*, BRZL_PORTAL_*,
@@ -129,45 +140,68 @@ substrate_up() {
   printf '}\n'
   dns_up
   log_collector_up "$run_dir"
-  local arg
+  api_auth_config_up "$run_dir"
+  local arg apiserver_dir="$run_dir/apiserver"
+  [[ "$apiserver_dir" == /* ]] || apiserver_dir="$repo_root/$apiserver_dir"
   printf '{ # k3d cluster %s (no Traefik, no servicelb; the portal NodePort on host port %s;\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_PORTAL_PORT"
-  printf '  # the admin log store'"'"'s data and the API audit policy mounted in), and its kubeconfig\n'
+  printf '  # the admin log store'"'"'s data, the API audit policy and the API authentication config\n'
+  printf '  # mounted in; on the nodes and in CoreDNS, %s is the portal'"'"'s fixed address, so the\n' "$BRZL_PORTAL_HOST"
+  printf '  # pods and the kube-API reach Dex at the issuer URL), and its kubeconfig\n'
   printf '  k3d cluster create %q --image %q --servers %q --agents %q \\\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_K3S_IMAGE" "$BRZL_K3D_SERVERS" "$BRZL_K3D_AGENTS"
   printf '    --api-port %q --network %q --registry-config %q \\\n' \
     "127.0.0.1:$BRZL_K3D_API_PORT" "$BRZL_DOCKER_NETWORK" "$run_dir/registries.yaml"
+  printf '    --host-alias %q \\\n' "$BRZL_PORTAL_CLUSTER_IP:$BRZL_PORTAL_HOST"
   printf '    --volume %q \\\n' \
     "$repo_root/$BRZL_LOG_STORE_DIR/admin:/var/lib/brzl/admin-log-store@server:0" \
-    "$repo_root/driver/substrates/k3s-audit-policy.yaml:/etc/brzl/audit-policy.yaml@server:*"
+    "$repo_root/driver/substrates/k3s-audit-policy.yaml:/etc/brzl/audit-policy.yaml@server:*" \
+    "$apiserver_dir:/etc/brzl/apiserver@server:*"
   for arg in --disable=traefik,servicelb \
       --kube-apiserver-arg=audit-policy-file=/etc/brzl/audit-policy.yaml \
       --kube-apiserver-arg=audit-log-path=/var/log/kubernetes/audit/audit.log \
       --kube-apiserver-arg=audit-log-maxsize=50 --kube-apiserver-arg=audit-log-maxbackup=3 \
+      "--kube-apiserver-arg=authentication-config=$api_auth_config_path" \
       --log=/var/log/k3s.log --alsologtostderr; do
     printf '    --k3s-arg %q \\\n' "$arg@server:*"
   done
   printf '    --port %q --wait\n' "127.0.0.1:$BRZL_PORTAL_PORT:$BRZL_PORTAL_NODE_PORT@server:0"
   printf '  k3d kubeconfig get %q > %q\n' "$BRZL_K3D_CLUSTER" "$run_dir/kubeconfig"
   printf '}\n'
-  cluster_dns_up
 }
 
-# cluster_dns_up — EMIT: in the cluster, the portal's host name is the
-# portal's Service. Browsers reach Dex at https://<host>/dex through the
-# portal; Argo CD, oauth2-proxy and Grafana must reach the same issuer URL
-# from their pods (sign-on, pass 6a). k3s's CoreDNS reads extra rules from
-# the ConfigMap coredns-custom; the restart makes it read them at once.
-cluster_dns_up() {
-  local svc=portal.portal.svc.cluster.local
-  printf '{ # in the cluster, %s is the portal'"'"'s Service (so pods reach Dex at the issuer URL)\n' "$BRZL_PORTAL_HOST"
-  printf "  kubectl apply -f - <<'EOF'\n"
-  printf 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: coredns-custom\n  namespace: kube-system\n'
-  printf 'data:\n  brzl-portal.override: |\n'
-  printf '    rewrite stop {\n      name exact %s %s\n      answer name %s %s\n    }\n' \
-    "$BRZL_PORTAL_HOST" "$svc" "$svc" "$BRZL_PORTAL_HOST"
+# The kube-API's authentication configuration, where the server node sees it.
+api_auth_config_path=/etc/brzl/apiserver/authentication-config.yaml
+
+# api_auth_config_up <run_dir> — EMIT: write <run_dir>/apiserver/
+# authentication-config.yaml, the kube-API's trust in Dex (sign-on step 2,
+# Q174): ID tokens from the issuer https://<portal host>/dex for the audience
+# `kubernetes`; the person is `oidc:<login>` and their teams
+# `oidc:<org>:<team>` (Q190). The server node mounts the directory, and the
+# API server reads the file again when it changes, so a later change needs
+# no new cluster; the file is replaced by rename, which a mounted directory
+# shows and a mounted file would not. In local-ca mode the store's CA goes
+# in, so the file is written after the CA exists (phase 10 makes it first).
+api_auth_config_up() {
+  local dir="$1/apiserver" file="$1/apiserver/authentication-config.yaml"
+  printf '{ # the kube-API trusts Dex at https://%s/dex (sign-on step 2); the API server reads this file again when it changes\n' "$BRZL_PORTAL_HOST"
+  printf '  mkdir -p %q\n' "$dir"
+  printf '  {\n'
+  printf "    cat <<'EOF'\n"
+  printf 'apiVersion: apiserver.config.k8s.io/v1beta1\nkind: AuthenticationConfiguration\n'
+  printf 'jwt:\n  - issuer:\n      url: https://%s/dex\n      audiences: [kubernetes]\n' "$BRZL_PORTAL_HOST"
+  if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+    printf '      certificateAuthority: |\n'
+    printf 'EOF\n'
+    printf '    sed %s %q\n' "$(squote 's/^/        /')" "$BRZL_SECRET_STORE_DIR/ca.crt"
+    printf "    cat <<'EOF'\n"
+  fi
+  printf '    claimMappings:\n'
+  printf '      username:\n        claim: preferred_username\n        prefix: "oidc:"\n'
+  printf '      groups:\n        claim: groups\n        prefix: "oidc:"\n'
   printf 'EOF\n'
-  printf '  kubectl -n kube-system rollout restart deployment/coredns\n'
+  printf '  } > %q\n' "$file.new"
+  printf '  mv %q %q\n' "$file.new" "$file"
   printf '}\n'
 }
 
@@ -365,13 +399,33 @@ substrate_check() {
     return 1
   fi
   printf 'the collector beside the cluster %s runs\n' "$BRZL_LOG_COLLECTOR_NAME"
-  if [[ "$(kubectl --kubeconfig "$run_dir/kubeconfig" -n kube-system get configmap coredns-custom \
-        -o jsonpath='{.data.brzl-portal\.override}' 2>/dev/null)" != *"name exact $BRZL_PORTAL_HOST "* ]]; then
-    printf 'fix: the cluster'"'"'s CoreDNS does not answer %s with the portal'"'"'s Service (ConfigMap kube-system/coredns-custom); run the 10-substrate phase again\n' \
-      "$BRZL_PORTAL_HOST" >&2
+  # Sign-on step 2: the host alias and the authentication config are set
+  # when the cluster is made, so a cluster from before them must be remade.
+  local node="k3d-$BRZL_K3D_CLUSTER-server-0" ip="${BRZL_PORTAL_CLUSTER_IP:?}"
+  if ! docker exec "$node" grep -Eq "^${ip//./\\.}[[:space:]]+${BRZL_PORTAL_HOST//./\\.}([[:space:]]|\$)" /etc/hosts 2>/dev/null; then
+    printf 'fix: the node %s does not resolve %s to the portal'"'"'s address %s (k3d --host-alias): a cluster from before sign-on step 2; run the driver'"'"'s down, then up\n' \
+      "$node" "$BRZL_PORTAL_HOST" "$ip" >&2
     return 1
   fi
-  printf 'in the cluster, %s is the portal'"'"'s Service\n' "$BRZL_PORTAL_HOST"
+  if [[ "$(kubectl --kubeconfig "$run_dir/kubeconfig" -n kube-system get configmap coredns \
+        -o jsonpath='{.data.NodeHosts}' 2>/dev/null)" != *"$ip $BRZL_PORTAL_HOST"* ]]; then
+    printf 'fix: the cluster'"'"'s CoreDNS does not answer %s with the portal'"'"'s address %s (ConfigMap kube-system/coredns, NodeHosts); run the driver'"'"'s down, then up\n' \
+      "$BRZL_PORTAL_HOST" "$ip" >&2
+    return 1
+  fi
+  if ! docker exec "$node" sh -c "tr '\\0' '\\n' < /proc/1/cmdline" 2>/dev/null \
+      | grep -qx -- "--kube-apiserver-arg=authentication-config=$api_auth_config_path"; then
+    printf 'fix: the kube-API of %s runs without its authentication configuration (sign-on step 2): a cluster from before it; run the driver'"'"'s down, then up\n' \
+      "$node" >&2
+    return 1
+  fi
+  if ! grep -q "url: https://$BRZL_PORTAL_HOST/dex" "$run_dir/apiserver/authentication-config.yaml" 2>/dev/null; then
+    printf 'fix: %s/apiserver/authentication-config.yaml does not name the issuer https://%s/dex; run the 10-substrate phase again\n' \
+      "$run_dir" "$BRZL_PORTAL_HOST" >&2
+    return 1
+  fi
+  printf 'on the nodes and in CoreDNS, %s is the portal'"'"'s address %s; the kube-API reads %s/apiserver/authentication-config.yaml\n' \
+    "$BRZL_PORTAL_HOST" "$ip" "$run_dir"
   dns_check "$run_dir"
 }
 

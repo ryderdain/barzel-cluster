@@ -158,9 +158,14 @@ secret ([SECRETS.md](SECRETS.md), "Rotation & lifecycle").
 signs in through Dex in the browser. The gate accepts the token that the CLI
 then holds.
 
-**`kubectl` by GitHub identity** is step 2 of pass 6a (Q174). Until then,
-use the kubeconfig in the run directory. It is also the emergency path when
-Dex or GitHub fails (Q175).
+**`kubectl` by GitHub identity** (step 2, Q174). The run directory holds a
+second kubeconfig, `kubeconfig-sign-on`, with no secret in it. `kubectl`
+with it runs kubelogin, which signs you in through Dex in the browser, one
+time, and keeps your tokens in `oidc-cache/` beside it. The kube-API names
+you `oidc:<login>` and your teams `oidc:<org>:<team>`. The bindings in
+`gitops/clusters/<env>/access/` give the tiers their rights, so the audit
+log names the person. The cluster-admin kubeconfig stays for the driver,
+and it is the emergency path when Dex or GitHub fails (Q175).
 
 ## In-cluster access (kubectl / ArgoCD)
 

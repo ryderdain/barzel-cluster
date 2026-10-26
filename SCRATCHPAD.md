@@ -58,8 +58,17 @@ directory. Q190 (a): `preferred_username` and `groups`, prefix `oidc:`.
 added conditions, taken on in BACKLOG item 5: the structured
 `AuthenticationConfiguration` file, 1-hour ID tokens, `cookie_refresh`,
 a PKCE check, and a NetworkPolicy for the admin Loki store. BACKLOG 28
-to 31 hold the rest. Open: Q191 (the 1-hour ID token also signs Argo CD's
-UI out every hour) and the user's "go" for the build.
+to 31 hold the rest. Q191 (a): 1-hour ID tokens (Argo CD's UI asks for a
+click every hour). **Step 2 built 2026-10-26, waiting for the live test.**
+It needs a new cluster (the API server's argument) and a new kiesei image
+(kubelogin): `docker build -t kiesei:local containers/kiesei`, `down`, `up`.
+The live test, in four parts. `kubectl auth whoami` with
+`kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
+person. An auditor has `view` only. The admin Loki pod stays Ready behind
+its NetworkPolicy: k3s's policy controller and the kubelet's probes are
+unverified, and if the pod goes NotReady, the policy needs an ipBlock for
+the node. The old CoreDNS rule is gone, and the checks of phases 10 and 40
+name the fixes.
 
 **Next: step 2, `kubectl` through Dex** (Q174). A short design round
 first. Facts: k3d v5.9.0 has `--host-alias ip:host` (it writes the nodes'

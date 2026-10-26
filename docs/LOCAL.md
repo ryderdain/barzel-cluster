@@ -97,9 +97,12 @@ conductor. Do not operate `driver/conductor.sh` yourself.
 - `10-substrate` (driver) makes the containers beside the cluster: the Zot
   registry, the OpenBao secret store and its CA, the DNS stand-in and the
   log collector. It issues the log collector's client certificate. Then it
-  makes the k3d cluster and writes the kubeconfig to the run directory, and
-  adds the cluster's DNS rule for the portal's host name. It writes the host
-  run sheet (below, "Steps on your machine"). If the configuration of a
+  writes the kube-API's trust in Dex (`apiserver/authentication-config.yaml`
+  in the run directory). It makes the k3d cluster, with the portal's host
+  name mapped to the portal's fixed address on the node and in CoreDNS. It
+  writes the two kubeconfigs to the run directory: cluster-admin, and
+  sign-on through Dex. It writes the host run sheet (below, "Steps on your
+  machine"). If the configuration of a
   container changed, it replaces that container. The data stays.
 - `20-images` (driver) pushes the kiesei image to Zot. A workload's image
   is its own: its CI publishes it, and the cluster pulls it through Zot
@@ -345,6 +348,22 @@ argocd --core app list    # in an emergency: no sign-on, the kubeconfig
 for the callback on `localhost:8085`, so the container must share the
 host's network (Docker Desktop: "Enable host networking").
 
+**`kubectl` as yourself** (sign-on step 2). The run directory holds a
+second kubeconfig, which signs you in through Dex with kubelogin:
+
+```sh
+export KUBECONFIG=var/run/local/current/kubeconfig-sign-on
+kubectl auth whoami    # kubelogin prints a URL: open it, sign in with GitHub
+```
+
+You sign in one time. kubelogin keeps your tokens in `oidc-cache/` beside
+the kubeconfig and refreshes them without a step, for 7 days, or until Dex
+restarts. The kube-API names you `oidc:<login>`, and your team gives your
+rights: `brzl-admins` everything, the other two tiers the built-in `view`
+role. On your own machine, install kubelogin first (`brew install
+int128/kubelogin/kubelogin`). kiesei has it. The cluster-admin kubeconfig
+stays for the driver and for emergencies.
+
 k3d also adds the cluster to your default kubeconfig, as the context
 `k3d-brzl-local`.
 
@@ -408,8 +427,8 @@ and 25 name the sheet. The purge (BACKLOG 18) removes the entries.
 **What sign-on changes here: nothing.** Dex is at `/dex/` under the portal
 host (Q172), so your machine needs no other name. The log intake's name,
 `log-intake.<host>`, is used only between the containers. For `kubectl`
-through Dex (pass 6a, step 2), the k3s server must also resolve the portal
-host. The driver sets that up in the cluster, not on your machine.
+through Dex, the k3s server resolves the portal's host name through the
+host alias that phase 10 sets: nothing on your machine.
 
 ## How a change to the example app arrives
 
@@ -524,9 +543,18 @@ Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
   their roles. In Argo CD, press "Log in via GitHub". Grafana signs you in
   at once. Their built-in `admin` logins are off.
 - The workloads (`/apps/<workload>/`) are outside sign-on.
-- In the cluster, the portal's host name is the portal's Service (a rule in
-  k3s's CoreDNS, phase 10), so the pods reach Dex at the same URL as your
+- On the nodes and in the cluster, the portal's host name is the portal's
+  fixed Service address (`BRZL_PORTAL_CLUSTER_IP`, a k3d host alias, phase
+  10). So the pods and the kube-API reach Dex at the same URL as your
   browser.
+- `kubectl` signs in through Dex too (above, "Use it"). The kube-API's trust
+  in Dex is a file that phase 10 writes (`apiserver/authentication-config.yaml`
+  in the run directory) and the node mounts. Its path is set when the
+  cluster is made: **a cluster from before step 2 needs `down`, then
+  `up`**.
+- Sessions end within an hour of a removal from a team: the gate, Grafana
+  and kubelogin refresh their tokens every hour, and Dex refuses the
+  refresh. Argo CD's UI asks for "Log in via GitHub" again every hour.
 
 [SECURITY.md](SECURITY.md) tells what GitHub gives Dex at sign-in. Read it
 before you try the platform with your own account.
@@ -579,7 +607,7 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 | Monitoring | kube-prometheus-stack | the same; the node exporter has no root file-system metrics | the k3d node is a container (`values-local.yaml`) |
 | Logs | admin log store data in S3 (pass 8) | admin log store data in a host directory; a collector beside the cluster sends the run outputs | no object store locally; the driver's machine holds the run outputs |
 | GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
-| Sign-on | the same Dex and oauth2-proxy behind the portal (pass 8) | Dex and oauth2-proxy behind the portal; in the cluster, a DNS rule makes the portal's host name the portal's Service | one sign-on on every substrate; only the entry point differs (ADR-0035) |
+| Sign-on | the same Dex and oauth2-proxy behind the portal (pass 8) | Dex and oauth2-proxy behind the portal; on the nodes and in the cluster, a host alias makes the portal's host name the portal's fixed Service address | one sign-on on every substrate; only the entry point differs (ADR-0035) |
 | Certificates | `letsencrypt` mode (ACME DNS-01) | `local-ca` mode: OpenBao is the CA | a laptop needs nothing public (ADR-0036) |
 
 **Image strategy.** The cluster pulls every image, the example app's

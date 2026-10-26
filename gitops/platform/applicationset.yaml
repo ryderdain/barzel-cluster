@@ -305,6 +305,15 @@ spec:
                   namespace: sign-on
                   serverSideApply: "false"
                   path: gitops/infrastructure/sign-on/secrets
+                # What each tier may do with kubectl in this environment
+                # (sign-on step 2, Q182): the bindings for the groups that
+                # the kube-API takes from Dex.
+                - appName: access
+                  kind: kustomize
+                  wave: "3"
+                  namespace: sign-on
+                  serverSideApply: "false"
+                  path: gitops/clusters/__ENV__/access
                 - appName: dex
                   kind: helm
                   wave: "3"

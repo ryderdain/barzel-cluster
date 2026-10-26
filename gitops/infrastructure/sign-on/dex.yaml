@@ -3,8 +3,9 @@
 # under /dex/ (Q172), so the issuer is https://<portal host>/dex; the
 # ApplicationSet replaces each "localhost" below with the portal's host name
 # (portalHostParams). Browsers reach it through the portal, and so do the
-# pods of Argo CD, oauth2-proxy and Grafana: in the cluster, the portal's host
-# name is the portal's Service (the substrate adapter's DNS rule).
+# pods of Argo CD, oauth2-proxy and Grafana, and the kube-API (step 2): on
+# the nodes and in the cluster, the portal's host name is the portal's fixed
+# Service address (the substrate adapter's host alias, Q186).
 #
 # State in memory (Q178): a restart loses the signing keys and the sessions,
 # so everyone signs in again. Nothing else is lost.
@@ -26,6 +27,18 @@ config:
   issuer: https://localhost/dex
   storage:
     type: memory
+  # Tokens (the security review of 2026-10-26, condition 1). An ID token
+  # lasts 1 hour, for every client: kubelogin and Grafana refresh theirs
+  # without a step, and Argo CD's UI asks for "Log in via GitHub" again (one
+  # click). A refresh token lasts 7 days, as the gate's cookie does, and
+  # dies after a day unused. At each refresh Dex reads the teams from GitHub
+  # again, so a removed person loses access within the hour.
+  expiry:
+    idTokens: 1h
+    refreshTokens:
+      reuseInterval: 3s
+      validIfNotUsedFor: 24h
+      absoluteLifetime: 168h
   web:
     http: 0.0.0.0:5556
   oauth2:
@@ -72,6 +85,15 @@ config:
       public: true
       redirectURIs:
         - http://localhost:8085/auth/callback
+    # kubectl (step 2 of pass 6a, Q174): kubelogin on the person's machine,
+    # a public client with the callback on localhost (kubelogin's default
+    # ports). The kube-API accepts only tokens with this audience.
+    - id: kubernetes
+      name: kubectl
+      public: true
+      redirectURIs:
+        - http://localhost:8000
+        - http://localhost:18000
 resources:
   requests: { cpu: 10m, memory: 32Mi }
   limits: { memory: 128Mi }

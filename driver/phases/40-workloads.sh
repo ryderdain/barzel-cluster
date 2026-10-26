@@ -28,9 +28,12 @@
 # sends it to sign in; Dex answers at the issuer URL through the portal;
 # Argo CD's public settings name that issuer (so Argo CD read its Secret);
 # oauth2-proxy is ready (it starts only when it reaches Dex from its pod,
-# through the cluster's DNS rule and the CA); Grafana is healthy. The
-# workload's path stays open (Q144). The sign-in itself is the operator's
-# test (docs/LOCAL.md, "Sign-on").
+# through the host alias and the CA); Grafana is healthy. The workload's
+# path stays open (Q144). For kubectl through Dex (step 2): Dex advertises
+# PKCE, the portal has its fixed address, the tiers' bindings give the
+# expected rights (by impersonation), and the admin log store has its
+# NetworkPolicy. The sign-in itself is the operator's test (docs/LOCAL.md,
+# "Sign-on" and "Use it").
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
 
@@ -184,8 +187,16 @@ portal_check() {
     printf 'fix: sign-in does not lead to Dex at %s (%s); see: kubectl -n sign-on logs deploy/oauth2-proxy\n' "$issuer" "$out" >&2
     return 1
   fi
-  if [[ "$("${get[@]}" "$url/dex/.well-known/openid-configuration" 2>/dev/null | jq -r '.issuer // empty' 2>/dev/null)" != "$issuer" ]]; then
+  local discovery
+  discovery="$("${get[@]}" "$url/dex/.well-known/openid-configuration" 2>/dev/null)"
+  if [[ "$(jq -r '.issuer // empty' <<< "$discovery" 2>/dev/null)" != "$issuer" ]]; then
     printf 'fix: Dex does not answer as %s through the portal; see: kubectl -n sign-on logs deploy/dex\n' "$issuer" >&2
+    return 1
+  fi
+  # PKCE (the security review of 2026-10-26, condition 3): kubelogin and the
+  # browser clients use S256 when the issuer advertises it.
+  if ! jq -e '.code_challenge_methods_supported | index("S256")' <<< "$discovery" >/dev/null 2>&1; then
+    printf 'fix: Dex does not advertise PKCE S256 in its discovery document; see: kubectl -n sign-on logs deploy/dex\n' >&2
     return 1
   fi
   if [[ "$("${get[@]}" "$url/argocd/api/v1/settings" 2>/dev/null | jq -r '.oidcConfig.issuer // empty' 2>/dev/null)" != "$issuer" ]]; then
@@ -216,8 +227,36 @@ portal_check() {
     printf 'fix: Grafana is not healthy; see: kubectl -n monitoring logs deploy/monitoring-grafana; kubectl -n monitoring describe externalsecret grafana-oidc\n' >&2
     return 1
   fi
-  printf 'the admin portal at %s/ sends a request without a session to sign in at %s; Argo CD names that issuer; Grafana is healthy; /apps/%s/ is open\n' \
-    "$url" "$issuer" "$BRZL_EXAMPLE_APP_NAME"
+  # kubectl through Dex (step 2): the portal's fixed address, which the
+  # kube-API resolves the issuer to; the tiers' bindings, checked by
+  # impersonation (no sign-in here); and the admin log store, which admits
+  # only its writers and Grafana. The sign-in itself needs a person:
+  # `kubectl auth whoami` with kubeconfig-sign-on (docs/LOCAL.md).
+  local ip org="${BRZL_SIGN_ON_ORG:?}" team
+  ip="$(kubectl -n portal get svc portal -o jsonpath='{.spec.clusterIP}' 2>/dev/null)"
+  if [[ -n "${BRZL_PORTAL_CLUSTER_IP:-}" && "$ip" != "$BRZL_PORTAL_CLUSTER_IP" ]]; then
+    printf 'fix: the portal Service has the address %s, not BRZL_PORTAL_CLUSTER_IP=%s: env/<env>.env and gitops/infrastructure/portal/service.yaml must agree, and a Service address cannot change (run the driver'"'"'s down, then up)\n' \
+      "${ip:-none}" "$BRZL_PORTAL_CLUSTER_IP" >&2
+    return 1
+  fi
+  if [[ "$(kubectl auth can-i '*' '*' --as=oidc:probe --as-group="oidc:$org:brzl-admins" 2>/dev/null)" != yes ]]; then
+    printf 'fix: the group oidc:%s:brzl-admins is not cluster-admin; see: kubectl get clusterrolebinding brzl-tier-admins; kubectl -n argocd get application access\n' "$org" >&2
+    return 1
+  fi
+  for team in brzl-operators brzl-auditors; do
+    if [[ "$(kubectl auth can-i list pods --all-namespaces --as=oidc:probe --as-group="oidc:$org:$team" 2>/dev/null)" != yes \
+        || "$(kubectl auth can-i create pods --as=oidc:probe --as-group="oidc:$org:$team" 2>/dev/null)" != no ]]; then
+      printf 'fix: the group oidc:%s:%s does not have exactly the view role; see: kubectl get clusterrolebinding brzl-tier-%s\n' \
+        "$org" "$team" "${team#brzl-}" >&2
+      return 1
+    fi
+  done
+  if ! kubectl -n logs get networkpolicy log-store-admin-ingress >/dev/null 2>&1; then
+    printf 'fix: the admin log store has no NetworkPolicy (logs/loki-admin.yaml, extraObjects); see: kubectl -n argocd get application log-store-admin\n' >&2
+    return 1
+  fi
+  printf 'the admin portal at %s/ sends a request without a session to sign in at %s; Argo CD names that issuer; Grafana is healthy; /apps/%s/ is open; the portal is %s; the tiers have their kubectl rights; the admin log store admits only its writers\n' \
+    "$url" "$issuer" "$BRZL_EXAMPLE_APP_NAME" "$ip"
 }
 
 if [[ "$is_sourced" == false ]]; then

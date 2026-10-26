@@ -12,6 +12,9 @@
 # Inputs: env/<env>.env (BRZL_SUBSTRATE, BRZL_SECRET_STORE and the adapters'
 # values). Output for later phases: <run_dir>/kubeconfig; on first start the
 # secret store's trust files in BRZL_SECRET_STORE_DIR (driver/secret-stores/).
+# Output for people: <run_dir>/kubeconfig-sign-on, the kubeconfig that signs
+# in through Dex (sign-on step 2, Q188), beside the kube-API's authentication
+# configuration that the adapter writes (<run_dir>/apiserver/).
 # In local-ca mode (BRZL_PORTAL_TLS) the store's CA is made here, before the
 # cluster, and it issues the client certificate of the collector beside the
 # cluster (BRZL_SECRET_STORE_DIR/log-shipper/, BACKLOG 4a): that collector
@@ -50,8 +53,45 @@ phase_up() {
     fi
   fi
   substrate_up "$run_dir"
+  sign_on_kubeconfig_up "$env" "$run_dir"
   host_sheet_up "$run_dir"
   end_function 0 "emitted 10-substrate up ($BRZL_SUBSTRATE${BRZL_SECRET_STORE:+ + $BRZL_SECRET_STORE})"
+}
+
+# sign_on_kubeconfig_up <env> <run_dir> — EMIT: <run_dir>/kubeconfig-sign-on,
+# a person's kubeconfig (sign-on step 2, Q188): the same cluster as the
+# cluster-admin kubeconfig, and a user whose token comes from kubelogin
+# through Dex (the public client `kubernetes`, kubelogin's browser callback
+# on localhost). It holds no secret. kubelogin keeps the person's tokens in
+# <run_dir>/oidc-cache/ (Q189), and refreshes them without a step. The paths
+# are absolute, and the repo is at the same path in kiesei, so one file
+# serves the host and the container. In local-ca mode kubelogin trusts the
+# store's CA when it reaches Dex.
+# shellcheck disable=SC2016  # the run sheet expands $server and $ca, not this script
+sign_on_kubeconfig_up() {
+  local env="$1" run_dir="$2" admin="$2/kubeconfig" kc="$2/kubeconfig-sign-on" abs="$2" cluster="brzl-$1"
+  [[ "$abs" == /* ]] || abs="$repo_root/$abs"
+  printf '{ # the sign-on kubeconfig (step 2 of pass 6a): a person through Dex, with kubelogin; it holds no secret\n'
+  printf '  server="$(kubectl --kubeconfig %q config view --raw -o jsonpath=%s)"\n' "$admin" "$(squote '{.clusters[0].cluster.server}')"
+  printf '  ca="$(kubectl --kubeconfig %q config view --raw -o jsonpath=%s)"\n' "$admin" "$(squote '{.clusters[0].cluster.certificate-authority-data}')"
+  printf '  rm -f %q\n' "$kc"
+  printf '  kubectl --kubeconfig %q config set-cluster %q --server="$server"\n' "$kc" "$cluster"
+  printf '  kubectl --kubeconfig %q config set %q "$ca"\n' "$kc" "clusters.$cluster.certificate-authority-data"
+  printf '  kubectl --kubeconfig %q config set-credentials sign-on \\\n' "$kc"
+  printf '    --exec-api-version=client.authentication.k8s.io/v1 --exec-command=kubelogin \\\n'
+  printf '    --exec-arg=get-token --exec-arg=%q --exec-arg=--oidc-client-id=kubernetes \\\n' \
+    "--oidc-issuer-url=https://$BRZL_PORTAL_HOST/dex"
+  printf '    --exec-arg=--oidc-extra-scope=profile --exec-arg=--oidc-extra-scope=groups \\\n'
+  printf '    --exec-arg=--oidc-extra-scope=offline_access \\\n'
+  if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+    printf '    --exec-arg=%q \\\n' "--certificate-authority=$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt"
+  fi
+  printf '    --exec-arg=%q\n' "--token-cache-dir=$abs/oidc-cache"
+  printf '  kubectl --kubeconfig %q config set-context %q --cluster=%q --user=sign-on\n' \
+    "$kc" "$cluster-sign-on" "$cluster"
+  printf '  kubectl --kubeconfig %q config use-context %q\n' "$kc" "$cluster-sign-on"
+  printf '  mkdir -p %q && chmod 0700 %q\n' "$abs/oidc-cache" "$abs/oidc-cache"
+  printf '}\n'
 }
 
 # host_sheet_up <run_dir> — EMIT: write the host run sheet (see the header).
@@ -119,6 +159,13 @@ phase_check() {
     fi
   fi
   substrate_check "$run_dir" || rc=1
+  if ! grep -q -- "--oidc-issuer-url=https://$BRZL_PORTAL_HOST/dex" "$run_dir/kubeconfig-sign-on" 2>/dev/null; then
+    printf 'fix: %s/kubeconfig-sign-on is absent or does not name the issuer https://%s/dex; run the 10-substrate phase again\n' \
+      "$run_dir" "$BRZL_PORTAL_HOST" >&2
+    rc=1
+  else
+    printf '%s/kubeconfig-sign-on signs in through https://%s/dex\n' "$run_dir" "$BRZL_PORTAL_HOST"
+  fi
   return "$rc"
 }
 

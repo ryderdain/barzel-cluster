@@ -5,6 +5,36 @@
 # retention 90 days. Where the data is depends on the substrate: on local, a
 # host directory (loki-admin-local.yaml); on AWS, S3 (BACKLOG pass 8).
 nameOverride: log-store-admin            # the Service, the ConfigMaps, the headless Service
+# Only the collector (the routes, and the intake of the collector beside the
+# cluster), Grafana and the store itself (memberlist) may reach the admin
+# store. Without this, any pod could write into the audit trail (the
+# security review of 2026-10-26, finding 3). The first NetworkPolicy of the
+# platform; k3s enforces it with its built-in controller.
+extraObjects:
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: log-store-admin-ingress
+      namespace: logs
+    spec:
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: log-store-admin
+      policyTypes: [Ingress]
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: log-collector
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: log-store-admin
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: monitoring
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: grafana
 loki:
   ingester:
     chunk_idle_period: 1m

@@ -1,0 +1,9 @@
+# What each access tier may do with kubectl in this environment (ADR-0035,
+# Q170, Q182; sign-on step 2). The kube-API names a person's teams
+# `oidc:<org>:<team>` (the authentication configuration that phase 10
+# writes); these bindings give the tiers their rights. Each environment
+# keeps its own.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - tiers.yaml

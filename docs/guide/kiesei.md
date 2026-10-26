@@ -7,7 +7,8 @@ it.*
 ## What kiesei is
 
 kiesei is the container image that holds every tool the platform is
-operated with, at pinned versions: `kubectl`, `helm`, `k3d`, `argocd`, the
+operated with, at pinned versions: `kubectl`, `kubelogin`, `helm`, `k3d`,
+`argocd`, the
 CNPG plugin, `tofu`, `ansible`, `yq`, `jq`, `aws`, and more. The word is
 Hebrew for a toolbox (GLOSSARY). Your machine needs only a container engine
 and its `docker` CLI. It does not need any of these tools.

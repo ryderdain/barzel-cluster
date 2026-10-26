@@ -140,6 +140,13 @@ From [`.gitignore`](../.gitignore):
   - `var/run/<env>/<run>/kubeconfig` — the cluster's **cluster-admin**
     kubeconfig, written by phase 10. The run directory also holds every run
     sheet and output.
+  - `var/run/<env>/<run>/kubeconfig-sign-on` — a person's kubeconfig (sign-on
+    step 2): the API's address and CA, and the kubelogin command. No secret.
+    Beside it, `oidc-cache/` (mode 0700) holds that person's ID token (1
+    hour) and refresh token (7 days) from Dex (Q189), and
+    `apiserver/authentication-config.yaml` is the kube-API's trust in Dex:
+    the issuer, the audience and the store's CA certificate (public),
+    mounted into the server node.
   - `var/secret-store/<env>/` — `seal.key`, `driver.token`, `recovery.key`
     (§5), `ca.crt` (public), and `zot-credentials.json`. That last file is
     Zot's upstream credentials for `ghcr.io`, the packages user and token.
@@ -198,7 +205,11 @@ From [`.gitignore`](../.gitignore):
   `var/access/github/<org>/oauth-<env>-client-secret`. Then run phase 25
   again. ESO brings it to Dex within an hour, or restart Dex. The clients'
   secrets and the cookie secret are made once. To rotate one, delete it in
-  the store and run phase 25 again, then restart Dex and that client. To
-  revoke a person, remove them from the team on GitHub. Their session ends
-  when it expires (oauth2-proxy's cookie, 7 days). None of these are ever
-  committed.
+  the store and run phase 25 again, then restart Dex and that client. The
+  clients `argo-cd-cli` and `kubernetes` are public: no secret. To revoke
+  a person, remove them from the team on GitHub. The gate, Grafana and
+  kubelogin refresh their tokens every hour, and Dex refuses the refresh.
+  So their access ends within the hour. Argo CD's UI ends when its token
+  expires (1 hour). To end every `kubectl` session at once, restart Dex
+  (its refresh tokens are in memory); to end one person's, delete their
+  `oidc-cache/`. None of these are ever committed.

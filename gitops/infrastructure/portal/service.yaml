@@ -8,6 +8,15 @@ metadata:
   labels:
     app.kubernetes.io/name: portal
 spec:
+  # A fixed address, in the low part of the Service range that Kubernetes
+  # keeps for fixed addresses (k3s: 10.43.0.0/16). The substrate adapter maps
+  # the portal's host name to it on the nodes and in CoreDNS (k3d:
+  # --host-alias), so the pods and the kube-API reach Dex at the issuer URL
+  # (sign-on step 2, Q186). env/<env>.env names the same address
+  # (BRZL_PORTAL_CLUSTER_IP), and phase 40 checks that they agree. A
+  # Service's address cannot change: a cluster from before this value needs
+  # `down`, then `up`.
+  clusterIP: 10.43.0.43
   selector:
     app.kubernetes.io/name: portal
   ports:

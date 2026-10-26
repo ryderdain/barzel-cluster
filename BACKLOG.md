@@ -113,7 +113,9 @@ Order of work (Q120):
    the people's GitHub tokens. A certificate for the portal's host from
    the store's CA could serve a false issuer to the kube-API (a residual
    risk). Branch protection on the workload repo is an assumed control.
-   Items 30 and 31 hold the rest of the review.
+   Items 30 and 31 hold the rest of the review. **Step 2 built
+   2026-10-26, waiting for the live test** (a new cluster and a new kiesei
+   image; SCRATCHPAD).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records

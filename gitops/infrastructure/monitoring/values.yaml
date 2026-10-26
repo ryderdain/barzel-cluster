@@ -148,11 +148,15 @@ grafana:
       enabled: true
       name: GitHub
       client_id: grafana
-      scopes: openid profile email groups
+      scopes: openid profile email groups offline_access
       auth_url: https://localhost/dex/auth
       token_url: https://localhost/dex/token
       api_url: https://localhost/dex/userinfo
       use_pkce: true
+      # Dex's ID tokens last 1 hour (sign-on/dex.yaml): Grafana refreshes
+      # its token with the refresh token (offline_access), and signs the
+      # person out when Dex refuses the refresh.
+      use_refresh_token: true
       login_attribute_path: preferred_username
       groups_attribute_path: groups
       role_attribute_path: "contains(groups[*], 'tzvat:brzl-admins') && 'Admin' || contains(groups[*], 'tzvat:brzl-operators') && 'Editor' || contains(groups[*], 'tzvat:brzl-auditors') && 'Viewer'"
