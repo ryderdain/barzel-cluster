@@ -88,10 +88,11 @@ Order of work (Q120):
    (RETROSPECTIVE). The legacy path is removed. Step 2: `kubectl` through
    Dex (Q174), designed 2026-10-26 after a review of every auth flow
    (`notes/AUTH-FLOWS.md`, local). When the decisions of this pass are
-   made: bring the relevant parts of that review into SECURITY.md and
-   SECRETS.md, and add to SECRETS.md one table per root of trust (the
-   store's files, the cluster-admin kubeconfig, the operator's `gh` login)
-   that lists what derives from it (user, 2026-10-26).
+   made, bring the relevant parts of that review into SECURITY.md and
+   SECRETS.md. Also add to SECRETS.md one table per root of trust, which
+   lists what derives from it (user, 2026-10-26). The roots are the
+   store's files, the cluster-admin kubeconfig and the operator's `gh`
+   login.
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
@@ -348,7 +349,7 @@ Order of work (Q120):
     2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
     `system:admin` (the kubeconfig) and as the store token `driver`. The
     API audit log and the store's audit log cannot name the person who
-    ran a phase; only the shell on the operator's machine knows. Step 2 of
+    ran a phase. Only the shell on the operator's machine knows. Step 2 of
     pass 6a (`kubectl` through Dex) names a person for `kubectl`, not for
     the phases. Decide with item 23 whether the driver should act with a
     person's identity on a public cloud.
