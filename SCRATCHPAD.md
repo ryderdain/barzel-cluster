@@ -42,8 +42,13 @@ Desktop's "Enable host networking" must be on for a callback to reach
 the browser. The Argo CD CLI sends its token in a header named `token`.
 The Mermaid tool's result goes to a file; read `.valid` with jq.
 
-**▶ NEXT:** the user picks the next BACKLOG item. Candidates: item 6
-(pass 6b, break-glass; it carries the user's refresher on the admin
-kubeconfig beside the sign-on one), or items 21 to 33 (an alert channel,
-narrower `kubectl` roles, image integrity, the device code for a remote
-shell, the "Grant Access" page on the hourly re-login).
+**▶ IN FLIGHT: pass 6b, break-glass** (BACKLOG item 6), branch
+`pass-6b-break-glass`. Design round 1 asked 2026-10-27: Q194 (the
+admins' rights outside a hold), Q195 (what `hold` stops), Q196 (how a
+person changes the cluster, and the record), Q197 (when the reader of
+the admin store runs). Round 2, after the answers: `release` (what Argo
+CD reverts), the path when Dex is down, an agent's path, and the
+doctrine questions of items 16c and 25. Folded into this pass: item 28
+(the reader), and the local shape of items 23 and 29. The review of the
+open items found item 13 (Argo CD v2.13, out of upstream support) the
+first item after pass 6. The user checks item 33 again.
