@@ -576,3 +576,25 @@ tiers' rights by impersonation, the policy.
   remote shell gets the device code later (BACKLOG 32). The user's
   side-channel question moved the fixed address into the local overlay,
   with the range explained.
+
+## 2026-10-27 — pass 6a, step 2, addendum: the kiesei shell and the CLI path
+
+User-verified on sleipnir, after the entry above. The durable `up` (the
+node's hosts script, the CoreDNS rule) passed its checks, and the sign-in
+again. The kiesei shell makes the person the default (Q193):
+`driver/lib/kiesei-shell.sh` sets the sign-on kubeconfig and signs in at
+its start. It gives `argocd` a helper that signs in on first use, with
+its session in the run directory. `argocd app list` from the shell
+printed the applications through the gate.
+
+- **Found in the live test, each fixed and pushed.** Three faults in step
+  1's CLI path, which step 1's test had not covered. The CLI reads Argo
+  CD's settings over gRPC-web, not REST, so that path had to be outside
+  the gate too. Its service is `cluster.SettingsService` (argocd-server:
+  "unknown service"). The CLI sends its token in a header named `token`,
+  not as a bearer, so the gate ignored it. nginx now maps that header to
+  the bearer for the gate's subrequest.
+- **Docker Desktop.** "Enable host networking" must be on for any
+  callback to reach the browser (LOCAL.md).
+- **Not yet run:** the audit log read in Grafana, the hourly re-login in
+  Argo CD, the merge to `main`.

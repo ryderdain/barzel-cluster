@@ -82,12 +82,25 @@ rebuilt image, `down`, `up` with the durable hosts script, and the
 sign-in again all passed. **Q193 (a), built after that:** the kiesei
 shell makes the person the default (`driver/lib/kiesei-shell.sh`: KUBECONFIG
 is the sign-on file, a sign-in at start, an `argocd` helper that signs in
-on first use with its config in the run directory). Untested by the
-user: the shell's start, and the `argocd` callback on 8085. The user's
-concern about the admin kubeconfig beside the sign-on one is a refresher
-in BACKLOG item 6 (pass 6b). **Remaining:** the user's test of the shell,
-and the other checks below. Then the pass merges to `main` (next session:
-a RETROSPECTIVE addendum, then the merge).
+on first use with its config in the run directory). **User-verified:**
+the shell's start, and `argocd app list` through the gate. That took
+three fixes to step 1's CLI path (RETROSPECTIVE addendum): the gRPC-web
+settings path, its service name `cluster.SettingsService`, and the CLI's
+`token` header mapped to the bearer. The user's concern about the admin
+kubeconfig beside the sign-on one is a refresher in BACKLOG item 6 (pass
+6b).
+
+**▶ NEXT (user, 2026-10-27): the Mermaid diagrams of
+`notes/AUTH-FLOWS.md` into `docs/SECURITY.md`**, adapted to the built
+state of this pass. Candidates: A0 (the cast, with the four roots), A1
+(bootstrap), A3 (the person's path, in place of the ASCII sign-on
+sequence), B1 (`kubectl` through Dex, as built: the browser callback, not
+the device code, and the hosts script, not the host alias), A8 (the
+machines), and the as-built additions (the `argocd` helper, the `token`
+header, cookie_refresh, the NetworkPolicy). Validate each with the
+Mermaid tool (no semicolon inside a sequence message). MD013 is off in code
+blocks. Then: the audit log read in Grafana, Argo CD's hourly click, and
+the merge to `main`.
 
 The live test, in four parts. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
