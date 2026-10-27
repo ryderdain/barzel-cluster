@@ -143,6 +143,9 @@ Order of work (Q120):
    exception: decide there who may hold that file, for how long, and how
    each use is recorded with the person's name from sign-on. Re-surface
    this with the user before the round.
+   **In this pass (user, 2026-10-27):** item 28 (the reader of the admin
+   store), and the local shape of items 23 and 29. Item 27 was built at
+   the start of the pass. Design round 1 was Q194 to Q197.
 7. **6c. Cold storage + backups** — the `cold` route; each workload's
    database backups (Q92).
 8. **7. `promote platform`** — roll a platform revision one environment at a
@@ -384,6 +387,9 @@ Order of work (Q120):
     `trusted_proxy_ip`, any pod that reaches oauth2-proxy directly can set
     those headers. Limit them to the portal (its pod network, or a
     NetworkPolicy that admits only the portal).
+    **Built 2026-10-27** on the pass 6b branch (user: do it now): the
+    chart's NetworkPolicy admits only the portal's pods, and phase 40
+    checks that it exists. The live test is open.
 28. **An emergency Grafana for the backed-up logs** (user, 2026-10-26).
     Since sign-on, Grafana has no emergency path: its login form and
     basic auth are off, so `grafana-admin` opens nothing (found in the
@@ -429,6 +435,12 @@ Order of work (Q120):
     page was expected. Find which client asked, and why Dex showed it
     (the Dex version, the `offline_access` scope, or the client). One
     click restores the session, so this is a polish item.
+    **Cause found 2026-10-27** (the logs of the gate and of Dex). The page
+    named "Admin portal", the gate's client. The gate sends
+    `approval_prompt=force` by default, and Dex obeys it. The re-login
+    itself was a second fault: nginx dropped the gate's refreshed cookie,
+    so Dex refused the old refresh token as "claimed twice". Both fixed on
+    the pass 6b branch (ADR-0035, "Corrections"). The live test is open.
 
 Standing concerns (check in every pass):
 

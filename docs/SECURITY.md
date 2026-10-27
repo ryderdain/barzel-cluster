@@ -226,7 +226,7 @@ sequenceDiagram
   K->>S: ESO and cert-manager: service-account token, auth role: read entries, sign the portal certificate
   S->>K: the store asks the kube-API if the token is valid (reviewer token)
   K->>K: the kube-API reads Dex's signing keys at the issuer URL (by the node's hosts entry, through the portal)
-  Note over D,C: phase 40 checks: the gate, Dex at the issuer URL, PKCE, each tier's rights by impersonation, the log store's NetworkPolicy
+  Note over D,C: phase 40 checks: the gate, Dex at the issuer URL, PKCE, each tier's rights by impersonation, the NetworkPolicies
 ```
 
 What the phases never hold: the store's root token (revoked at init), the
@@ -569,11 +569,13 @@ To end the emergency path, remake the cluster.
 - **One entry point for people.** The admin portal (nginx) is the only
   ingress for the platform's web services, on every substrate (ADR-0028).
   Workloads get a path on it (`/apps/<workload>/`).
-- **One NetworkPolicy, and no default-deny yet.** The admin log store
+- **Two NetworkPolicies, and no default-deny yet.** The admin log store
   admits only the collector, Grafana and itself
   (`gitops/infrastructure/logs/loki-admin.yaml`). Without it, any pod
   could write into the audit trail (the security review of 2026-10-26).
-  k3s enforces it with its built-in controller. The next step is a
+  oauth2-proxy admits only the portal, because it trusts the
+  `X-Forwarded-*` headers that it receives (BACKLOG 27). k3s enforces both
+  with its built-in controller. The next step is a
   default-deny policy for each namespace (for example, only the
   workload's namespace reaches its database on 5432, only monitoring
   scrapes). This is a known gap, not a claim.

@@ -9,6 +9,12 @@
 # refresh token from the offline_access scope). Dex then reads the teams
 # from GitHub again and refuses a person who left them, so a removed person
 # loses the portal within the hour (the security review of 2026-10-26).
+# nginx passes the refreshed cookie to the browser (portal/nginx.conf).
+# approval_prompt "auto": Dex skips its "Grant Access" page, as its
+# skipApprovalScreen says; the default "force" made Dex show it at each
+# sign-in (BACKLOG 33).
+# Only the portal reaches oauth2-proxy (NetworkPolicy, BACKLOG 27): it trusts
+# the X-Forwarded-* headers (reverse_proxy), so no other pod may set them.
 # The chart takes the registry host and the path apart (it writes quay.io when
 # the registry is empty): the ApplicationSet sets both (hostParams,
 # prefixParams).
@@ -27,6 +33,7 @@ config:
     oidc_groups_claim = "groups"
     allowed_groups = ["tzvat:brzl-admins", "tzvat:brzl-operators", "tzvat:brzl-auditors"]
     code_challenge_method = "S256"
+    approval_prompt = "auto"
     reverse_proxy = true
     set_xauthrequest = true
     skip_provider_button = true
@@ -39,6 +46,16 @@ extraArgs:
   redirect-url: https://localhost/oauth2/callback
   whitelist-domain: localhost
   extra-jwt-issuers: https://localhost/dex=argo-cd-cli
+networkPolicy:
+  create: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: portal
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: portal
 resources:
   requests: { cpu: 10m, memory: 32Mi }
   limits: { memory: 128Mi }

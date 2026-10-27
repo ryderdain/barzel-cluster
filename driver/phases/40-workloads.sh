@@ -31,8 +31,8 @@
 # through the cluster's DNS rule and the CA); Grafana is healthy. The workload's
 # path stays open (Q144). For kubectl through Dex (step 2): Dex advertises
 # PKCE, the portal has its fixed address, the tiers' bindings give the
-# expected rights (by impersonation), and the admin log store has its
-# NetworkPolicy. The sign-in itself is the operator's test (docs/LOCAL.md,
+# expected rights (by impersonation), and the admin log store and
+# oauth2-proxy have their NetworkPolicies. The sign-in itself is the operator's test (docs/LOCAL.md,
 # "Sign-on" and "Use it").
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
@@ -264,7 +264,11 @@ portal_check() {
     printf 'fix: the admin log store has no NetworkPolicy (logs/loki-admin.yaml, extraObjects); see: kubectl -n argocd get application log-store-admin\n' >&2
     return 1
   fi
-  printf 'the admin portal at %s/ sends a request without a session to sign in at %s; Argo CD names that issuer; Grafana is healthy; /apps/%s/ is open; the portal is %s; the tiers have their kubectl rights; the admin log store admits only its writers\n' \
+  if ! kubectl -n sign-on get networkpolicy oauth2-proxy >/dev/null 2>&1; then
+    printf 'fix: oauth2-proxy has no NetworkPolicy (sign-on/oauth2-proxy.yaml, networkPolicy); see: kubectl -n argocd get application oauth2-proxy\n' >&2
+    return 1
+  fi
+  printf 'the admin portal at %s/ sends a request without a session to sign in at %s; Argo CD names that issuer; Grafana is healthy; /apps/%s/ is open; the portal is %s; the tiers have their kubectl rights; the admin log store admits only its writers; only the portal reaches oauth2-proxy\n' \
     "$url" "$issuer" "$BRZL_EXAMPLE_APP_NAME" "$ip"
 }
 
