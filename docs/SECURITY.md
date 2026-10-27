@@ -33,9 +33,77 @@ each one opens ("The roots of trust").
 
 ## Authentication flows
 
-Each line below is one flow: what proves its identity, with which
-credential, to which service. The numbers match the table after the
-diagram, which gives the reason for each flow.
+The first diagram is the cast: each identity and secret, by where it
+lives. Then each line of the list is one flow: what proves its identity,
+with which credential, to which service. The numbers of the list match
+the table after it, which gives the reason for each flow. The sequence
+diagrams after that show the flows by scenario, as built in pass 6a.
+
+### Where each credential lives (local)
+
+```mermaid
+flowchart LR
+  subgraph you["The operator's machine (the driver's locus; root 1: the account)"]
+    seal["root 2: seal.key, driver.token, recovery.key<br/>var/secret-store/local/"]
+    kcfg["root 3: kubeconfig, cluster-admin<br/>var/run/local/current/"]
+    ghlogin["root 4: gh login (admin:org)<br/>and the deploy key in ~/.ssh"]
+    access["var/access/github/tzvat/<br/>App id and key, packages token,<br/>OAuth App id and secret"]
+    shipcert["log-shipper client certificate<br/>30 days, new on each run"]
+    person["the person's files, no secret of the platform:<br/>kubeconfig-sign-on, oidc-cache/ (kubelogin),<br/>argocd-config (the CLI's session)"]
+    hostca["the store's CA trusted by the OS<br/>/etc/resolver entry"]
+  end
+  subgraph beside["Beside the cluster (Docker network)"]
+    bao["OpenBao<br/>KV: repo-deploy-key, workload-*, sign-on-*,<br/>grafana-admin, smoke<br/>PKI: the CA, roles portal and log-shipper<br/>auth roles eso, cert-manager"]
+    zot["Zot<br/>upstream credentials file"]
+    coll["collector<br/>holds the log-shipper certificate"]
+  end
+  subgraph node["The node (k3s)"]
+    api["kube-API<br/>k3s PKI, audit log,<br/>authentication-config.yaml:<br/>the issuer, the audience, the store's CA"]
+    hosts["hosts entry: the portal's host name<br/>is the portal's fixed address"]
+  end
+  subgraph cluster["In the cluster"]
+    cond["conductor<br/>service account, cluster-admin"]
+    eso["ESO<br/>service-account token"]
+    cm["cert-manager<br/>service-account token"]
+    argo["Argo CD<br/>repo Secret, repo-creds Secret,<br/>brzl-argocd-oidc"]
+    dex["Dex<br/>dex-env (client secrets)<br/>public clients: argo-cd-cli, kubernetes"]
+    o2p["oauth2-proxy<br/>client and cookie secret"]
+    graf["Grafana<br/>grafana-oidc, grafana-admin (unused)"]
+    portal["portal<br/>portal-tls; the gate"]
+    intake["log intake<br/>log-intake-tls"]
+  end
+  subgraph github["GitHub"]
+    org["org tzvat: teams<br/>brzl-admins, -operators, -auditors"]
+    oapp["OAuth App 'local'"]
+    gapp["GitHub App brzl-reader-tzvat"]
+    dk["deploy key on barzel-cluster"]
+    ghcr["ghcr.io: packages token"]
+  end
+  seal --> bao
+  kcfg --> api
+  person --> api
+  person --> dex
+  shipcert --> coll --> intake
+  access --> bao
+  ghlogin --> bao
+  ghlogin --> org & oapp & gapp
+  bao --> eso & cm & zot
+  zot --> ghcr
+  argo --> dk & gapp
+  dex --> oapp
+  dex --> org
+  api --> cond
+  api --> hosts --> portal --> dex
+```
+
+The four roots are on the operator's machine. The arrows show what each
+root makes or opens. The person's files hold no secret of the platform:
+`kubeconfig-sign-on` names the server, the CA and the kubelogin command,
+and `oidc-cache/` and `argocd-config` hold that person's own sessions
+([SECRETS.md](SECRETS.md), §8). The node holds the kube-API's trust in
+Dex: a file with the issuer URL, the audience and the store's CA. A
+hosts entry on the node makes the portal's host name the portal's fixed
+address.
 
 ### The flows in a local environment now
 
@@ -119,6 +187,89 @@ The same flows, by what a person does. The numbers are the flows above.
 | The machines, on their own | 3, 4, 5, 6, 7, 8, and 15 when Dex refreshes a session | Each machine's own identity. |
 | `down` | none | The in-cluster credentials end. The store, GitHub and the files on the machine stay ([SECRETS.md](SECRETS.md)). |
 
+### Bootstrap, in sequence
+
+Flows 1 and 2, then the machines start their own (3 to 9, 13 and 17).
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Y as operator (gh login)
+  participant D as driver (the operator's machine)
+  participant S as store (OpenBao)
+  participant K as kube-API
+  participant C as conductor
+  participant G as GitHub
+  Note over Y,G: before the first up, one time: teams, OAuth App, GitHub App, packages token, deploy key
+  Y->>G: github.sh teams / oauth_app / app, with the gh login
+  G-->>Y: files in var/access/github/tzvat/ (ids, key, tokens)
+  Note over D,S: phase 10, driver locus
+  D->>S: init: seal.key, driver.token, recovery.key (made once)
+  D->>S: driver.token: make the CA and the PKI role log-shipper
+  S-->>D: log-shipper client certificate (30 days)
+  D->>D: write authentication-config.yaml (the issuer, the audience kubernetes, the store's CA) and node-hosts.sh
+  D->>K: k3d cluster create, with both files mounted: k3s writes its PKI and reads the authentication config
+  K-->>D: kubeconfig, cluster-admin
+  D->>D: write kubeconfig-sign-on from it (the server, the CA, the kubelogin command: no secret)
+  D->>D: write 10-host.sh (resolver, CA trust): runs on the operator's machine with sudo
+  Note over D,S: phase 25, driver locus
+  D->>S: driver.token: seed the deploy key, the App, the packages token, the OAuth App, and make 3 random client secrets and the cookie secret
+  D->>K: kubeconfig: reviewer service-account token for the store
+  D->>S: driver.token: Kubernetes auth (reviewer token and CA), auth roles eso and cert-manager, PKI role portal
+  D->>K: kubeconfig: Secrets repo-barzel-cluster, workload-github-app, brzl-argocd-oidc (values from the store, on stdin)
+  D->>K: kubeconfig: the conductor (service account, cluster-admin)
+  Note over D,C: phases 30 and 40, conductor locus
+  D->>C: kubeconfig: send the run sheet, exec it
+  C->>K: service account: helm install Argo CD, cluster Secret, ApplicationSet, the tiers' bindings
+  Note over K,G: Argo CD and the operators run on their own
+  K->>G: Argo CD: the deploy key (SSH) reads this repo, and the App token reads the workload
+  K->>S: ESO and cert-manager: service-account token, auth role: read entries, sign the portal certificate
+  S->>K: the store asks the kube-API if the token is valid (reviewer token)
+  K->>K: the kube-API reads Dex's signing keys at the issuer URL (by the node's hosts entry, through the portal)
+  Note over D,C: phase 40 checks: the gate, Dex at the issuer URL, PKCE, each tier's rights by impersonation, the log store's NetworkPolicy
+```
+
+What the phases never hold: the store's root token (revoked at init), the
+CA's private key (it never leaves the store), a GitHub password, and a
+secret for `kubectl` (the client `kubernetes` is public).
+
+### The machines, on their own
+
+Flows 3 to 8, 13, 15 and 17, with no person present.
+
+```mermaid
+flowchart LR
+  subgraph standing["standing credentials"]
+    coll["collector beside the cluster"] -->|"client certificate, log-shipper (30 days)"| intake["log intake (OTLP, mTLS)"]
+    argo["Argo CD"] -->|"deploy key, every 3 min"| repo["GitHub: this repo"]
+    argo -->|"App token"| wrepo["GitHub: the workload"]
+    zot["Zot"] -->|"packages token, on a pull"| ghcr["ghcr.io"]
+  end
+  subgraph short["short-lived, Kubernetes-issued"]
+    eso["ESO, every hour"] -->|"service-account token, role eso"| bao["store"]
+    cm["cert-manager, at renewal"] -->|"service-account token, role cert-manager"| bao
+    prom["Prometheus"] -->|"service-account token"| kubelet["kubelets, kube-API"]
+    incoll["collector in the cluster"] -->|"nothing (in-cluster, no auth)"| loki["two Loki stores"]
+  end
+  subgraph refresh["for a person, from that person's own sign-in"]
+    o2p["oauth2-proxy, every hour"] -->|"refresh token, client secret"| dex["Dex"]
+    graf["Grafana, every hour"] -->|"refresh token, client secret"| dex
+    kl["kubelogin, after an hour"] -->|"refresh token, public client"| dex
+    cli["argocd CLI, after an hour"] -->|"refresh token, public client"| dex
+    dex -->|"the person's read:org token, in memory"| gh["GitHub API: the teams again"]
+    api["kube-API"] -->|"nothing: reads the signing keys at the issuer URL"| dex
+  end
+  files["k3s audit log, OpenBao audit log,<br/>run outputs: files on the host"] --> coll
+```
+
+Which of these acts for a person: only the refreshes in the third group,
+and each of them with a token that the person's own sign-in made. Dex
+reads the person's teams from GitHub again at each refresh, so a removed
+person loses each session within the hour ("Sessions and revocation").
+The other machines act with their own identity, and the audit records
+name the machine. The admin log store is the record of what the machines
+and the driver did.
+
 ### Sign-on (pass 6a)
 
 Two layers check each person (ADR-0035 amendment, Q169–Q183):
@@ -135,31 +286,133 @@ Two layers check each person (ADR-0035 amendment, Q169–Q183):
    person's GitHub teams to its own roles. No application trusts a header
    that another pod set.
 
-```text
-  browser        nginx (portal)    oauth2-proxy        Dex (/dex/)       GitHub
-     |  GET /grafana/  |                |                  |                |
-     |---------------->|--auth_request->|                  |                |
-     |                 |<-- 401 --------|                  |                |
-     |<-- 302: sign in ---------------- |                  |                |
-     |--------------------------------->|-- 302 ---------->|                |
-     |------------------------------------------------------>-- 302 ------->|
-     |                    the person signs in to GitHub, which sends back   |
-     |                    their login and teams (tzvat/brzl-admins, ...)    |
-     |<-------------------------------------------------- code -------------|
-     |  oauth2-proxy gets a token from Dex, checks it and sets a cookie     |
-     |                                                                      |
-     |  GET /grafana/ with the cookie                                       |
-     |---------------->|--auth_request->| 202 (valid)      |                |
-     |                 |-- to Grafana: Grafana is a Dex client too. It      |
-     |                 |   sends the browser to Dex and GitHub again. The   |
-     |                 |   person is already signed in to GitHub, so they   |
-     |                 |   see no step.                                     |
-     |                 |   Grafana checks Dex's token and maps the teams    |
-     |                 |   to Admin, Editor or Viewer.                      |
+Flows 10 to 13 and 15, for a person in the web UIs:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor P as person
+  participant B as browser
+  participant N as portal (nginx)
+  participant O as oauth2-proxy
+  participant X as Dex
+  participant G as GitHub
+  participant A as Argo CD
+  P->>B: open https://PORTAL_HOST/argocd/
+  B->>N: GET
+  N->>O: auth_request
+  O-->>B: 302 to sign in (no cookie yet)
+  B->>X: /dex/auth, client oauth2-proxy
+  X-->>B: 302 to GitHub (the OAuth App)
+  B->>G: sign in, approve read:org (the first time)
+  G-->>X: a code, then Dex reads the login and the teams with the person's token
+  X-->>O: ID token (groups: tzvat:brzl-admins ...) and a refresh token
+  O-->>B: the cookie _brzl_sign_on (7 days), only for the three teams
+  B->>N: GET /argocd/ with the cookie
+  N->>O: auth_request
+  O-->>N: 202 (valid)
+  N->>A: pass through
+  A-->>B: "Log in via GitHub": Argo CD is its own Dex client
+  B->>X: /dex/auth, client argo-cd (GitHub has a session: no step shown)
+  X-->>A: ID token (1 hour), and Argo CD maps the team to role:admin, operator or readonly
+  Note over O,X: every hour oauth2-proxy refreshes the session with Dex, and Dex reads the teams again
+  Note over B,A: Grafana: the same, client grafana, roles Admin, Editor, Viewer, with a refresh token
 ```
 
 What sign-on does not cover: the workloads (user, Q144), the log intake
 (flow 5) and the store (flows 1, 3, 4). Those are machine flows.
+
+### The CLIs through Dex
+
+The same identity for `kubectl` (flows 16 and 17, step 2 of pass 6a,
+Q186–Q193) and for the Argo CD CLI (flow 14). Each is a public client of
+Dex: no secret is added anywhere. Each signs in through the browser once,
+with a callback on localhost, and then refreshes its token with no step.
+In the kiesei shell, `kubectl` is the person by default, and the shell
+signs in at its start when no session is cached (`driver/kiesei.sh
+shell`, Q193). The cluster-admin kubeconfig stays the driver's, and the
+emergency path.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor P as person
+  participant KC as kubectl + kubelogin (in kiesei)
+  participant B as browser
+  participant X as Dex (/dex/)
+  participant G as GitHub
+  participant K as kube-API (k3s)
+  P->>KC: kubectl get pods (KUBECONFIG is kubeconfig-sign-on: the kiesei shell's default)
+  KC->>KC: no token in oidc-cache/ in the run directory
+  KC-->>P: prints a URL on localhost:8000 (kiesei has the host's network)
+  P->>B: open it
+  B->>KC: GET localhost:8000
+  KC-->>B: 302 to Dex: client kubernetes (public), PKCE, scopes openid profile groups offline_access
+  B->>X: /dex/auth
+  X-->>B: 302 to GitHub (the same OAuth App and teams)
+  B->>G: sign in, or already signed in
+  G-->>X: the login and the teams
+  X-->>B: 302 to localhost:8000 with a code
+  B->>KC: the code
+  KC->>X: the code and the PKCE verifier (through the portal, trusts the store's CA from a file)
+  X-->>KC: ID token (1 hour) and refresh token (7 days), written to oidc-cache/
+  KC->>K: the ID token as a bearer token
+  K->>X: once: discovery and the signing keys at the issuer URL (by the node's hosts entry, the CA from authentication-config.yaml)
+  K->>K: user oidc:LOGIN, groups oidc:tzvat:brzl-admins, then RBAC by the bindings in access/
+  K-->>KC: pods
+  Note over KC,K: later commands use the cached token. After an hour kubelogin refreshes it, with no step. The audit log names oidc:LOGIN.
+```
+
+`LOGIN` is the person's GitHub login. The kube-API maps the token's claims
+with the prefixes of its authentication configuration (Q190). The
+bindings in `gitops/clusters/<env>/access/` give each team its rights
+(Q170). kubelogin's cache is in the run directory, in kiesei and on the
+host alike (Q189). An auditor goes through the same sequence and gets
+`view`.
+
+The Argo CD CLI goes through the gate, so the gate must know its token.
+Three facts of the CLI shape this path (found in the live test). It
+reads Argo CD's settings over gRPC-web before it has a token. It gets its
+token from Dex with its own public client. It sends that token in a
+header named `token`, not as a bearer.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor P as person
+  participant S as kiesei shell (argocd helper)
+  participant B as browser
+  participant N as portal (nginx)
+  participant O as oauth2-proxy
+  participant X as Dex
+  participant A as Argo CD
+  P->>S: argocd app list
+  S->>S: no argocd-config in the run directory: argocd login --sso first
+  S->>N: POST /argocd/cluster.SettingsService/Get (gRPC-web, outside the gate)
+  N->>A: pass through
+  A-->>S: the issuer URL and the CLI's client id argo-cd-cli
+  S-->>P: prints a URL on localhost:8085
+  P->>B: open it
+  B->>S: GET localhost:8085
+  S-->>B: 302 to Dex: client argo-cd-cli (public), PKCE
+  B->>X: /dex/auth, then GitHub as in the web flow
+  X-->>B: 302 to localhost:8085 with a code
+  B->>S: the code
+  S->>X: the code and the PKCE verifier
+  X-->>S: ID token (1 hour) and refresh token, written to argocd-config
+  S->>N: app list over gRPC-web, the token in a header named token
+  N->>O: auth_request, with that header as the bearer
+  O-->>N: 202 (a token from Dex, a team of the tiers)
+  N->>A: pass through, with the token header
+  A->>A: checks the token against Dex's keys, maps the team to a role
+  A-->>S: the applications
+  Note over S,A: on an authentication error the helper removes argocd-config, so the next command signs in again
+```
+
+The helper in the kiesei shell keeps the CLI's session in the run
+directory, so it outlives the shell. On an authentication error it
+removes that session, so the next command signs in again
+(`driver/lib/kiesei-shell.sh`).
 
 ### What GitHub gives Dex at sign-on
 
@@ -318,10 +571,10 @@ To end the emergency path, remake the cluster.
   Workloads get a path on it (`/apps/<workload>/`).
 - **One NetworkPolicy, and no default-deny yet.** The admin log store
   admits only the collector, Grafana and itself
-  (`gitops/infrastructure/logs/loki-admin.yaml`), because any pod could
-  otherwise write into the audit trail (the security review of
-  2026-10-26). k3s enforces it with its built-in controller. The next step
-  is a default-deny policy for each namespace (for example, only the
+  (`gitops/infrastructure/logs/loki-admin.yaml`). Without it, any pod
+  could write into the audit trail (the security review of 2026-10-26).
+  k3s enforces it with its built-in controller. The next step is a
+  default-deny policy for each namespace (for example, only the
   workload's namespace reaches its database on 5432, only monitoring
   scrapes). This is a known gap, not a claim.
 

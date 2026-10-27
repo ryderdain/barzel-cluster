@@ -90,17 +90,14 @@ settings path, its service name `cluster.SettingsService`, and the CLI's
 kubeconfig beside the sign-on one is a refresher in BACKLOG item 6 (pass
 6b).
 
-**▶ NEXT (user, 2026-10-27): the Mermaid diagrams of
-`notes/AUTH-FLOWS.md` into `docs/SECURITY.md`**, adapted to the built
-state of this pass. Candidates: A0 (the cast, with the four roots), A1
-(bootstrap), A3 (the person's path, in place of the ASCII sign-on
-sequence), B1 (`kubectl` through Dex, as built: the browser callback, not
-the device code, and the hosts script, not the host alias), A8 (the
-machines), and the as-built additions (the `argocd` helper, the `token`
-header, cookie_refresh, the NetworkPolicy). Validate each with the
-Mermaid tool (no semicolon inside a sequence message). MD013 is off in code
-blocks. Then: the audit log read in Grafana, Argo CD's hourly click, and
-the merge to `main`.
+**Done 2026-10-27, the diagrams:** `docs/SECURITY.md` has six Mermaid
+diagrams, adapted to the built state. They are the cast with the four
+roots, the bootstrap sequence, the machines, and the person in the web
+UIs (in place of the ASCII sequence). The last two are `kubectl`
+through Dex as built, and the Argo CD CLI through the gate (the `token`
+header, the helper). Each was validated with the Mermaid tool. **▶ NEXT:** the audit log read in
+Grafana, Argo CD's hourly click, and the merge to `main` (a
+RETROSPECTIVE addendum when the user verifies the pass).
 
 The live test, in four parts. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
