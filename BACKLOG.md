@@ -127,6 +127,21 @@ Order of work (Q120):
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
    (Q62–Q65, Q94, Q107).
+   **Refresher for the design round (user, 2026-10-27).** After step 2 of
+   pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
+   `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same
+   run directory, and called it a glaring flaw. The answer then: the admin
+   kubeconfig is the driver's credential (every phase acts with it, the
+   conductor derives from it) and the emergency path (Q175); on a laptop it
+   adds no power that the Docker socket and the seal key do not give
+   already (the four roots, SECURITY.md), so the sign-on path is a named
+   identity and a rehearsal, not a boundary; on a shared machine or a cloud
+   it is the flaw as stated (items 23 and 29). The kiesei shell now makes
+   the person's path the default and the admin path the one to name on
+   purpose (Q193). Pass 6b is where the admin path becomes a recorded
+   exception: decide there who may hold that file, for how long, and how
+   each use is recorded with the person's name from sign-on. Re-surface
+   this with the user before the round.
 7. **6c. Cold storage + backups** — the `cold` route; each workload's
    database backups (Q92).
 8. **7. `promote platform`** — roll a platform revision one environment at a

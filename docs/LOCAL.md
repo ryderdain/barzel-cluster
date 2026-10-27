@@ -341,38 +341,36 @@ built-in admin login.
 The CLI tools are in the kiesei image ([docs/guide/kiesei.md](guide/kiesei.md)):
 
 ```sh
-bash driver/kiesei.sh shell
-export KUBECONFIG=var/run/local/current/kubeconfig
-argocd login local.barzel.sh --grpc-web-root-path argocd --sso --sso-launch-browser=false
-argocd --core app list    # in an emergency: no sign-on, the kubeconfig
+bash driver/kiesei.sh shell   # signs you in through Dex: kubelogin prints a URL, open it
+kubectl get nodes             # as yourself
+argocd app list               # the first use signs in through Dex too
+# in an emergency, without sign-on: the cluster-admin kubeconfig, named on purpose
+KUBECONFIG=var/run/local/current/kubeconfig argocd --core app list
 ```
 
-`argocd login --sso` prints a URL: open it in your browser. The CLI waits
-for the callback on `localhost:8085`, so the container must share the
-host's network. On Docker Desktop that is a setting: Settings, Resources,
-Network, "Enable host networking" (4.34 and later). Without it, kiesei is
-in Docker Desktop's VM, which is enough for the driver (the k3d ports are
-published there) but not for a callback: the browser gets "connection
-refused" (seen 2026-10-27). With it, the Mac reaches every port a
-container binds, loopback included.
+**In the shell you are yourself** (sign-on step 2, Q193). The run
+directory holds two kubeconfigs. `kubeconfig-sign-on` signs you in
+through Dex with kubelogin: the shell sets `KUBECONFIG` to it, and signs
+you in at its start when no session is cached. kubelogin keeps your
+tokens in `oidc-cache/` beside it and refreshes them without a step, for
+7 days, or until Dex restarts. The kube-API names you `oidc:<login>`, and
+your team gives your rights: `brzl-admins` everything, the other two
+tiers the built-in `view` role. `argocd` keeps its session in
+`argocd-config` there, from `argocd login --sso` on its first use, and
+signs in again after an authentication error. The other file,
+`kubeconfig`, is `cluster-admin`: the driver's, and the emergency path
+when Dex or GitHub is down. On your own machine, the same two files work
+with kubelogin and the CLIs installed there (`brew install
+int128/kubelogin/kubelogin`).
 
-**`kubectl` as yourself** (sign-on step 2). The run directory holds a
-second kubeconfig, which signs you in through Dex with kubelogin:
-
-```sh
-export KUBECONFIG=var/run/local/current/kubeconfig-sign-on
-kubectl auth whoami    # kubelogin prints a URL: open it, sign in with GitHub
-```
-
-You sign in one time. kubelogin keeps your tokens in `oidc-cache/` beside
-the kubeconfig and refreshes them without a step, for 7 days, or until Dex
-restarts. In kiesei, the callback on `localhost:8000` needs the same
-Docker Desktop setting as the Argo CD CLI (above). The kube-API names you `oidc:<login>`,
-and your team gives your rights: `brzl-admins` everything, the other two
-tiers the built-in `view` role. On your own machine, install kubelogin
-first (`brew install
-int128/kubelogin/kubelogin`). kiesei has it. The cluster-admin kubeconfig
-stays for the driver and for emergencies.
+Both sign-ins wait for a callback in your browser (`localhost:8000`,
+`localhost:8085`), so the container must share the host's network. On
+Docker Desktop that is a setting: Settings, Resources, Network, "Enable
+host networking" (4.34 and later). Without it, kiesei is in Docker
+Desktop's VM, which is enough for the driver (the k3d ports are published
+there) but not for a callback: the browser gets "connection refused"
+(seen 2026-10-27). With it, the Mac reaches every port a container
+binds, loopback included.
 
 k3d also adds the cluster to your default kubeconfig, as the context
 `k3d-brzl-local`.

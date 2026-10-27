@@ -40,23 +40,19 @@ there: <code>brzl-admins</code>, <code>brzl-operators</code> or
 </table>
 
 <h2>Command line</h2>
-<p>The CLI tools are in the kiesei image, with the same host name and
-kubeconfigs as the driver. Open a shell in it from the repository:
-<code>bash driver/kiesei.sh shell</code>. The HTTP tools use this same host;
-<code>kubectl</code> and <code>bao</code> keep their own endpoints (the
-kubeconfigs in the run directory; the store's port on the driver's machine).</p>
-<pre># Argo CD CLI, through the portal, signed in with GitHub (in the kiesei
-# shell: open the URL it prints in your browser)
-argocd login HOST --grpc-web-root-path argocd --sso --sso-launch-browser=false
-
-# the cluster, as yourself: kubelogin signs you in through Dex, one time
-export KUBECONFIG=var/run/ENV/current/kubeconfig-sign-on
+<p>The CLI tools are in the kiesei image, with the same host name as the
+driver. Open a shell in it from the repository:
+<code>bash driver/kiesei.sh shell</code>. In the shell you are yourself: it
+signs you in through Dex at its start (open the URL it prints), and
+<code>argocd</code> signs in on its first use. <code>bao</code> keeps its
+own endpoint (the store's port on the driver's machine).</p>
+<pre># in the kiesei shell, as yourself
 kubectl auth whoami
 kubectl get applications -n argocd
+argocd app list
 
-# in an emergency, without sign-on: the cluster-admin kubeconfig
-export KUBECONFIG=var/run/ENV/current/kubeconfig
-argocd --core app list
+# in an emergency, without sign-on: the cluster-admin kubeconfig, named on purpose
+KUBECONFIG=var/run/ENV/current/kubeconfig argocd --core app list
 
 # the cluster secret store (local: OpenBao beside the cluster)
 BAO_ADDR=http://127.0.0.1:8200 bao status</pre>

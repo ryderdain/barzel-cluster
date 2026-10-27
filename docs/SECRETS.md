@@ -199,7 +199,9 @@ From [`.gitignore`](../.gitignore):
     hour) and refresh token (7 days) from Dex (Q189), and
     `apiserver/authentication-config.yaml` is the kube-API's trust in Dex:
     the issuer, the audience and the store's CA certificate (public),
-    mounted into the server node.
+    mounted into the server node. `argocd-config` is the Argo CD CLI's
+    session (its token and refresh token from `argocd login --sso`),
+    written by the kiesei shell's `argocd` on first use, mode 0600.
   - `var/secret-store/<env>/` — `seal.key`, `driver.token`, `recovery.key`
     (§5), `ca.crt` (public), and `zot-credentials.json`. That last file is
     Zot's upstream credentials for `ghcr.io`, the packages user and token.

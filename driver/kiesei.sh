@@ -7,7 +7,11 @@
 #   bash driver/driver.sh local up   | bash driver/kiesei.sh   # all at once
 #   bash driver/kiesei.sh shell                                # an interactive
 #                                 shell in the image, for the CLI tools (argocd,
-#                                 kubectl, helm, cnpg, ...); docs/guide/kiesei.md
+#                                 kubectl, helm, cnpg, ...); docs/guide/kiesei.md.
+#                                 In it you are yourself: kubectl uses the sign-on
+#                                 kubeconfig of the current run, and the shell
+#                                 signs in through Dex at its start
+#                                 (driver/kiesei-shell.sh, Q193)
 #
 # Compare `| bash`, which runs the same stream with the host's tools. The stream
 # is identical either way: the locus is chosen by the pipe, not by the script.
@@ -94,13 +98,16 @@ fi
 # the container uname says Linux.
 if [[ "${1:-}" == shell ]]; then
   tty_args=(-i); [[ -t 0 && -t 1 ]] && tty_args=(-it)   # a terminal, when there is one
+  # The shell's rc file makes the person themselves (kiesei-shell.sh): it
+  # needs the current run and the portal's host name.
   exec docker run --rm "${tty_args[@]}" \
     --network host \
     --user 0:0 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$repo_root:$repo_root" -w "$repo_root" \
     "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
-    "$image" -c "$prelude; exec bash -l"
+    -e "BRZL_RUN=$repo_root/var/run/local/current" -e "BRZL_PORTAL_HOST=$portal_host" \
+    "$image" -c "$prelude; exec bash --rcfile $repo_root/driver/kiesei-shell.sh -i"
 fi
 docker run --rm -i \
   --network host \
