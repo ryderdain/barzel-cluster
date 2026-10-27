@@ -76,7 +76,7 @@
 #
 # Sourced by driver/phases/*.sh, never run on its own. Inputs: BRZL_K3D_*,
 # BRZL_K3S_IMAGE, BRZL_DOCKER_NETWORK, BRZL_ZOT_*, BRZL_DNS_*, BRZL_PORTAL_*,
-# BRZL_LOG_* from the environment definition. Needs k3d, docker, kubectl, curl, dig. No
+# BRZL_LOG_* from the environment definition. Needs k3d, docker, kubectl, curl, dig, yq. No
 # credentials (anonymous upstream pulls). The sourcing phase script sets
 # repo_root.
 # shellcheck disable=SC2154
@@ -191,9 +191,13 @@ api_auth_config_up() {
   printf 'apiVersion: apiserver.config.k8s.io/v1beta1\nkind: AuthenticationConfiguration\n'
   printf 'jwt:\n  - issuer:\n      url: https://%s/dex\n      audiences: [kubernetes]\n' "$BRZL_PORTAL_HOST"
   if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+    # awk, not sed: ca.crt has no newline at its end, and sed would keep it
+    # that way, so the next line would run into the certificate (seen in
+    # the live test of 2026-10-27).
     printf '      certificateAuthority: |\n'
     printf 'EOF\n'
-    printf '    sed %s %q\n' "$(squote 's/^/        /')" "$BRZL_SECRET_STORE_DIR/ca.crt"
+    # shellcheck disable=SC2016  # $0 is awk's
+    printf '    awk %s %q\n' "$(squote '{ print "        " $0 }')" "$BRZL_SECRET_STORE_DIR/ca.crt"
     printf "    cat <<'EOF'\n"
   fi
   printf '    claimMappings:\n'
@@ -419,9 +423,12 @@ substrate_check() {
       "$node" >&2
     return 1
   fi
-  if ! grep -q "url: https://$BRZL_PORTAL_HOST/dex" "$run_dir/apiserver/authentication-config.yaml" 2>/dev/null; then
-    printf 'fix: %s/apiserver/authentication-config.yaml does not name the issuer https://%s/dex; run the 10-substrate phase again\n' \
-      "$run_dir" "$BRZL_PORTAL_HOST" >&2
+  # The file must parse as the API server reads it: a wrong indentation
+  # puts a key in the wrong place, and the API server then refuses to start.
+  if ! yq -e '.jwt[0].issuer.url == "https://'"$BRZL_PORTAL_HOST"'/dex" and .jwt[0].claimMappings.username.claim == "preferred_username"' \
+      "$run_dir/apiserver/authentication-config.yaml" >/dev/null 2>&1; then
+    printf 'fix: %s/apiserver/authentication-config.yaml does not parse as expected (the issuer https://%s/dex, the claim mappings); run the 10-substrate phase again; see: yq . %s/apiserver/authentication-config.yaml\n' \
+      "$run_dir" "$BRZL_PORTAL_HOST" "$run_dir" >&2
     return 1
   fi
   printf 'on the nodes and in CoreDNS, %s is the portal'"'"'s address %s; the kube-API reads %s/apiserver/authentication-config.yaml\n' \

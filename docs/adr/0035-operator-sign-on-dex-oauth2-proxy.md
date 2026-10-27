@@ -104,7 +104,10 @@ builds on the new platform.
   `kubernetes` (Q190).
 - On the nodes and in CoreDNS, the portal's host name is the portal's fixed
   Service address (`BRZL_PORTAL_CLUSTER_IP`, k3d `--host-alias`, Q186).
-  This replaces the CoreDNS rewrite rule of step 1.
+  This replaces the CoreDNS rewrite rule of step 1. The fixed address is
+  local only (the overlay `gitops/clusters/local/portal/`), a stand-in for
+  public DNS, in the band of k3s's Service range that Kubernetes keeps for
+  fixed addresses.
 - Phase 10 writes `kubeconfig-sign-on` beside the admin kubeconfig (Q188).
   Its user runs kubelogin (in kiesei, pinned) with the browser callback on
   localhost (Q187). kiesei has the host's network. kubelogin keeps the

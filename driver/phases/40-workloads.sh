@@ -235,7 +235,7 @@ portal_check() {
   local ip org="${BRZL_SIGN_ON_ORG:?}" team
   ip="$(kubectl -n portal get svc portal -o jsonpath='{.spec.clusterIP}' 2>/dev/null)"
   if [[ -n "${BRZL_PORTAL_CLUSTER_IP:-}" && "$ip" != "$BRZL_PORTAL_CLUSTER_IP" ]]; then
-    printf 'fix: the portal Service has the address %s, not BRZL_PORTAL_CLUSTER_IP=%s: env/<env>.env and gitops/infrastructure/portal/service.yaml must agree, and a Service address cannot change (run the driver'"'"'s down, then up)\n' \
+    printf 'fix: the portal Service has the address %s, not BRZL_PORTAL_CLUSTER_IP=%s: env/<env>.env and gitops/clusters/<env>/portal/kustomization.yaml must agree, and a Service address cannot change (run the driver'"'"'s down, then up)\n' \
       "${ip:-none}" "$BRZL_PORTAL_CLUSTER_IP" >&2
     return 1
   fi

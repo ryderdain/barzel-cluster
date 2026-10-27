@@ -102,8 +102,11 @@ conductor. Do not operate `driver/conductor.sh` yourself.
   name mapped to the portal's fixed address on the node and in CoreDNS. It
   writes the two kubeconfigs to the run directory: cluster-admin, and
   sign-on through Dex. It writes the host run sheet (below, "Steps on your
-  machine"). If the configuration of a
-  container changed, it replaces that container. The data stays.
+  machine"). If `k3d cluster create` waits at "Starting node" for more than
+  a minute, the API server did not start: look at
+  `docker logs k3d-brzl-local-server-0`, stop the stream, and run `down`.
+  If the configuration of a container changed, it replaces that container.
+  The data stays.
 - `20-images` (driver) pushes the kiesei image to Zot. A workload's image
   is its own: its CI publishes it, and the cluster pulls it through Zot
   like every upstream image (ADR-0034).
@@ -546,7 +549,11 @@ Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
 - On the nodes and in the cluster, the portal's host name is the portal's
   fixed Service address (`BRZL_PORTAL_CLUSTER_IP`, a k3d host alias, phase
   10). So the pods and the kube-API reach Dex at the same URL as your
-  browser.
+  browser. The fixed address is local only, a stand-in for public DNS
+  (`gitops/clusters/local/portal/`). It is `10.43.0.43`: k3s's Service
+  range is `10.43.0.0/16`, and Kubernetes keeps the first 256 addresses
+  of it for fixed addresses, so nothing else takes it. A Service's address
+  cannot change: a cluster from before it needs `down`, then `up`.
 - `kubectl` signs in through Dex too (above, "Use it"). The kube-API's trust
   in Dex is a file that phase 10 writes (`apiserver/authentication-config.yaml`
   in the run directory) and the node mounts. Its path is set when the
