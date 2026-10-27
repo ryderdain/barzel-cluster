@@ -411,12 +411,19 @@ substrate_check() {
       "$node" "$BRZL_PORTAL_HOST" "$ip" >&2
     return 1
   fi
-  if [[ "$(kubectl --kubeconfig "$run_dir/kubeconfig" -n kube-system get configmap coredns \
-        -o jsonpath='{.data.NodeHosts}' 2>/dev/null)" != *"$ip $BRZL_PORTAL_HOST"* ]]; then
-    printf 'fix: the cluster'"'"'s CoreDNS does not answer %s with the portal'"'"'s address %s (ConfigMap kube-system/coredns, NodeHosts); run the driver'"'"'s down, then up\n' \
-      "$BRZL_PORTAL_HOST" "$ip" >&2
-    return 1
-  fi
+  # k3d writes the alias into CoreDNS's NodeHosts as the cluster starts,
+  # and k3s applies its CoreDNS manifest again around the same time: the
+  # entry can be absent for some seconds after the create (seen 2026-10-27).
+  local tries=18
+  until [[ "$(kubectl --kubeconfig "$run_dir/kubeconfig" -n kube-system get configmap coredns \
+        -o jsonpath='{.data.NodeHosts}' 2>/dev/null)" == *"$ip $BRZL_PORTAL_HOST"* ]]; do
+    if (( --tries <= 0 )); then
+      printf 'fix: the cluster'"'"'s CoreDNS does not answer %s with the portal'"'"'s address %s (ConfigMap kube-system/coredns, NodeHosts) after 90 seconds; run the driver'"'"'s down, then up\n' \
+        "$BRZL_PORTAL_HOST" "$ip" >&2
+      return 1
+    fi
+    sleep 5
+  done
   if ! docker exec "$node" sh -c "tr '\\0' '\\n' < /proc/1/cmdline" 2>/dev/null \
       | grep -qx -- "--kube-apiserver-arg=authentication-config=$api_auth_config_path"; then
     printf 'fix: the kube-API of %s runs without its authentication configuration (sign-on step 2): a cluster from before it; run the driver'"'"'s down, then up\n' \
