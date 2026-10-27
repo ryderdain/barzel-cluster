@@ -6,9 +6,10 @@
 # a URL to open). `argocd` signs in through Dex on its first use, with the CLI's
 # config in the run directory, so its session outlives the shell; on an
 # authentication error it removes that config, so the next use signs in again.
-# The cluster-admin kubeconfig is the driver's, and the emergency path (Q175):
-# name it on purpose:
-#   KUBECONFIG=var/run/<env>/current/kubeconfig kubectl ...
+# The cluster-admin kubeconfig is the driver's, and the emergency path when
+# Dex is down (Q175, Q201): `as_admin` switches kubectl to it, with a red
+# prompt and a warning, and `as_me` switches back (docs/BREAK-GLASS.md, "When
+# Dex is down"). The audit log then names system:admin, not the person.
 #
 # Interactive run-once script (bash-doctrine core): bash reads it as its rc
 # file (`bash --rcfile driver/lib/kiesei-shell.sh -i`); never run it. Inputs:
@@ -24,6 +25,24 @@ if [[ -z "${BRZL_RUN:-}" || ! -s "$BRZL_RUN/kubeconfig-sign-on" ]]; then
 fi
 
 export KUBECONFIG="$BRZL_RUN/kubeconfig-sign-on"
+brzl_ps1="$PS1"
+
+# as_admin — kubectl as system:admin (the cluster-admin kubeconfig), for a
+# break-glass hold when Dex is down; the prompt says so until as_me.
+as_admin() {
+  export KUBECONFIG="$BRZL_RUN/kubeconfig"
+  PS1='\[\e[1;37;41m\][cluster-admin]\[\e[0m\] '"$brzl_ps1"
+  printf 'kiesei shell: kubectl is system:admin now. The audit log does not name you,\n' >&2
+  printf '              and records no request body. Only in a break-glass hold when\n' >&2
+  printf '              Dex is down (docs/BREAK-GLASS.md); write down each change. Back: as_me\n' >&2
+}
+
+# as_me — kubectl as the person again (the sign-on kubeconfig).
+as_me() {
+  export KUBECONFIG="$BRZL_RUN/kubeconfig-sign-on"
+  PS1="$brzl_ps1"
+  printf 'kiesei shell: kubectl is you again (%s)\n' "$KUBECONFIG" >&2
+}
 
 # argocd <args> — the Argo CD CLI as the person: its config (the session from
 # `argocd login`) is in the run directory. The first use signs in through
@@ -47,8 +66,7 @@ argocd() {
 }
 
 printf 'kiesei shell: kubectl is you (KUBECONFIG=%s)\n' "$KUBECONFIG"
-printf '              the cluster-admin kubeconfig, for the driver and emergencies: %s/kubeconfig\n' "$BRZL_RUN"
+printf '              the cluster-admin kubeconfig is the driver'"'"'s; when Dex is down: as_admin, then as_me\n'
 if ! kubectl auth whoami -o json 2>/dev/null | jq -r '"              you are " + .status.userInfo.username'; then
-  printf 'kiesei shell: no sign-on session (is Dex or GitHub down?); in an emergency: KUBECONFIG=%s/kubeconfig kubectl ...\n' \
-    "$BRZL_RUN" >&2
+  printf 'kiesei shell: no sign-on session (is Dex or GitHub down?); in an emergency: as_admin (docs/BREAK-GLASS.md)\n' >&2
 fi

@@ -210,11 +210,12 @@ SA was recreated). Recover without a rebuild:
   `kubectl apply -f gitops/bootstrap/repo-deploy-key.yaml`; the repo-server picks it
   up within ~3 minutes and the apps move Unknown → OutOfSync → Synced by wave.
 
-## Break-glass mode 🔜
+## Break-glass mode
 
-Designed in pass 6b (ADR-0037), not built. The working model, the
-procedure and the traps are in [BREAK-GLASS.md](BREAK-GLASS.md). The
-command names below are planned names.
+Built in pass 6b (ADR-0037). The working model, the procedure and the
+traps are in [BREAK-GLASS.md](BREAK-GLASS.md). The reader of the admin
+log store (below) is step 2 and is not built yet. Its command names are
+planned names.
 
 **When a recovery needs it.** In GitOps mode, Argo CD undoes a change that
 a person makes to a live object. The admins have only `view` in

@@ -466,8 +466,8 @@ Zot's push namespace, and points `deploy/local` at the build.
 Fast mode is for changes to the structure of the cluster: you apply your
 working tree directly and do not push first. Argo CD holds while fast mode is
 on. Fast mode is only for the local environment. For an emergency in any
-environment, use break-glass mode ([BREAK-GLASS.md](BREAK-GLASS.md),
-designed in pass 6b, not built). Fast mode refuses to run during a hold.
+environment, use break-glass mode ([BREAK-GLASS.md](BREAK-GLASS.md)).
+Fast mode refuses to run during a hold.
 
 ```sh
 bash driver/driver.sh local fast_on  | bash driver/kiesei.sh  # Argo CD holds

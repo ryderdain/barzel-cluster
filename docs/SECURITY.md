@@ -23,7 +23,7 @@ each one opens ("The roots of trust").
   the life of the cluster: the driver's credential, and the emergency
   path when Dex is down. A person's direct use of it outside a recorded
   hold is the gap that break-glass mode narrows
-  ([BREAK-GLASS.md](BREAK-GLASS.md), designed, not built). On a public
+  ([BREAK-GLASS.md](BREAK-GLASS.md), pass 6b). On a public
   cloud, pass 8 decides where it lives (BACKLOG 23). The operator's `gh`
   login, which makes the
   teams, the OAuth App, the GitHub App and the deploy key. And the
@@ -188,8 +188,8 @@ The same flows, by what a person does. The numbers are the flows above.
 | A person with the CLIs | 14 (Argo CD), 16 and 17 (`kubectl`) | The API audit log names `oidc:<login>`. |
 | A change through git, to the platform or to a workload | 6, 7, 8, 9 | The git history names the person. The platform holds only read-only credentials. Who may push is GitHub's control (branch protection), assumed here, not provided. |
 | Fast mode (local) | 2 | The run output, under the driver. |
-| Break-glass mode (any environment; designed in pass 6b, not built) | 16 and 17, elevated to `cluster-admin` for the hold. `hold` and `release` are driver actions (flow 2). | The API audit log names `oidc:<login>`, with the request body of each write. The annotation and the run outputs name the person and the reason ([BREAK-GLASS.md](BREAK-GLASS.md)). |
-| An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana in the cluster has no path. The reader of the admin log store, outside the cluster, is planned (BACKLOG 28, [BREAK-GLASS.md](BREAK-GLASS.md)). | `system:admin`. A `hold` in this path records a declared name, not a verified one. |
+| Break-glass mode (any environment; pass 6b) | 16 and 17, elevated to `cluster-admin` for the hold. `hold` and `release` are driver actions (flow 2). | The API audit log names `oidc:<login>`, with the request body of each write. The annotation and the run outputs name the person and the reason ([BREAK-GLASS.md](BREAK-GLASS.md)). |
+| An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana in the cluster has no path. The reader of the admin log store, outside the cluster, is step 2 of pass 6b (BACKLOG 28, [BREAK-GLASS.md](BREAK-GLASS.md)). | `system:admin`. A `hold` in this path records a declared name, not a verified one. |
 | The machines, on their own | 3, 4, 5, 6, 7, 8, and 15 when Dex refreshes a session | Each machine's own identity. |
 | `down` | none | The in-cluster credentials end. The store, GitHub and the files on the machine stay ([SECRETS.md](SECRETS.md)). |
 
@@ -509,7 +509,7 @@ the GitHub dependency as a whole.
 - **Argo CD is the only writer to the cluster in GitOps mode.** People change
   git, not live objects. Two modes are exceptions. In fast mode (local
   only), the driver applies the working tree. In break-glass mode (any
-  environment, designed in pass 6b, not built), `hold` stops automated
+  environment, pass 6b), `hold` stops automated
   sync for the whole environment and elevates the admins to
   `cluster-admin` for the hold. Each admin writes with their own name,
   and `release` gives the cluster back to git. Each use is recorded in
@@ -535,11 +535,10 @@ the GitHub dependency as a whole.
   GitHub teams (Q169, Q170, Q173).
 - **`kubectl` uses the same identity** (ADR-0035, step 2). The kube-API
   trusts Dex and names a person `oidc:<login>`. The bindings in
-  `gitops/clusters/<env>/access/` give the tiers their rights. As built,
-  admins have `cluster-admin` at all times, and operators and auditors
-  the built-in `view` role. As designed (pass 6b, not built), admins have
-  `view` too outside a hold, and `cluster-admin` only during a hold.
-  `hold` creates a second binding for that, and `release` deletes it
+  `gitops/clusters/<env>/access/` give the tiers their rights. Every
+  tier has the built-in `view` role. Admins get `cluster-admin` only
+  during a break-glass hold (pass 6b): `hold` creates a second binding,
+  `brzl-break-glass`, and `release` deletes it
   ([BREAK-GLASS.md](BREAK-GLASS.md)). Admins keep `role:admin` in Argo CD
   at all times. `view` reads the pods' logs and the ConfigMaps of every
   namespace, which is wider than an audit needs (BACKLOG 30).
@@ -606,15 +605,15 @@ To end the emergency path, remake the cluster.
   admin log store, which is outside the cluster and outlives it. The API
   audit log names a person for `kubectl` (`oidc:<login>`, step 2) and
   `system:admin` for the driver's phases.
-- **Planned (pass 6b): one Request-level rule in the API audit policy.**
+- **One Request-level rule in the API audit policy** (pass 6b).
   A write by the admins group is recorded with its request body. A write
   to a Secret is not, so no secret value reaches the log. Outside a hold
   the admins cannot write, so the rule records only break-glass changes.
   The rest stays at Metadata level. On local, the change needs `down` and
   `up` ([BREAK-GLASS.md](BREAK-GLASS.md), "What is recorded").
-- **Break-glass records** (planned): the run sheets and outputs of `hold`
-  and `release`, and the annotation `brzl.dev/break-glass` on the cluster
-  Secret while a hold lasts.
+- **Break-glass records** (pass 6b): the outputs of `hold` and
+  `release`, also when they stop before any change, and the annotation
+  `brzl.dev/break-glass` on the cluster Secret while a hold lasts.
 - **Kubernetes events**, through the collector in the cluster.
 
 ## Encryption at rest and in transit (summary)

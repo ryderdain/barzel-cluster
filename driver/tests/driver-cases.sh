@@ -130,6 +130,23 @@ drive up | (cd "$scratch" && bash >/dev/null 2>&1)
 report 'fast_on emits one group after 30-gitops' '1' "$(drive fast_on | grep -c '^{ # fast mode on')"
 report 'apply emits one conductor group' '1' "$(drive apply | grep -c 'bash driver/conductor.sh')"
 
+# 7a. Break-glass mode (ADR-0037): hold needs a reason; hold and release emit
+# one group each; the reason reaches the emitter quoted; an emit step that
+# refuses stops the stream with exit 3 before any run sheet runs, and its
+# output is kept (the record of a refusal). Here the emitter refuses because
+# the fake environment has no BRZL_SIGN_ON_ORG.
+drive hold >/dev/null; rc=$?
+report 'hold without a reason refuses' '2' "$rc"
+report 'hold emits one group' '1' "$(drive hold 'portal down' | grep -c '^{ # break-glass hold')"
+report 'hold passes the reason to its emitter, quoted' '1' \
+  "$(drive hold "it's down" | grep -c "break-glass.sh hold test [^ ]* 'it'\\\\''s down' >")"
+report 'release emits one group' '1' "$(drive release | grep -c '^{ # break-glass release')"
+drive hold 'portal down' | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
+dir="$scratch/var/run/test/$(run_dir)"
+emit_out=("$dir"/break-glass-hold-*-emit.out); sheet_rc=("$dir"/break-glass-hold-*Z.rc)
+report 'a refused hold stops with exit 3, keeps its emit output, runs no sheet' '3 kept none' \
+  "$rc $([[ -s "${emit_out[0]}" ]] && printf kept || printf none) $([[ -e "${sheet_rc[0]}" ]] && printf ran || printf none)"
+
 # 8. `down` removes the cluster, passes its check, and drops the current run.
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)
 drive down | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?

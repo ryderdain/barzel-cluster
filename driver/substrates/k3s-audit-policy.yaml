@@ -1,13 +1,21 @@
 # The Kubernetes API audit policy of a local cluster (ADR-0027): metadata
 # level, the first rule that matches decides. The API server writes the
 # records to /var/log/kubernetes/audit/audit.log on the server node; the
-# in-cluster collector sends them to the admin log store. Mounted into the
-# k3d server node by the substrate adapter; a change needs `down` and `up`.
+# in-cluster collector sends them to the admin log store. A template: phase 10
+# (k3d.sh, api_audit_policy_up) writes it to <run_dir>/apiserver/ with the
+# GitHub organization in place of BRZL_SIGN_ON_ORG, and the server node
+# mounts that directory. The API server reads it once, when it starts, so a
+# change needs `down` and `up`.
 #
 # Metadata = who did what to which object, and when; never the request or
 # response bodies, so no Secret values reach the log. Left out: the health
 # and metrics endpoints, the leases that controllers renew every few
 # seconds, and the events (the collector reads those as objects).
+#
+# One exception, for break-glass mode (ADR-0037): a write by the team
+# brzl-admins is recorded with its request body (level Request). Outside a
+# hold the admins have only `view`, so this records the changes of a hold and
+# nothing else. A Secret stays at Metadata for everyone (the rule before it).
 apiVersion: audit.k8s.io/v1
 kind: Policy
 omitStages:
@@ -31,4 +39,11 @@ rules:
         resources: [events]
       - group: events.k8s.io
         resources: [events]
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: [secrets]
+  - level: Request
+    userGroups: ["oidc:BRZL_SIGN_ON_ORG:brzl-admins"]
+    verbs: [create, update, patch, delete, deletecollection]
   - level: Metadata

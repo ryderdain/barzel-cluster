@@ -22,6 +22,9 @@
 # so the loop "edit the app, apply, look" needs no push. The helm apps change
 # only through a pushed branch (Q58).
 #
+# Break-glass mode (ADR-0037) uses the same switch, so fast_switch and
+# fast_apply refuse while a hold is on (the record brzl.dev/break-glass).
+#
 # Only for an environment whose definition sets BRZL_FAST_MODE_ALLOWED=true
 # (local). Inputs: <run_dir>/kubeconfig; the live cluster Secret and
 # Applications. Needs kubectl, jq, yq (kiesei). No credentials.
@@ -62,6 +65,7 @@ fast_switch() {
     *) printf 'usage: fast-mode.sh fast_switch <on|off> <env> <run_dir>\n' >&2; return 2 ;;
   esac
   fast_init "$env" "$run_dir" || end_function "$?" 'fast mode'
+  fast_not_in_hold "$env" || end_function "$?" 'break-glass hold'
   phase_header "$run_dir"
   if [[ "$state" == on ]]; then
     printf '{ # fast mode ON: Argo CD holds (no automated sync); the working tree can be applied\n'
@@ -74,24 +78,32 @@ fast_switch() {
   end_function 0 "emitted fast mode $state"
 }
 
+# fast_not_in_hold <env> — fast mode and break-glass mode share one switch, so
+# fast mode refuses while a hold is on: fast_off would end the hold without
+# its record (docs/BREAK-GLASS.md).
+fast_not_in_hold() {
+  local env="$1" record
+  record="$(kubectl -n argocd get secret "brzl-$env-in-cluster" -o json \
+    | jq -r '.metadata.annotations["brzl.dev/break-glass"] // empty')" || return 1
+  if [[ -n "$record" ]]; then
+    printf 'error: a break-glass hold is on (%s); fast mode would change its switch. End the hold first: bash driver/driver.sh %s release\n' \
+      "$record" "$env" >&2
+    return 3
+  fi
+}
+
 # fast_check <on|off> — GENERATOR: waits up to 90 s for the ApplicationSet to
 # render every Application without (on) or with (off) automated sync.
 fast_check() {
-  local state="$1" env="$2" run_dir="$3" waited=0 automated total
+  local state="$1" env="$2" run_dir="$3" counts want=all
   fast_init "$env" "$run_dir" || return "$?"
-  while (( waited <= 90 )); do
-    automated="$(kubectl -n argocd get applications -o json \
-      | jq '[.items[] | select(.spec.syncPolicy.automated != null)] | length')" || return 1
-    total="$(kubectl -n argocd get applications -o json | jq '.items | length')" || return 1
-    if [[ "$state" == on && "$automated" == 0 ]] || [[ "$state" == off && "$automated" == "$total" ]]; then
-      printf 'fast mode is %s: %s of %s Applications sync automatically\n' "$state" "$automated" "$total"
-      return 0
-    fi
-    sleep 5
-    waited=$(( waited + 5 ))
-  done
-  printf 'fix: after 90 s, %s of %s Applications still sync automatically; see: kubectl -n argocd describe applicationset brzl-platform\n' \
-    "$automated" "$total" >&2
+  [[ "$state" == on ]] && want=none
+  if counts="$(auto_sync_wait "$want")"; then
+    printf 'fast mode is %s: %s Applications sync automatically\n' "$state" "$counts"
+    return 0
+  fi
+  printf 'fix: after 90 s, %s Applications still sync automatically; see: kubectl -n argocd describe applicationset brzl-platform\n' \
+    "$counts" >&2
   return 1
 }
 
@@ -147,6 +159,7 @@ kustomization_for() {
 fast_apply() {
   local env="$1" run_dir="${2#"$repo_root"/}" auto tracking label_key app app_json ns dir rendered with_ns without_ns
   fast_init "$env" "$run_dir" || end_function "$?" 'fast mode'
+  fast_not_in_hold "$env" || end_function "$?" 'break-glass hold'
   auto="$(kubectl -n argocd get secret "brzl-$env-in-cluster" \
     -o jsonpath='{.metadata.annotations.brzl\.dev/auto-sync}')" || end_function "$?" 'cluster Secret'
   tracking="$(kubectl -n argocd get configmap argocd-cm \

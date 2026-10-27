@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (designed in pass 6b, Q195–Q201, not built) · **Date:**
+Accepted (designed in pass 6b, Q195–Q204, step 1 built) · **Date:**
 2026-10-27 · **Extends:** ADR-0025 (the sync switch), ADR-0027 (the admin
 log store), ADR-0035 (the identities) · **Amends:** ADR-0035 (the admins'
 rights in Kubernetes)
@@ -91,3 +91,28 @@ model for an operator is `docs/BREAK-GLASS.md`.
   automatic end of a hold: it undoes a fix during an incident. A hold
   through the conductor: the record would name the conductor's service
   account, not the person.
+
+## As built (pass 6b, step 1, 2026-10-27)
+
+- `driver/modes/break-glass.sh` writes the run sheets of `hold` and
+  `release`. The driver runs them at its own locus, with the cluster-admin
+  kubeconfig. The emit step reads only, and its output is kept
+  (`<name>-emit.out`), so a refused `hold` or `release` is on record.
+- `hold` takes the person from `kubectl auth whoami` with the sign-on
+  kubeconfig, with a limit of 30 s, so it never waits for a browser. Its
+  record is JSON on the cluster Secret: `person`, `verified`, `start`,
+  `reason`.
+- `release` makes Argo CD's diff with its CLI in core mode, with the
+  cluster-admin kubeconfig. That works against the v2.13 server.
+- The admins' standing binding is `brzl-tier-admins-view` (`view`). The
+  old `brzl-tier-admins` had `cluster-admin`, and Argo CD prunes it.
+- The audit policy is a template that phase 10 writes into the run
+  directory with the organization of the teams.
+- kube-state-metrics gives `brzl_clusterrolebinding_created`, from its
+  custom-resource configuration. The alert `BrzlBreakGlassHeld` reads it.
+- Fast mode refuses `fast_on`, `fast_off` and `apply` during a hold.
+- Phase 40 checks that the binding and the record agree, and the admins'
+  rights in and outside a hold.
+- Q202 (a): an agent does not hold, for now. Q203 (a): the review is a
+  written rule. Q204 (a): the doctrine questions wait until after pass 6.
+- Step 2, not built: the reader of the admin log store.

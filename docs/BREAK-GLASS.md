@@ -6,9 +6,11 @@ Companions: [SECURITY.md](SECURITY.md) (identities, the audit records),
 [LOCAL.md](LOCAL.md) (fast mode, sign-on). The decision record is
 [ADR-0037](adr/0037-break-glass-mode.md).
 
-**Status: designed in pass 6b (2026-10-27), not built.** Every command
-name in this document is a planned name. The build can change a name, a
-flag or a message. The vocabulary is the one of [GLOSSARY.md](../GLOSSARY.md).
+**Status: built in pass 6b, step 1 (2026-10-27).** Step 1 has `hold`
+and `release`, the elevation, the audit rule and the alert. It also has
+`as_admin` and `as_me` in the kiesei shell. The reader of the admin log
+store is step 2 and is not built yet. Its command names are planned
+names. The vocabulary is the one of [GLOSSARY.md](../GLOSSARY.md).
 
 ## What it is
 
@@ -109,15 +111,16 @@ The mechanism, for the reader who wants it:
 - `hold` adds a second annotation, `brzl.dev/break-glass`, with the
   person, whether the name is verified, the start time (UTC, ISO 8601
   with `Z`) and the reason.
-- `hold` creates a ClusterRoleBinding, planned name `brzl-break-glass`,
+- `hold` creates a ClusterRoleBinding, `brzl-break-glass`,
   from the group `oidc:<org>:brzl-admins` to `cluster-admin`. Kubernetes
   does not let a binding change its `roleRef`, so this is a second
   binding beside the standing one, not an edit of it. `release` deletes
   it. Git does not manage this binding, so Argo CD does not remove it or
   bring it back.
-- Today the standing binding `brzl-tier-admins` gives the admins
-  `cluster-admin` at all times (`gitops/clusters/<env>/access/`). When
-  break-glass mode is built, that binding changes to `view`.
+- The standing binding of the admins, `brzl-tier-admins-view`, gives
+  them `view` (`gitops/clusters/<env>/access/`). Until pass 6b it was
+  `brzl-tier-admins`, with `cluster-admin` at all times. It has a new
+  name, because the role of a binding cannot change.
 
 ## The procedure
 
@@ -139,6 +142,9 @@ and the shell signs you in through Dex when no session is cached.
 
 ### Enter
 
+Sign in first, in the kiesei shell: `kubectl auth whoami` must name you.
+`hold` uses that session and does not open a browser itself.
+
 ```sh
 bash driver/driver.sh <env> hold 'portal down after sync of chart X, INC-123'   # read it
 bash driver/driver.sh <env> hold 'portal down after sync of chart X, INC-123' | bash driver/kiesei.sh
@@ -148,13 +154,16 @@ bash driver/driver.sh <env> hold 'portal down after sync of chart X, INC-123' | 
 
 1. It asks the kube-API who you are, with `kubeconfig-sign-on`
    (`kubectl auth whoami`). The API server verifies that identity.
-2. It stops if you are not in `brzl-admins`, or if a hold exists already.
+2. It stops if you are not in `brzl-admins`, if a hold by another person
+   exists, or if fast mode is on. If your own hold exists, it completes
+   that hold and keeps its start time.
 3. It writes a run sheet, and the driver runs it: the sync switch, the
    record annotation, the `brzl-break-glass` binding.
 4. It waits until the ApplicationSet renders every Application without
    automated sync.
-5. Its run sheet and output go to the admin log store. That is the record
-   of the start.
+5. Its output goes to the admin log store. That is the record of the
+   start. A `hold` that stops before any change is on record too: its
+   first step writes `break-glass-hold-<time>-emit.out`.
 
 ### Work
 
@@ -193,8 +202,9 @@ and output go to the admin log store. That is the record of the end.
 ### Review afterwards
 
 After the hold, read the record (below, "What is recorded") and answer
-these questions. Who does the review, and how soon, is not decided yet
-(below, "Not decided yet").
+these questions. The review is part of the incident's analysis, after
+normal operations return. On a shared environment, an admin other than
+the holder does it. On local, the holder does it (Q203).
 
 - Who held, when, for how long, and why?
 - What did they change? Does each change match the reason?
@@ -253,14 +263,16 @@ which is outside the cluster and outlives it (ADR-0027).
 
 | Record | What it tells | How to find it |
 | --- | --- | --- |
-| The run sheet and output of `hold` and of `release` | The person, the reason, the start and the end, the differences that `release` listed, and whether the undo was confirmed. | `{brzl_source="run-output"}` with the run's name, in Grafana (data source "Admin log store"). |
+| The run sheet and output of `hold` and of `release` | The person, the reason, the start and the end, the differences that `release` listed, and whether the undo was confirmed. | `{brzl_source="run-output", brzl_phase=~"break-glass-.*"}`, in Grafana (data source "Admin log store"). Each line starts with `break-glass hold:` or `break-glass release:`. |
 | The API audit log, at Request level for the admins' writes | Each write of each admin during the hold, with the request body. Reads stay at Metadata level. A write to a Secret stays at Metadata level, so no secret value reaches the log. Outside a hold the admins cannot write, so this rule records only break-glass changes. | `{brzl_source="api-audit"} \| json \| user_username=~"oidc:.*" \| verb=~"create\|update\|patch\|delete\|deletecollection"`, with the hold's time range. |
 | The annotation `brzl.dev/break-glass` on the cluster Secret | The live record of the hold while it lasts: the person, whether the name is verified, the start, the reason. | During the hold: `kubectl -n argocd get secret brzl-<env>-in-cluster -o jsonpath='{.metadata.annotations}'` (`view` does not read Secrets, so outside a hold use the API audit log, which records the annotate). |
 
-The audit rule is planned, not built. The API audit policy is
-`driver/substrates/k3s-audit-policy.yaml`. On local, a change to it needs
-`down` and `up`, because the node mounts the file when the cluster is
-made.
+The API audit policy is the template
+`driver/substrates/k3s-audit-policy.yaml`. Phase 10 writes it into the run
+directory with the organization of the teams, and the API server reads it
+when it starts. On local, a change to it needs `down` and `up`.
+
+At the end of `release`, its check prints the two queries for the review.
 
 Grafana in the cluster is the usual reader
 ([guide/logs.md](guide/logs.md)). When the cluster is down, use the
@@ -346,7 +358,7 @@ cluster that runs, use the in-cluster Grafana.
   rule records the admins' writes at Metadata level only.
 - **A forgotten hold only warns.** A hold has no automatic end. An
   automatic release would let Argo CD undo an emergency fix in the middle
-  of an incident. The alert `BrzlBreakGlassHeld` (planned) warns when a
+  of an incident. The alert `BrzlBreakGlassHeld` warns when a
   hold is older than 4 hours. Until an alert channel exists (BACKLOG 21),
   it shows only in Grafana and Prometheus. Look for it.
 - **The Argo CD UI's Sync button is not held.** An admin keeps
@@ -386,10 +398,16 @@ is out of scope: SPEC §3 keeps k3s on every substrate.
 
 ## Not decided yet
 
-- **An agent's path.** An agent has no sign-on identity, so it cannot
-  hold as itself. A run sheet sent to the conductor is the likely path.
-  Round 3 of the design decides it.
 - **The cluster-admin kubeconfig on a public cloud** (above, BACKLOG 23).
-- **The review.** Who reads the record after a hold, and how soon.
-- **The command names.** `hold`, `release`, `release confirm`, `reader`,
-  `reader_stop`, `as_admin` and `as_me` are planned names.
+- **The reader's command names.** `reader` and `reader_stop` are planned
+  names (step 2).
+
+Decided in the last design round:
+
+- **An agent does not hold, for now** (Q202). An agent has no sign-on
+  identity. It proposes the commands, and an admin holds under their own
+  name and runs them. Trusted, tailored agents can get a path later.
+- **The review is a written rule, not a gate** (Q203). It is part of the
+  incident's analysis after normal operations return. On a shared
+  environment, an admin other than the holder does it. On local, the
+  holder does it. `release` does not wait for it.

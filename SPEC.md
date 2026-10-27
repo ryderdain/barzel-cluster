@@ -100,7 +100,7 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   is the one switch that stops automated sync: **fast mode** (local,
   `fast_on`/`fast_off`, `apply` renders the working tree with Argo's own
   injection) and **break-glass mode** (any environment, emergencies,
-  designed in pass 6b, ADR-0037, not built: `hold` sets the switch for the
+  built in pass 6b, ADR-0037: `hold` sets the switch for the
   whole environment and adds a record annotation `brzl.dev/break-glass`.
   It elevates the admins to `cluster-admin` with a second binding for the
   hold. Outside a hold the admins have `view`. `release` stops on
