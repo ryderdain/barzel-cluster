@@ -72,7 +72,9 @@ Desktop restart dropped k3d's `--host-alias` lines from the node and from
 CoreDNS. So the node gets a k3d entrypoint script at every start, and the
 pods get step 1's CoreDNS rule back (two mechanisms, ADR-0035). That needs
 one more `down`, then `up`. Also found: Docker Desktop's "Enable host
-networking" was off, so no callback could reach the browser. `kubectl auth whoami` with
+networking" was off, so no callback could reach the browser.
+
+The live test, in four parts. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
 person. An auditor has `view` only. The admin Loki pod stays Ready behind
 its NetworkPolicy: k3s's policy controller and the kubelet's probes are
