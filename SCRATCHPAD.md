@@ -95,9 +95,10 @@ diagrams, adapted to the built state. They are the cast with the four
 roots, the bootstrap sequence, the machines, and the person in the web
 UIs (in place of the ASCII sequence). The last two are `kubectl`
 through Dex as built, and the Argo CD CLI through the gate (the `token`
-header, the helper). Each was validated with the Mermaid tool. **▶ NEXT:** the audit log read in
-Grafana, Argo CD's hourly click, and the merge to `main` (a
-RETROSPECTIVE addendum when the user verifies the pass).
+header, the helper). Each was validated with the Mermaid tool.
+**▶ NEXT:** the audit log read in Grafana, Argo CD's hourly click, and
+the merge to `main` (a RETROSPECTIVE addendum when the user verifies
+the pass).
 
 The live test, in four parts. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
