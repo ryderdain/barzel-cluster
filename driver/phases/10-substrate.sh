@@ -77,8 +77,11 @@ sign_on_kubeconfig_up() {
   printf '  rm -f %q\n' "$kc"
   printf '  kubectl --kubeconfig %q config set-cluster %q --server="$server"\n' "$kc" "$cluster"
   printf '  kubectl --kubeconfig %q config set %q "$ca"\n' "$kc" "clusters.$cluster.certificate-authority-data"
+  # interactiveMode is required by the v1 exec API; Never, as kubelogin's
+  # own setup writes it (the browser flow needs no stdin).
   printf '  kubectl --kubeconfig %q config set-credentials sign-on \\\n' "$kc"
-  printf '    --exec-api-version=client.authentication.k8s.io/v1 --exec-command=kubelogin \\\n'
+  printf '    --exec-api-version=client.authentication.k8s.io/v1 --exec-interactive-mode=Never \\\n'
+  printf '    --exec-command=kubelogin \\\n'
   printf '    --exec-arg=get-token --exec-arg=%q --exec-arg=--oidc-client-id=kubernetes \\\n' \
     "--oidc-issuer-url=https://$BRZL_PORTAL_HOST/dex"
   printf '    --exec-arg=--oidc-extra-scope=profile --exec-arg=--oidc-extra-scope=groups \\\n'
