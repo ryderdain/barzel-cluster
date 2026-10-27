@@ -43,16 +43,20 @@ the browser. The Argo CD CLI sends its token in a header named `token`.
 The Mermaid tool's result goes to a file; read `.valid` with jq.
 
 **▶ IN FLIGHT: pass 6b, break-glass** (BACKLOG item 6), branch
-`pass-6b-break-glass`. Round 1: Q195 (a), Q196 (a), Q197 (a) decided.
-Q194 is open (the user asked about the pattern) and comes back as Q198.
-Round 2 asked: Q198 (the elevation: the group, one person, or none),
-Q199 (how long a hold lasts), Q200 (`release` and the changes Argo CD
-would revert), Q201 (the path when Dex is down). Round 3: an agent's
-path, the doctrine questions of items 16c and 25, the runbook home.
-In this pass: item 28 (the reader), the local shape of items 23 and 29.
-Item 13 (Argo CD v2.13) is the first item after pass 6.
+`pass-6b-break-glass`. Decided: Q195 to Q201, all (a) (notes/DECISIONS.md).
+Q194 became Q198. Build note for Q198: a binding's roleRef cannot change,
+so `hold` adds the binding `brzl-break-glass` and `release` deletes it;
+the change of `brzl-tier-admins` to `view` in git needs a new name or a
+replace. Round 3 is open: an agent's path, and the doctrine questions of
+items 16c and 25. The docs of the working model are with a Fable 5.1
+subagent (the user's request): SECURITY.md, RECOVERY.md, a new
+`docs/BREAK-GLASS.md`, and SPEC, an ADR, GLOSSARY, README and
+ARCHITECTURE to match. In this pass: item 28 (the reader), the local
+shape of items 23 and 29. Item 13 is the first item after pass 6.
 
-**Built at the start, live test open:** the gate's fixes (`38b394d`).
+**Built at the start:** the gate's fixes (`38b394d`). Item 27 is
+user-verified. Item 33 waits for the hour of step 5 (no failed refresh in
+the gate's log, no sign-in).
 nginx dropped the cookie that oauth2-proxy refreshed, so Dex refused the
 old refresh token ("claimed twice") and the person signed in again about
 every hour. That was the re-login of the second addendum, not Argo CD's

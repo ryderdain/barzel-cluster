@@ -389,7 +389,9 @@ Order of work (Q120):
     NetworkPolicy that admits only the portal).
     **Built 2026-10-27** on the pass 6b branch (user: do it now): the
     chart's NetworkPolicy admits only the portal's pods, and phase 40
-    checks that it exists. The live test is open.
+    checks that it exists. **DONE 2026-10-27, user-verified:** phase 40
+    passed, the portal reaches `/ping`, and pods in other namespaces are
+    refused at once (k3s rejects with `icmp-port-unreachable`).
 28. **An emergency Grafana for the backed-up logs** (user, 2026-10-26).
     Since sign-on, Grafana has no emergency path: its login form and
     basic auth are off, so `grafana-admin` opens nothing (found in the
