@@ -444,7 +444,9 @@ Order of work (Q120):
     `approval_prompt=force` by default, and Dex obeys it. The re-login
     itself was a second fault: nginx dropped the gate's refreshed cookie,
     so Dex refused the old refresh token as "claimed twice". Both fixed on
-    the pass 6b branch (ADR-0035, "Corrections"). The live test is open.
+    the pass 6b branch (ADR-0035, "Corrections"). **DONE 2026-10-27,
+    user-verified** (RETROSPECTIVE): no page, and no sign-in after the
+    hour.
 
 Standing concerns (check in every pass):
 

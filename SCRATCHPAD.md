@@ -43,24 +43,20 @@ the browser. The Argo CD CLI sends its token in a header named `token`.
 The Mermaid tool's result goes to a file; read `.valid` with jq.
 
 **▶ IN FLIGHT: pass 6b, break-glass** (BACKLOG item 6), branch
-`pass-6b-break-glass`. Decided: Q195 to Q201, all (a) (notes/DECISIONS.md).
-Q194 became Q198. Build note for Q198: a binding's roleRef cannot change,
-so `hold` adds the binding `brzl-break-glass` and `release` deletes it;
-the change of `brzl-tier-admins` to `view` in git needs a new name or a
-replace. Round 3 asked: Q202 (an agent's path), Q203 (the review after a hold),
-Q204 (items 16c and 25, now or after pass 6). The docs are committed
-(`39dc20e`): BREAK-GLASS.md, ADR-0037 and the matching parts, by a Fable
-5.1 subagent, reviewed (five points fixed). Next after round 3: the
-build.
-In this pass: item 28 (the reader), the local
-shape of items 23 and 29. Item 13 is the first item after pass 6.
+`pass-6b-break-glass`. **Design done:** Q195 to Q204, all (a)
+(notes/DECISIONS.md). Q194 became Q198. Q202: "never" for an agent means
+"for now" (user). The docs are committed (`39dc20e`): BREAK-GLASS.md,
+ADR-0037 and the matching parts, written by a Fable 5.1 subagent and
+reviewed. The user will verify all docs again in a final pass. In this
+pass: item 28 (the reader), the local shape of items 23 and 29. Item 13
+is the first item after pass 6.
 
-**Built at the start:** the gate's fixes (`38b394d`). Item 27 is
-user-verified. Item 33 waits for the hour of step 5 (no failed refresh in
-the gate's log, no sign-in).
-nginx dropped the cookie that oauth2-proxy refreshed, so Dex refused the
-old refresh token ("claimed twice") and the person signed in again about
-every hour. That was the re-login of the second addendum, not Argo CD's
-token. The "Grant Access" page came from `approval_prompt=force`. Item
-27: a NetworkPolicy admits only the portal to oauth2-proxy. After the
-user's test: a RETROSPECTIVE entry that corrects the second addendum.
+**Done at the start, user-verified:** the gate's fixes (`38b394d`), items
+27 and 33 (RETROSPECTIVE, the entry that corrects the second addendum).
+Argo CD's own hourly click is still not seen cleanly. The user watches a
+private window.
+
+**▶ NOW: the build.** Build note for Q198: a binding's roleRef cannot
+change. So `hold` adds the binding `brzl-break-glass`, and `release`
+deletes it. The admins' standing binding needs a new name in git (or a
+replace) when it changes to `view`.

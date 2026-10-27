@@ -620,3 +620,30 @@ the gate, and the auth flows as six diagrams in SECURITY.md. Merged to
   its hour (Q191), as designed. One open point: that page is Dex's
   approval page, and Dex's `skipApprovalScreen` is on, so the page was
   not expected. Which client asked, and why, is BACKLOG 33.
+
+## 2026-10-27 — pass 6b start: the gate's two faults, and item 27
+
+User-verified on sleipnir. **This entry corrects the second addendum
+above:** the re-login at 14:59 CET was not Argo CD's 1-hour token. It was
+a fault of the gate, and the "Grant Access" page was a second fault.
+
+- **The gate lost its session about every hour.** The logs of oauth2-proxy
+  and of Dex showed it. oauth2-proxy refreshed the session in its answer to
+  nginx's subrequest, and nginx dropped the new cookie. The browser kept
+  the old cookie, Dex refused its refresh token as "claimed twice", and
+  the person signed in again. nginx now passes the cookie
+  (`auth_request_set`, `add_header Set-Cookie`). The browser has one
+  cookie, `_brzl_sign_on`. The gate's log shows a refresh at a session
+  age of 1 h 5 min, with no failure. After the hour, the portal, Grafana
+  and Argo CD asked for no sign-in.
+- **The "Grant Access" page** came from oauth2-proxy's default
+  `approval_prompt=force`, which Dex obeys although `skipApprovalScreen`
+  is on. The gate sends `auto` now, and the page is gone (BACKLOG 33).
+- **Item 27: only the portal reaches oauth2-proxy** (a NetworkPolicy from
+  the chart). Phase 40 passed with its new check. A probe from a pod in
+  another namespace was refused at once, because k3s rejects with
+  `icmp-port-unreachable`, not by a timeout. The portal still reaches
+  `/ping`.
+- **Still not seen cleanly:** Argo CD's own request for a click after its
+  1-hour token (Q191). The gate's fault hid it before. The user watches
+  a private window for it.
