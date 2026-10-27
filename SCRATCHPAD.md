@@ -43,12 +43,19 @@ the browser. The Argo CD CLI sends its token in a header named `token`.
 The Mermaid tool's result goes to a file; read `.valid` with jq.
 
 **▶ IN FLIGHT: pass 6b, break-glass** (BACKLOG item 6), branch
-`pass-6b-break-glass`. Design round 1 asked 2026-10-27: Q194 (the
-admins' rights outside a hold), Q195 (what `hold` stops), Q196 (how a
-person changes the cluster, and the record), Q197 (when the reader of
-the admin store runs). Round 2, after the answers: `release` (what Argo
-CD reverts), the path when Dex is down, an agent's path, and the
-doctrine questions of items 16c and 25. Folded into this pass: item 28
-(the reader), and the local shape of items 23 and 29. The review of the
-open items found item 13 (Argo CD v2.13, out of upstream support) the
-first item after pass 6. The user checks item 33 again.
+`pass-6b-break-glass`. Round 1: Q195 (a), Q196 (a), Q197 (a) decided.
+Q194 is open (the user asked about the pattern) and comes back as Q198.
+Round 2 asked: Q198 (the elevation: the group, one person, or none),
+Q199 (how long a hold lasts), Q200 (`release` and the changes Argo CD
+would revert), Q201 (the path when Dex is down). Round 3: an agent's
+path, the doctrine questions of items 16c and 25, the runbook home.
+In this pass: item 28 (the reader), the local shape of items 23 and 29.
+Item 13 (Argo CD v2.13) is the first item after pass 6.
+
+**Built at the start, live test open:** the gate's fixes (`38b394d`).
+nginx dropped the cookie that oauth2-proxy refreshed, so Dex refused the
+old refresh token ("claimed twice") and the person signed in again about
+every hour. That was the re-login of the second addendum, not Argo CD's
+token. The "Grant Access" page came from `approval_prompt=force`. Item
+27: a NetworkPolicy admits only the portal to oauth2-proxy. After the
+user's test: a RETROSPECTIVE entry that corrects the second addendum.
