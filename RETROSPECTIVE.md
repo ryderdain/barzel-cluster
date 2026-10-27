@@ -524,3 +524,55 @@ path is removed.
     settings API showed the right issuer, so phase 40 passed, but the
     sign-in failed. Phase 25 now writes that Secret from the store and
     restarts argocd-server when it changes. Phase 40 checks the order.
+
+## 2026-10-27 — pass 6a, step 2: `kubectl` through Dex
+
+User-verified on sleipnir: `kubectl auth whoami` with the sign-on
+kubeconfig answers `oidc:ryderdain`, with the group
+`oidc:tzvat:brzl-admins`, from the cached token and without a browser
+step. The design is Q186–Q192 with the conditions of an outside security
+review (ADR-0035, "As built", step 2). The kube-API trusts Dex through a
+structured `AuthenticationConfiguration` that phase 10 writes and the
+node mounts, and the API server reads again when it changes. Phase 10
+also writes `kubeconfig-sign-on` (no secret), whose user runs kubelogin,
+pinned in kiesei. The portal has a fixed Service address on local. The
+tiers' bindings are in `gitops/clusters/<env>/access/`. Dex's ID tokens
+last 1 hour and its refresh tokens 7 days. The gate and Grafana refresh
+every hour, so a removed person loses access within the hour. A
+NetworkPolicy admits only the collector, Grafana and itself to the admin
+log store. Phase 40 checks the parts: PKCE, the portal's address, the
+tiers' rights by impersonation, the policy.
+
+- **Checks.** Phase 40 passed on a new cluster, with the user running
+  phase 10 twice to confirm idempotency. The kube-API named the person.
+  SECURITY.md and SECRETS.md carry the review's findings (the four roots
+  of trust, the flows by scenario, sessions and revocation, the per-root
+  tables).
+- **Not yet run when this was written.** The `up` with the durable hosts
+  script (the user's next step). The audit log read in Grafana. The
+  hourly re-login in Argo CD. The merge to `main`. SCRATCHPAD holds them.
+- **Found in the live test, each fixed and pushed:**
+  - `ca.crt` has no newline at its end. So `sed` ran the certificate's
+    last line into the next heredoc, the API server refused the file,
+    and `k3d cluster create` waited without end. `awk` writes it now,
+    and phase 10's check parses the file.
+  - The substrate check looked for the host alias in CoreDNS before k3d
+    and k3s settled it (gone with the next item).
+  - The `v1` exec API requires `interactiveMode`. Phase 10 sets `Never`,
+    as kubelogin's own setup does.
+  - Docker Desktop's "Enable host networking" was off, so no callback
+    from a container could reach the browser. A probe listener proved it
+    for `0.0.0.0` and `127.0.0.1` alike. With it on, both reach the Mac.
+    LOCAL.md names the setting and the symptom. A wrapper added on a
+    wrong guess (only `0.0.0.0` forwarded) was reverted.
+  - A Docker Desktop restart dropped both lines of k3d's `--host-alias`
+    (the node's `/etc/hosts` and CoreDNS's NodeHosts), so the API server
+    resolved the issuer to `127.0.0.1` and refused a correct token. The
+    node now runs a k3d entrypoint script at every start, and the pods
+    keep step 1's CoreDNS rule: two mechanisms, against Q186's one,
+    recorded in the ADR.
+- **Decided on the way.** Q191 (a): 1-hour ID tokens, so Argo CD's UI
+  asks for a click every hour. Q192 (a): the sign-in stays in kiesei. A
+  remote shell gets the device code later (BACKLOG 32). The user's
+  side-channel question moved the fixed address into the local overlay,
+  with the range explained.

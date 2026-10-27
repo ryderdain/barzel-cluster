@@ -118,8 +118,10 @@ Order of work (Q120):
    that ran into the certificate; a check that looked too early). The
    sign-in found two more: Docker Desktop's host networking was off, and
    k3d's `--host-alias` does not survive a container restart (replaced by
-   an entrypoint script on the node and the CoreDNS rule of step 1). The
-   sign-in checks are the user's (SCRATCHPAD). The documentation of the
+   an entrypoint script on the node and the CoreDNS rule of step 1).
+   **The sign-in was user-verified 2026-10-27** (RETROSPECTIVE). Left:
+   the `up` with the durable script, the remaining checks, the merge to
+   `main` (SCRATCHPAD). The documentation of the
    review is done (SECURITY.md, SECRETS.md).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that

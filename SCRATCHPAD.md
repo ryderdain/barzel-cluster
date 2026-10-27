@@ -76,6 +76,14 @@ networking" was off, so no callback could reach the browser. Q192 (a):
 the browser callback stays in kiesei. A remote shell gets the device code
 later (BACKLOG 32).
 
+**Verified 2026-10-27:** `kubectl auth whoami` → `oidc:ryderdain`,
+group `oidc:tzvat:brzl-admins` (RETROSPECTIVE). **Remaining for the
+user.** Rebuild kiesei from the tree (`docker build -t kiesei:local
+containers/kiesei`). Then `down` and `up`, for the durable hosts script
+(phase 10's check verifies it). Then the other checks below. Then the
+pass merges to `main` (next session: a RETROSPECTIVE addendum, then the
+merge).
+
 The live test, in four parts. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
 person. An auditor has `view` only. The admin Loki pod stays Ready behind
