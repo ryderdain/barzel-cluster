@@ -105,8 +105,8 @@ builds on the new platform.
   the teams are `oidc:<org>:<team>`. The audience is the public Dex client
   `kubernetes` (Q190).
 - On the node, the portal's host name is the portal's fixed Service address
-  (`BRZL_PORTAL_CLUSTER_IP`), through a script that k3d runs at every
-  start of the node (its entrypoint hooks). In the cluster, CoreDNS keeps
+  (`BRZL_PORTAL_CLUSTER_IP`). A script that k3d runs at every start of the
+  node (its entrypoint hooks) writes it. In the cluster, CoreDNS keeps
   the rule of step 1. Q186 chose one mechanism for both, k3d's
   `--host-alias`, and the live test dropped it. It writes once, at create,
   and a restart of the container (a Docker Desktop restart, a reboot) loses
