@@ -56,12 +56,13 @@ is the first item after pass 6.
 Argo CD's own hourly click is still not seen cleanly. The user watches a
 private window.
 
-**▶ NOW: step 1 built (`58d2d7c`), the live test is the user's.** Step 1:
-`hold` and `release` (driver/modes/break-glass.sh, driver actions), the
-admins at `view` outside a hold (`brzl-tier-admins-view`; `hold` adds
-`brzl-break-glass`), the audit rule (a template that phase 10 writes into
-`apiserver/`), the alert `BrzlBreakGlassHeld` (a kube-state-metrics metric
-for bindings), fast mode refuses during a hold, `as_admin` and `as_me`.
+**▶ NOW: step 1 built (`58d2d7c`), the live test is the user's.** Step 1
+has `hold` and `release` (driver/modes/break-glass.sh). Outside a hold the
+admins have `view` (`brzl-tier-admins-view`), and `hold` adds
+`brzl-break-glass`. Phase 10 writes the audit rule into `apiserver/` from a
+template. The alert `BrzlBreakGlassHeld` reads a kube-state-metrics metric
+for bindings. Fast mode refuses during a hold. The shell has `as_admin`
+and `as_me`.
 The audit policy's path is set when the cluster is made: `down`, then
 `up`. Tried before the test: 23 driver cases pass, both emitters ran
 read-only against the live cluster, and `argocd app diff --core` works
