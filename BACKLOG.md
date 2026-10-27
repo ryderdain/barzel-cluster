@@ -124,10 +124,12 @@ Order of work (Q120):
    SECURITY.md carries the auth flows as six Mermaid diagrams. The kiesei
    shell makes the person the default (Q193). **DONE 2026-10-27,
    user-verified, merged to `main`** (RETROSPECTIVE, three entries).
-6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
-   conductor; a record of each use; a Grafana reader of the admin store that
-   runs only in break-glass mode and also loads the newest cold records
-   (Q62–Q65, Q94, Q107).
+6. **6b. Break-glass mode** — `hold` / `release`; a record of each use; a
+   reader of the admin store outside the cluster, which pass 6c extends to
+   the newest cold records (Q62–Q65, Q94, Q107). **Designed 2026-10-27**
+   (Q195–Q201, [ADR-0037](docs/adr/0037-break-glass-mode.md), the working
+   model in [docs/BREAK-GLASS.md](docs/BREAK-GLASS.md)). The person acts
+   with their own `kubectl`, not through the conductor (Q196).
    **Refresher for the design round (user, 2026-10-27).** After step 2 of
    pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
    `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same

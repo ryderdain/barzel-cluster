@@ -47,11 +47,12 @@ The Mermaid tool's result goes to a file; read `.valid` with jq.
 Q194 became Q198. Build note for Q198: a binding's roleRef cannot change,
 so `hold` adds the binding `brzl-break-glass` and `release` deletes it;
 the change of `brzl-tier-admins` to `view` in git needs a new name or a
-replace. Round 3 is open: an agent's path, and the doctrine questions of
-items 16c and 25. The docs of the working model are with a Fable 5.1
-subagent (the user's request): SECURITY.md, RECOVERY.md, a new
-`docs/BREAK-GLASS.md`, and SPEC, an ADR, GLOSSARY, README and
-ARCHITECTURE to match. In this pass: item 28 (the reader), the local
+replace. Round 3 asked: Q202 (an agent's path), Q203 (the review after a hold),
+Q204 (items 16c and 25, now or after pass 6). The docs are committed
+(`39dc20e`): BREAK-GLASS.md, ADR-0037 and the matching parts, by a Fable
+5.1 subagent, reviewed (five points fixed). Next after round 3: the
+build.
+In this pass: item 28 (the reader), the local
 shape of items 23 and 29. Item 13 is the first item after pass 6.
 
 **Built at the start:** the gate's fixes (`38b394d`). Item 27 is
