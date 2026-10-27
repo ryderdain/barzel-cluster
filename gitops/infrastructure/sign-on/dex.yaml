@@ -3,9 +3,9 @@
 # under /dex/ (Q172), so the issuer is https://<portal host>/dex; the
 # ApplicationSet replaces each "localhost" below with the portal's host name
 # (portalHostParams). Browsers reach it through the portal, and so do the
-# pods of Argo CD, oauth2-proxy and Grafana, and the kube-API (step 2): on
-# the nodes and in the cluster, the portal's host name is the portal's fixed
-# Service address (the substrate adapter's host alias, Q186).
+# pods of Argo CD, oauth2-proxy and Grafana (a rule in the cluster's
+# CoreDNS), and the kube-API (step 2; on the node, the portal's host name is
+# the portal's fixed Service address, Q186). The substrate adapter sets both.
 #
 # State in memory (Q178): a restart loses the signing keys and the sessions,
 # so everyone signs in again. Nothing else is lost.

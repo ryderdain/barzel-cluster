@@ -116,6 +116,9 @@ Order of work (Q120):
    Items 30 and 31 hold the rest of the review. **Step 2 built
    2026-10-26; the cluster came up 2026-10-27** after two fixes (a file
    that ran into the certificate; a check that looked too early). The
+   sign-in found two more: Docker Desktop's host networking was off, and
+   k3d's `--host-alias` does not survive a container restart (replaced by
+   an entrypoint script on the node and the CoreDNS rule of step 1). The
    sign-in checks are the user's (SCRATCHPAD). The documentation of the
    review is done (SECURITY.md, SECRETS.md).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the

@@ -437,8 +437,8 @@ and 25 name the sheet. The purge (BACKLOG 18) removes the entries.
 **What sign-on changes here: nothing.** Dex is at `/dex/` under the portal
 host (Q172), so your machine needs no other name. The log intake's name,
 `log-intake.<host>`, is used only between the containers. For `kubectl`
-through Dex, the k3s server resolves the portal's host name through the
-host alias that phase 10 sets: nothing on your machine.
+through Dex, the k3s server resolves the portal's host name through its
+own hosts file, which phase 10 sets: nothing on your machine.
 
 ## How a change to the example app arrives
 
@@ -553,10 +553,11 @@ Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
   their roles. In Argo CD, press "Log in via GitHub". Grafana signs you in
   at once. Their built-in `admin` logins are off.
 - The workloads (`/apps/<workload>/`) are outside sign-on.
-- On the nodes and in the cluster, the portal's host name is the portal's
-  fixed Service address (`BRZL_PORTAL_CLUSTER_IP`, a k3d host alias, phase
-  10). So the pods and the kube-API reach Dex at the same URL as your
-  browser. The fixed address is local only, a stand-in for public DNS
+- In the cluster, the portal's host name is the portal's Service (a rule in
+  k3s's CoreDNS, phase 10), and on the node it is the portal's fixed
+  Service address (`BRZL_PORTAL_CLUSTER_IP`, a script that k3d runs at
+  every start of the node). So the pods and the kube-API reach Dex at the
+  same URL as your browser. The fixed address is local only, a stand-in for public DNS
   (`gitops/clusters/local/portal/`). It is `10.43.0.43`: k3s's Service
   range is `10.43.0.0/16`, and Kubernetes keeps the first 256 addresses
   of it for fixed addresses, so nothing else takes it. A Service's address

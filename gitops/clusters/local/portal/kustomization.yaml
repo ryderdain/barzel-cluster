@@ -2,8 +2,9 @@
 # the k3d adapter maps to a host port when it makes the cluster
 # (BRZL_PORTAL_NODE_PORT / BRZL_PORTAL_PORT in env/local.env; ADR-0028),
 # and with a fixed Service address (sign-on step 2, Q186). The k3d adapter
-# maps the portal's host name to that address on the node and in CoreDNS
-# (--host-alias), so the pods and the kube-API reach Dex at the issuer URL.
+# maps the portal's host name to that address on the node (its hosts file,
+# at every start), so the kube-API reaches Dex at the issuer URL; the pods
+# get the name from a rule in the cluster's CoreDNS.
 # It is a stand-in for public DNS on a laptop, local only; an environment
 # with public DNS needs none.
 #

@@ -28,7 +28,7 @@
 # sends it to sign in; Dex answers at the issuer URL through the portal;
 # Argo CD's public settings name that issuer (so Argo CD read its Secret);
 # oauth2-proxy is ready (it starts only when it reaches Dex from its pod,
-# through the host alias and the CA); Grafana is healthy. The workload's
+# through the cluster's DNS rule and the CA); Grafana is healthy. The workload's
 # path stays open (Q144). For kubectl through Dex (step 2): Dex advertises
 # PKCE, the portal has its fixed address, the tiers' bindings give the
 # expected rights (by impersonation), and the admin log store has its

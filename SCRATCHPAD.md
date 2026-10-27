@@ -66,7 +66,13 @@ file. The substrate check looked for the host alias in CoreDNS too early,
 so it waits now. The user ran phase 10 twice to confirm idempotency. The
 documentation of the review is done (SECURITY.md has the roots, the
 scenarios and the sessions, and SECRETS.md the per-root tables). The
-sign-in checks remain, in four parts. `kubectl auth whoami` with
+sign-in checks remain, in four parts. **2026-10-27, later:** the sign-in
+reached Dex (the token is right) and the kube-API refused it. A Docker
+Desktop restart dropped k3d's `--host-alias` lines from the node and from
+CoreDNS. So the node gets a k3d entrypoint script at every start, and the
+pods get step 1's CoreDNS rule back (two mechanisms, ADR-0035). That needs
+one more `down`, then `up`. Also found: Docker Desktop's "Enable host
+networking" was off, so no callback could reach the browser. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
 person. An auditor has `view` only. The admin Loki pod stays Ready behind
 its NetworkPolicy: k3s's policy controller and the kubelet's probes are

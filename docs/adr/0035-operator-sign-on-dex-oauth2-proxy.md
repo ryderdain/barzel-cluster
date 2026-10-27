@@ -103,12 +103,16 @@ builds on the new platform.
   cluster is made. The person is `oidc:<login>` (`preferred_username`), and
   the teams are `oidc:<org>:<team>`. The audience is the public Dex client
   `kubernetes` (Q190).
-- On the nodes and in CoreDNS, the portal's host name is the portal's fixed
-  Service address (`BRZL_PORTAL_CLUSTER_IP`, k3d `--host-alias`, Q186).
-  This replaces the CoreDNS rewrite rule of step 1. The fixed address is
-  local only (the overlay `gitops/clusters/local/portal/`), a stand-in for
-  public DNS, in the band of k3s's Service range that Kubernetes keeps for
-  fixed addresses.
+- On the node, the portal's host name is the portal's fixed Service address
+  (`BRZL_PORTAL_CLUSTER_IP`), through a script that k3d runs at every
+  start of the node (its entrypoint hooks); in the cluster, CoreDNS keeps
+  the rule of step 1. Q186 chose one mechanism for both, k3d's
+  `--host-alias`, and the live test dropped it: it writes once, at create,
+  and a restart of the container (a Docker Desktop restart, a reboot) loses
+  both of its lines (2026-10-27). The fixed address is local only (the
+  overlay `gitops/clusters/local/portal/`), a stand-in for public DNS, in
+  the band of k3s's Service range that Kubernetes keeps for fixed
+  addresses.
 - Phase 10 writes `kubeconfig-sign-on` beside the admin kubeconfig (Q188).
   Its user runs kubelogin (in kiesei, pinned) with the browser callback on
   localhost (Q187). kiesei has the host's network. kubelogin keeps the

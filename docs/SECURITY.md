@@ -69,7 +69,8 @@ diagram, which gives the reason for each flow.
   kubectl --(16) an ID token from Dex (public client) -------> kube-API
                    (kubelogin signs in once, then refreshes)
   kube-API -(17) nothing: it reads Dex's signing keys -------> Dex, at the issuer
-                   (through the portal, by a host alias;         URL
+                   (through the portal, by the node's hosts       URL
+                    file;
                     trusts the store CA)
 ```
 
@@ -85,7 +86,7 @@ diagram, which gives the reason for each flow.
 | 10 | One host name and one certificate for every service (ADR-0028). The store is the CA in `local-ca` mode; `letsencrypt` mode is for a public name (ADR-0036). |
 | 11 | The gate (Q171): no path of the portal opens without a session, so a service without a login of its own is safe too. Only the three teams pass (Q179). Outside the gate: Dex, oauth2-proxy, Argo CD's public settings and the workloads (Q144). |
 | 12 | Each application checks a signed token and maps the teams to its own roles. No application trusts a header that another pod set. The built-in logins are off (Q175). In an emergency, the operator uses the CLI with the cluster-admin kubeconfig (flow 2); BACKLOG 23 examines that kubeconfig on a public cloud. |
-| 13 | Each client has its own secret, made once in the store. On the nodes and in the cluster, the portal's host name is the portal's fixed Service address (a host alias, Q186), so the pods use the same issuer URL as the browser. In `local-ca` mode they trust the store's CA, from the store. |
+| 13 | Each client has its own secret, made once in the store. In the cluster, a DNS rule makes the portal's host name the portal's Service, and on the node a hosts entry makes it the portal's fixed address (Q186), so the pods and the kube-API use the same issuer URL as the browser. In `local-ca` mode they trust the store's CA, from the store. |
 | 14 | The CLI cannot carry the gate's cookie. It signs in through Dex in the browser, and the gate accepts its token. It reads Argo CD's public settings first, so that one path is outside the gate. |
 | 15 | One OAuth App for each environment, owned by the organization (Q176). Its scope is wider than necessary (below, "What GitHub gives Dex at sign-on"). |
 | 16 | A person's GitHub identity is their cluster identity: `oidc:<login>`, with the teams as groups `oidc:<org>:<team>`, so the API audit log names the person (Q174, Q190). The bindings in `gitops/clusters/<env>/access/` give the tiers their rights (Q170). The client is public, so no secret is added. kubelogin keeps the tokens on the person's machine (Q189). The cluster-admin kubeconfig stays the emergency path (Q175). |
