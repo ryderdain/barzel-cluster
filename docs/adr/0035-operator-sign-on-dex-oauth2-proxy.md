@@ -88,6 +88,9 @@ builds on the new platform.
   for the CLI, which speaks gRPC-web; found in the step 2 test). The Argo
   CD CLI reads those settings before it signs in. After `argocd login --sso`, the gate accepts the CLI's token
   from Dex (`skip_jwt_bearer_tokens`, the public client `argo-cd-cli`).
+  The CLI sends that token in a header named `token`, not as a bearer;
+  nginx maps it to `Authorization: Bearer` for the gate's subrequest
+  (found in the step 2 test).
 - Phase 40 checks the parts of sign-on but cannot sign in: the redirect to
   sign in, Dex at the issuer URL, the issuer in Argo CD's settings, and
   Grafana's health.
