@@ -207,9 +207,9 @@ portal_check() {
   # (seen 2026-10-27: the gate redirected that call, and the CLI died with
   # "unexpected EOF"): that path must be outside the gate too.
   code="$("${get[@]}" -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/grpc-web+proto' \
-    --data-binary '' "$url/argocd/settings.SettingsService/Get" 2>&1)"
+    --data-binary '' "$url/argocd/cluster.SettingsService/Get" 2>&1)"
   if [[ "$code" == 30? || "$code" == 401 ]]; then
-    printf 'fix: the gate does not let the Argo CD CLI read the settings over gRPC-web (%s on /argocd/settings.SettingsService/Get); see gitops/infrastructure/portal/nginx.conf\n' "$code" >&2
+    printf 'fix: the gate does not let the Argo CD CLI read the settings over gRPC-web (%s on /argocd/cluster.SettingsService/Get); see gitops/infrastructure/portal/nginx.conf\n' "$code" >&2
     return 1
   fi
   # Argo CD's settings read the Secret on each request, but its sign-in reads

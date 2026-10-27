@@ -84,7 +84,7 @@ builds on the new platform.
   the live test). Phase 25 restarts argocd-server when the Secret changes.
 - **Outside the gate:** Dex (`/dex/`), oauth2-proxy (`/oauth2/`), the
   workloads (Q144), and Argo CD's public settings
-  (`/argocd/api/v1/settings`, and `/argocd/settings.SettingsService/Get`
+  (`/argocd/api/v1/settings`, and `/argocd/cluster.SettingsService/Get`
   for the CLI, which speaks gRPC-web; found in the step 2 test). The Argo
   CD CLI reads those settings before it signs in. After `argocd login --sso`, the gate accepts the CLI's token
   from Dex (`skip_jwt_bearer_tokens`, the public client `argo-cd-cli`).
