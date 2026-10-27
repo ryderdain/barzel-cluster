@@ -396,15 +396,6 @@ Order of work (Q120):
     signature policy (cosign). Branch protection on the workload's
     development branch is a control outside the platform. Name it as
     assumed in SECURITY.md.
-32. **The Argo CD CLI's sign-on callback from kiesei on a Mac** (found
-    2026-10-27, step 2). Docker Desktop's host networking forwards to the
-    Mac only the ports a container binds on all interfaces. kubelogin can
-    bind there (the wrapper in kiesei does it); `argocd login --sso` binds
-    `localhost:8085` and has no option. So from kiesei on a Mac the CLI
-    cannot sign in. Options: a small forwarder in the container
-    (`socat 0.0.0.0:8085 -> 127.0.0.1:8085`) started by the kiesei shell;
-    or the CLI on the operator's machine. Verify first that the problem is
-    real (step 1 did not test the CLI).
 
 Standing concerns (check in every pass):
 

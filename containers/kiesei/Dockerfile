@@ -156,18 +156,13 @@ RUN set -eux; \
     argocd version --client
 
 # --- kubelogin (kubectl through Dex; verify against the published .sha256) --
-# The binary goes to libexec; /usr/local/bin/kubelogin is a small wrapper that
-# makes its callback reachable from a Mac's browser (kubelogin.sh).
-COPY kubelogin.sh /usr/local/bin/kubelogin
 RUN set -eux; \
     f="kubelogin_linux_${TARGETARCH}.zip"; \
     base="https://github.com/int128/kubelogin/releases/download/v${KUBELOGIN_VERSION}"; \
     curl -fsSLO "${base}/${f}"; \
     curl -fsSLo "${f}.sha256" "${base}/${f}.sha256"; \
     sha256sum -c "${f}.sha256"; \
-    mkdir -p /usr/local/libexec; \
-    unzip -q "${f}" kubelogin -d /usr/local/libexec; \
-    chmod 0755 /usr/local/bin/kubelogin; \
+    unzip -q "${f}" kubelogin -d /usr/local/bin; \
     ln -s /usr/local/bin/kubelogin /usr/local/bin/kubectl-oidc_login; \
     rm -f "${f}" "${f}.sha256"; \
     kubelogin version

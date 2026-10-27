@@ -349,11 +349,12 @@ argocd --core app list    # in an emergency: no sign-on, the kubeconfig
 
 `argocd login --sso` prints a URL: open it in your browser. The CLI waits
 for the callback on `localhost:8085`, so the container must share the
-host's network (Docker Desktop: "Enable host networking"). On a Mac that
-is not enough: the CLI binds the callback on loopback only, which Docker
-Desktop does not forward, and it has no option to bind elsewhere. Until
-BACKLOG 32 settles it, run `argocd login` on your own machine, with the
-CLI installed there.
+host's network. On Docker Desktop that is a setting: Settings, Resources,
+Network, "Enable host networking" (4.34 and later). Without it, kiesei is
+in Docker Desktop's VM, which is enough for the driver (the k3d ports are
+published there) but not for a callback: the browser gets "connection
+refused" (seen 2026-10-27). With it, the Mac reaches every port a
+container binds, loopback included.
 
 **`kubectl` as yourself** (sign-on step 2). The run directory holds a
 second kubeconfig, which signs you in through Dex with kubelogin:
@@ -365,10 +366,8 @@ kubectl auth whoami    # kubelogin prints a URL: open it, sign in with GitHub
 
 You sign in one time. kubelogin keeps your tokens in `oidc-cache/` beside
 the kubeconfig and refreshes them without a step, for 7 days, or until Dex
-restarts. In kiesei, kubelogin's callback listens on all interfaces of the
-container when the driver's machine is a Mac: Docker Desktop's host
-networking forwards only those ports to your browser (the wrapper
-`containers/kiesei/kubelogin.sh`). The kube-API names you `oidc:<login>`,
+restarts. In kiesei, the callback on `localhost:8000` needs the same
+Docker Desktop setting as the Argo CD CLI (above). The kube-API names you `oidc:<login>`,
 and your team gives your rights: `brzl-admins` everything, the other two
 tiers the built-in `view` role. On your own machine, install kubelogin
 first (`brew install
