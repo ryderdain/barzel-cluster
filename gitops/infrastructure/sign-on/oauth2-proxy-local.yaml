@@ -1,0 +1,13 @@
+# oauth2-proxy on local, after oauth2-proxy.yaml: in local-ca mode the store
+# is the CA of the portal, so oauth2-proxy trusts that CA when it reaches Dex
+# (ExternalSecret portal-ca, sign-on/secrets/).
+extraVolumes:
+  - name: portal-ca
+    secret:
+      secretName: portal-ca
+extraVolumeMounts:
+  - name: portal-ca
+    mountPath: /etc/brzl/ca
+    readOnly: true
+extraArgs:
+  provider-ca-file: /etc/brzl/ca/ca.crt

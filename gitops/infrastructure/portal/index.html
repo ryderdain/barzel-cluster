@@ -18,41 +18,41 @@
 <h1>barzel-cluster — admin portal</h1>
 <p>One place to start for every service of this environment. The links are
 relative: the same page serves each environment under its own host name.</p>
+<p>You signed in with GitHub to see this page. Argo CD and Grafana sign you
+in again through the same identity; your GitHub team gives your access
+there: <code>brzl-admins</code>, <code>brzl-operators</code> or
+<code>brzl-auditors</code>. <a href="oauth2/sign_out">Sign out</a>.</p>
 
 <h2>Services</h2>
 <table>
   <tr><th>Service</th><th>Where</th><th>Notes</th></tr>
   <tr><td><a href="argocd/">Argo CD</a></td><td><code>/argocd/</code></td>
-      <td>GitOps: what is deployed, from which revision. The admin password is
-      the <code>argocd-initial-admin-secret</code> Secret until sign-on (pass 6a).</td></tr>
+      <td>GitOps: what is deployed, from which revision. Press
+      "Log in via GitHub".</td></tr>
   <tr><td><a href="apps/chofesh/">chofesh</a></td><td><code>/apps/chofesh/</code></td>
       <td>The example app: a Sefaria search page with its own Postgres
-      (<a href="https://github.com/tzvat/chofesh">tzvat/chofesh</a>).</td></tr>
+      (<a href="https://github.com/tzvat/chofesh">tzvat/chofesh</a>).
+      Workloads are outside sign-on.</td></tr>
   <tr><td><a href="grafana/">Grafana</a></td><td><code>/grafana/</code></td>
       <td>Metrics, and the logs of the two log stores: the admin log store
       (the records that audit this environment) and the diagnostic log store
-      (the detailed logs of the workloads and the platform). User
-      <code>admin</code>; the password is in the cluster secret store.</td></tr>
+      (the detailed logs of the workloads and the platform).</td></tr>
 </table>
 
 <h2>Command line</h2>
-<p>The CLI tools are in the kiesei image, with the same host name and
-kubeconfig as the driver. Open a shell in it from the repository:
-<code>bash driver/kiesei.sh shell</code>. The HTTP tools use this same host;
-<code>kubectl</code> and <code>bao</code> keep their own endpoints (the
-kubeconfig in the run directory; the store's port on the driver's machine).</p>
-<pre># Argo CD CLI, through the portal (in the kiesei shell)
-argocd login HOST --grpc-web-root-path argocd --username admin
-
-# the admin password, until sign-on
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
-
-# the Grafana admin password (from the store, through ESO)
-kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
-
-# the cluster
-export KUBECONFIG=var/run/ENV/current/kubeconfig
+<p>The CLI tools are in the kiesei image, with the same host name as the
+driver. Open a shell in it from the repository:
+<code>bash driver/kiesei.sh shell</code>. In the shell you are yourself: it
+signs you in through Dex at its start (open the URL it prints), and
+<code>argocd</code> signs in on its first use. <code>bao</code> keeps its
+own endpoint (the store's port on the driver's machine).</p>
+<pre># in the kiesei shell, as yourself
+kubectl auth whoami
 kubectl get applications -n argocd
+argocd app list
+
+# in an emergency, without sign-on: the cluster-admin kubeconfig, named on purpose
+KUBECONFIG=var/run/ENV/current/kubeconfig argocd --core app list
 
 # the cluster secret store (local: OpenBao beside the cluster)
 BAO_ADDR=http://127.0.0.1:8200 bao status</pre>

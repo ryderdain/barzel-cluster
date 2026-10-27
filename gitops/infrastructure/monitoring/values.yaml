@@ -112,13 +112,14 @@ prometheus-node-exporter:
     repository: prometheus/node-exporter
 
 grafana:
-  # The admin login comes from the in-cluster Secret grafana-admin (never in
-  # git). On local, ESO projects it from the cluster secret store, where phase
-  # 25 makes the password once (values-local.yaml, Q105). On AWS, the
-  # bootstrap creates it (BOOTSTRAP.md) until the AWS store exists (pass 8).
-  # A fixed Secret, because the chart's own `adminPassword` default is a
+  # The admin user's password comes from the in-cluster Secret grafana-admin
+  # (never in git). On local, ESO projects it from the cluster secret store,
+  # where phase 25 makes the password once (values-local.yaml, Q105). On AWS,
+  # the bootstrap creates it (BOOTSTRAP.md) until the AWS store exists (pass
+  # 8). A fixed Secret, because the chart's own `adminPassword` default is a
   # `randAlphaNum` that changes on every render, so it would drift from
-  # Grafana's database (401).
+  # Grafana's database (401). Since sign-on (Q175) no login uses it: the
+  # login form and basic auth are off.
   admin:
     existingSecret: grafana-admin
     userKey: admin-user
@@ -126,11 +127,40 @@ grafana:
   defaultDashboardsEnabled: true   # the kube/node/workload dashboards = system visibility
   # Served under the admin portal's /grafana/ (ADR-0028). The ApplicationSet
   # injects the portal's host name as server.domain (portalHostParams).
+  # Sign-on (ADR-0035, Q171): Grafana is a client of Dex and signs people
+  # in itself; it trusts no header. The ApplicationSet replaces "localhost"
+  # in the three URLs with the portal's host name. The client secret comes
+  # from the environment (ExternalSecret grafana-oidc, sign-on/secrets/).
+  # The access tiers (GitHub teams, as Dex names them) become Grafana's
+  # roles; a person in no tier is refused (role_attribute_strict).
+  envFromSecret: grafana-oidc
   grafana.ini:
     server:
       domain: localhost                     # replaced by the portal host
       root_url: "https://%(domain)s/grafana/"
       serve_from_sub_path: true
+    auth:
+      disable_login_form: true
+      oauth_auto_login: true
+    auth.basic:
+      enabled: false
+    auth.generic_oauth:
+      enabled: true
+      name: GitHub
+      client_id: grafana
+      scopes: openid profile email groups offline_access
+      auth_url: https://localhost/dex/auth
+      token_url: https://localhost/dex/token
+      api_url: https://localhost/dex/userinfo
+      use_pkce: true
+      # Dex's ID tokens last 1 hour (sign-on/dex.yaml): Grafana refreshes
+      # its token with the refresh token (offline_access), and signs the
+      # person out when Dex refuses the refresh.
+      use_refresh_token: true
+      login_attribute_path: preferred_username
+      groups_attribute_path: groups
+      role_attribute_path: "contains(groups[*], 'tzvat:brzl-admins') && 'Admin' || contains(groups[*], 'tzvat:brzl-operators') && 'Editor' || contains(groups[*], 'tzvat:brzl-auditors') && 'Viewer'"
+      role_attribute_strict: true
   # The two log stores (ADR-0027), beside the stack's own Prometheus. The
   # names say which store each one reads (Q99).
   additionalDataSources:

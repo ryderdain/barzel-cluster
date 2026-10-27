@@ -83,10 +83,66 @@ Order of work (Q120):
    management UI of its own (chofesh has none). The legacy local SSO path
    (`gitops/clusters/local/{k3d-up.sh,sso/,kustomization.yaml}`) still
    names the demo-app and is stale since pass 5d. This pass replaces it.
+   Designed 2026-10-23 (Q169–Q183, ADR-0035 and ADR-0028 amendments).
+   **Step 1, web sign-on: done and user-verified 2026-10-23**
+   (RETROSPECTIVE). The legacy path is removed. Step 2: `kubectl` through
+   Dex (Q174), designed 2026-10-26 after a review of every auth flow
+   (`notes/AUTH-FLOWS.md`, local). When the decisions of this pass are
+   made, bring the relevant parts of that review into SECURITY.md and
+   SECRETS.md. Also add to SECRETS.md one table per root of trust, which
+   lists what derives from it (user, 2026-10-26). The roots are the
+   store's files, the cluster-admin kubeconfig and the operator's `gh`
+   login.
+   **An outside security review** of that document (the user's second
+   session, 2026-10-26, `notes/AUTH-FLOWS-FableAudit-202610261655.md`)
+   approved the design with conditions. Step 2 takes them on:
+   - The kube-API trusts Dex through a structured
+     `AuthenticationConfiguration` file, not `--oidc-*` flags (k3s
+     v1.31). The file reloads when it changes, so a later change needs
+     no new cluster.
+   - Dex's ID tokens last 1 hour, and its refresh tokens get a bound.
+   - The gate checks the teams again every hour (`cookie_refresh`, with
+     the `offline_access` scope).
+   - Phase 40 checks that Dex advertises PKCE S256.
+   - A NetworkPolicy admits only the collector and Grafana to the admin
+     Loki store. This was the review's highest finding: any pod could
+     write into the audit trail.
+   Doc items for the end of the pass, into SECURITY.md: a fourth root of
+   trust, the host user, who holds the Docker socket and `seal.key`. The
+   revocation latency of each session. A Dex compromise is a harvest of
+   the people's GitHub tokens. A certificate for the portal's host from
+   the store's CA could serve a false issuer to the kube-API (a residual
+   risk). Branch protection on the workload repo is an assumed control.
+   Items 30 and 31 hold the rest of the review. **Step 2 built
+   2026-10-26; the cluster came up 2026-10-27** after two fixes (a file
+   that ran into the certificate; a check that looked too early). The
+   sign-in found two more: Docker Desktop's host networking was off, and
+   k3d's `--host-alias` does not survive a container restart (replaced by
+   an entrypoint script on the node and the CoreDNS rule of step 1).
+   **The sign-in was user-verified 2026-10-27** (RETROSPECTIVE). The
+   documentation of the review is done (SECURITY.md, SECRETS.md), and
+   SECURITY.md carries the auth flows as six Mermaid diagrams. The kiesei
+   shell makes the person the default (Q193). **DONE 2026-10-27,
+   user-verified, merged to `main`** (RETROSPECTIVE, three entries).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
    (Q62–Q65, Q94, Q107).
+   **Refresher for the design round (user, 2026-10-27).** After step 2 of
+   pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
+   `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same
+   run directory, and called it a glaring flaw. The answer then: the admin
+   kubeconfig is the driver's credential (every phase acts with it, the
+   conductor derives from it) and the emergency path (Q175); on a laptop it
+   adds no power that the Docker socket and the seal key do not give
+   already (the four roots, SECURITY.md), so the sign-on path is a named
+   identity and a rehearsal, not a boundary; on a shared machine or a cloud
+   it is the flaw as stated (items 23 and 29). The kiesei shell now makes
+   the person's path the default and the admin path the one to name on
+   purpose (Q193). Pass 6b is where the admin path becomes a recorded
+   exception: decide there who may hold that file, for how long, and how
+   each use is recorded with the person's name from sign-on. Re-surface
+   this with the user before the round.
 7. **6c. Cold storage + backups** — the `cold` route; each workload's
    database backups (Q92).
 8. **7. `promote platform`** — roll a platform revision one environment at a
@@ -279,6 +335,100 @@ Order of work (Q120):
     Prometheus. Choose a channel (e-mail, Slack, ntfy, or Argo CD's own
     notifications) and its credential, then turn on Alertmanager with that
     receiver.
+22. **The GitHub dependency, examined alone** (user, 2026-10-23, during
+    the 6a design). Find each place where the platform needs GitHub. Argo
+    CD reads this repo and the workload's repo from it. The workload's
+    image comes from its registry. The App and the packages token are
+    GitHub credentials. Sign-on (6a) uses GitHub as the identity provider.
+    Then find if a general case exists for the git host, so that GitLab,
+    Bitbucket or a self-managed git server can take its place.
+    State what each part would need, and what is specific to GitHub. Each
+    other provider needs its own access script beside
+    `driver/access/github.sh`, with the same output layout: the read
+    credentials, the sign-on client and the teams or groups (user, Q183).
+    The access setup stays separate from the platform's own authentication
+    and authorization.
+23. **The cluster-admin kubeconfig after bootstrap, on a public cloud**
+    (user, Q174, 2026-10-23). Phase 10 writes a kubeconfig with
+    `cluster-admin` to `var/run/<env>/`, and the driver keeps it. It is a
+    standing credential that skips sign-on. Locally it is the emergency
+    path (Q175). On a public-cloud substrate, it must not stay after
+    bootstrap without a decision. Add a validation check that fails when a
+    public-cloud environment still has such a kubeconfig after bootstrap.
+    Then decide the emergency path there, for example a short-lived
+    credential from the cloud's identity service. Do it in pass 8, before
+    the first public-cloud environment.
+24. **A workload viewer tier** (user, Q170, Q173, Q179, 2026-10-23). A
+    restricted access tier for the people who develop one workload: in
+    Grafana, only that workload's logs (the diagnostic log store, its
+    namespace). The sign-on gate must be able to admit this tier, and only
+    to Grafana. Check first how to limit a data source in Grafana's free
+    edition (a separate Grafana organization, possibly). Build it when a
+    workload developer who is not an operator exists.
+25. **Review: a read-only check in a script of emitted steps** (user, Q184,
+    2026-10-23, for the user, against the doctrine in `ryderdain/bash`).
+    `driver/access/github.sh` emits every step except `check` and
+    `sign_on_check`, which run directly, as bash-ops §1 says a read-only
+    check must. The user found that this reads as inconsistent. Decide if
+    the doctrine changes (for example, a check in an emit script also
+    emits), or if the script makes the difference plainer (one `check`, or
+    a usage line for each step). Until then, the script stays as it is.
+26. **Sign-out** (user, Q185, 2026-10-23, to revisit later). Grafana's and
+    the portal's "Sign out" sign the person in again at once: Grafana
+    signs in automatically, Dex keeps no session, and GitHub keeps its
+    own. The proposal: one sign-out for the portal, Grafana and Argo CD
+    (Grafana's `signout_redirect_url`, Argo CD's `logoutURL`), ending on a
+    static page outside the gate that says GitHub keeps its session.
+27. **oauth2-proxy trusts `X-Forwarded-*` from any address** (found
+    2026-10-23, pass 6a). With `reverse_proxy` on and no
+    `trusted_proxy_ip`, any pod that reaches oauth2-proxy directly can set
+    those headers. Limit them to the portal (its pod network, or a
+    NetworkPolicy that admits only the portal).
+28. **An emergency Grafana for the backed-up logs** (user, 2026-10-26).
+    Since sign-on, Grafana has no emergency path: its login form and
+    basic auth are off, so `grafana-admin` opens nothing (found in the
+    auth-flows review, `notes/AUTH-FLOWS.md`). When the cluster is down
+    or out of reach, the operator needs the admin log store. Prepare a
+    thin image that runs Grafana alone, outside the cluster, as a UI for
+    the backed-up logs (local: `var/log-store/<env>/admin/`).
+29. **The driver is a machine identity in every scenario** (found
+    2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
+    `system:admin` (the kubeconfig) and as the store token `driver`. The
+    API audit log and the store's audit log cannot name the person who
+    ran a phase. Only the shell on the operator's machine knows. Step 2 of
+    pass 6a (`kubectl` through Dex) names a person for `kubectl`, not for
+    the phases. Decide with item 23 whether the driver should act with a
+    person's identity on a public cloud. The store token `driver` is a
+    standing credential of the same kind. OpenBao can issue a short-lived
+    token for each run from a local auth method (review finding 5).
+30. **Narrower `kubectl` roles for the tiers** (user, after the
+    auth-flows review, 2026-10-26). Step 2 binds `brzl-auditors` and
+    `brzl-operators` to the built-in `view` ClusterRole. `view` reads
+    `pods/log` and ConfigMaps in every namespace, so an auditor reads the
+    workloads' logs and their configuration (not Secrets). And `view`
+    cannot `rollout restart`, so an operator restarts through Argo CD.
+    Build: a narrower auditor ClusterRole. A read-only role for the
+    people who develop one workload, limited to its namespace (with item
+    24, the Grafana side). Decide the operator's `kubectl` rights.
+31. **Image integrity** (review findings, 2026-10-26). Nodes pull from
+    Zot over plain HTTP on the Docker network. Applications name tags, and
+    nothing checks a signature or a digest. Zot could serve TLS with a
+    certificate from the store's CA today. Then: digest pinning, or a
+    signature policy (cosign). Branch protection on the workload's
+    development branch is a control outside the platform. Name it as
+    assumed in SECURITY.md.
+32. **`kubectl` sign-in from a remote kiesei shell** (user, Q192,
+    2026-10-27). The browser callback (Q187) needs the browser on the
+    machine where `kubectl` runs, or an SSH port forward. When a remote
+    shell exists, make kubelogin's grant type an environment value:
+    `device-code` there (a URL and a short code, no callback), with a
+    shorter refresh-token lifetime than local's 7 days, or none. The
+    `argocd` CLI has no device flow; it keeps the callback.
+33. **Dex's approval page appeared on Argo CD's hourly re-login** (seen
+    2026-10-27). Dex's `skipApprovalScreen` is on, so no "Grant Access"
+    page was expected. Find which client asked, and why Dex showed it
+    (the Dex version, the `offline_access` scope, or the client). One
+    click restores the session, so this is a polish item.
 
 Standing concerns (check in every pass):
 

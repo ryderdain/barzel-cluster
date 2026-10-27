@@ -338,12 +338,12 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted |
 | [ADR-0026](adr/0026-local-secret-store-outside-the-cluster.md) | The local cluster secret store runs outside the cluster | Accepted |
 | [ADR-0027](adr/0027-logs-admin-and-diagnostic-stores.md) | Logs: an admin log store and a diagnostic log store | Accepted; amended Q158–Q162 and Q163–Q166 (mutual TLS on the OTLP receiver); built in pass 6 and item 4a |
-| [ADR-0028](adr/0028-admin-portal.md) | The admin portal: one nginx, a static page, a path for each service | Accepted; built in pass 5c |
+| [ADR-0028](adr/0028-admin-portal.md) | The admin portal: one nginx, a static page, a path for each service | Accepted; built in pass 5c; amended Q177 (sign-on in every environment) |
 | [ADR-0029](adr/0029-vendored-doctrine-helpers-pinned.md) | The Bash doctrine helpers are vendored, pinned to a tagged commit | Accepted |
 | [ADR-0030](adr/0030-substrate-adapter-interface.md) | One substrate adapter interface; the platform layer assumes only conformant Kubernetes | Accepted |
 | [ADR-0031](adr/0031-argocd-manages-itself.md) | Argo CD manages itself (from ADR-0013) | Accepted |
 | [ADR-0032](adr/0032-argocd-repository-credential.md) | The Argo CD repository credential: deploy key now, GitHub App before leaving local (from ADR-0013) | Accepted; to be superseded in pass 8 |
 | [ADR-0033](adr/0033-metrics-kube-prometheus-stack.md) | Metrics: kube-prometheus-stack, trimmed (from ADR-0017) | Accepted (AWS substrate) |
 | [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh, private, from its own repo and CI); an environment follows a branch or a release; the platform depends on no workload | Accepted; built (pass 5d) |
-| [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted (design; pass 6a) |
+| [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted; amended Q169–Q183; steps 1 (web sign-on) and 2 (`kubectl` through Dex) built in pass 6a |
 | [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |

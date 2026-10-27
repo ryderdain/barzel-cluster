@@ -7,7 +7,8 @@ it.*
 ## What kiesei is
 
 kiesei is the container image that holds every tool the platform is
-operated with, at pinned versions: `kubectl`, `helm`, `k3d`, `argocd`, the
+operated with, at pinned versions: `kubectl`, `kubelogin`, `helm`, `k3d`,
+`argocd`, the
 CNPG plugin, `tofu`, `ansible`, `yq`, `jq`, `aws`, and more. The word is
 Hebrew for a toolbox (GLOSSARY). Your machine needs only a container engine
 and its `docker` CLI. It does not need any of these tools.
@@ -77,11 +78,12 @@ Open the shell once, then:
 bash driver/kiesei.sh shell
 export KUBECONFIG=var/run/local/current/kubeconfig
 
-# Argo CD, through the portal (the password until sign-on, pass 6a)
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath='{.data.password}' | base64 -d
-argocd login local.barzel.sh --grpc-web-root-path argocd --username admin
+# Argo CD, through the portal, signed in with GitHub: open the URL it
+# prints (the callback on localhost:8085 needs the host's network)
+argocd login local.barzel.sh --grpc-web-root-path argocd --sso --sso-launch-browser=false
 argocd app list
+# in an emergency, without sign-on
+argocd --core app list
 argocd app diff portal
 
 # the cluster

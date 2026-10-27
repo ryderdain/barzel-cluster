@@ -7,7 +7,11 @@
 #   bash driver/driver.sh local up   | bash driver/kiesei.sh   # all at once
 #   bash driver/kiesei.sh shell                                # an interactive
 #                                 shell in the image, for the CLI tools (argocd,
-#                                 kubectl, helm, cnpg, ...); docs/guide/kiesei.md
+#                                 kubectl, helm, cnpg, ...); docs/guide/kiesei.md.
+#                                 In it you are yourself: kubectl uses the sign-on
+#                                 kubeconfig of the current run, and the shell
+#                                 signs in through Dex at its start
+#                                 (driver/lib/kiesei-shell.sh, Q193)
 #
 # Compare `| bash`, which runs the same stream with the host's tools. The stream
 # is identical either way: the locus is chosen by the pipe, not by the script.
@@ -28,6 +32,15 @@
 #   - the store's CA certificate (local-ca mode, BRZL_SECRET_STORE_DIR/ca.crt)
 #     in the container's trust store, so argocd, curl and kubectl trust the
 #     portal without a flag.
+#
+# When the stream ends, a phase may have left a host run sheet
+# (var/run/<env>/current/<NN>-host.sh, Q180): steps for this machine that
+# kiesei cannot do, such as name resolution and trust of the store's CA.
+# This script then runs it on the host, with the terminal as its input: the
+# sheet shows its steps and asks once before it uses sudo. Its output and exit
+# status go beside it (.out with the run-output header, .rc), as a phase's
+# do. A sheet runs again only when a phase writes it anew. Without a
+# terminal, this script names the sheet and leaves it.
 #
 # Execution-locus script (neither emit nor generator: like `bash`, it runs what
 # it is given). Inputs: BRZL_KIESEI_IMAGE (exported, or from env/local.env).
@@ -85,18 +98,43 @@ fi
 # the container uname says Linux.
 if [[ "${1:-}" == shell ]]; then
   tty_args=(-i); [[ -t 0 && -t 1 ]] && tty_args=(-it)   # a terminal, when there is one
+  # The shell's rc file makes the person themselves (lib/kiesei-shell.sh):
+  # it needs the current run and the portal's host name.
   exec docker run --rm "${tty_args[@]}" \
     --network host \
     --user 0:0 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$repo_root:$repo_root" -w "$repo_root" \
     "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
-    "$image" -c "$prelude; exec bash -l"
+    -e "BRZL_RUN=$repo_root/var/run/local/current" -e "BRZL_PORTAL_HOST=$portal_host" \
+    "$image" -c "$prelude; exec bash --rcfile $repo_root/driver/lib/kiesei-shell.sh -i"
 fi
-exec docker run --rm -i \
+docker run --rm -i \
   --network host \
   --user 0:0 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$repo_root:$repo_root" -w "$repo_root" \
   "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
   "$image" -c "$prelude; exec bash -s"
+rc=$?
+
+# The host run sheets (see the header), newer than their .rc.
+for sheet in "$repo_root"/var/run/*/current/*-host.sh; do
+  [[ -e "$sheet" ]] || continue
+  base="${sheet%.sh}"
+  [[ -e "$base.rc" && ! "$sheet" -nt "$base.rc" ]] && continue
+  if ! { : < /dev/tty; } 2>/dev/null; then
+    printf 'kiesei: the host run sheet %s waits for you: bash %q\n' "${sheet#"$repo_root"/}" "$sheet" >&2
+    continue
+  fi
+  env="${sheet#"$repo_root"/var/run/}"; env="${env%%/*}"
+  run="$(cd -- "${sheet%/*}" && pwd -P)"; run="${run##*/}"
+  printf '\nkiesei: steps on your machine, from %s\n' "${sheet#"$repo_root"/}" >&2
+  {
+    printf '# brzl run-output env=%s run=%s phase=%s start=%s\n' \
+      "$env" "$run" "${base##*/}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    bash "$sheet" < /dev/tty
+    printf '%s\n' "$?" > "$base.rc"
+  } 2>&1 | tee "$base.out"
+done
+exit "$rc"

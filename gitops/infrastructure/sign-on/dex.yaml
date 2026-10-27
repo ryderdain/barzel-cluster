@@ -1,0 +1,117 @@
+# Dex (chart dex 0.25.2, Dex v2.45.1): the OIDC issuer of sign-on (ADR-0035,
+# pass 6a), with GitHub as the identity provider. Served by the admin portal
+# under /dex/ (Q172), so the issuer is https://<portal host>/dex; the
+# ApplicationSet replaces each "localhost" below with the portal's host name
+# (portalHostParams). Browsers reach it through the portal, and so do the
+# pods of Argo CD, oauth2-proxy and Grafana (a rule in the cluster's
+# CoreDNS), and the kube-API (step 2; on the node, the portal's host name is
+# the portal's fixed Service address, Q186). The substrate adapter sets both.
+#
+# State in memory (Q178): a restart loses the signing keys and the sessions,
+# so everyone signs in again. Nothing else is lost.
+#
+# The access tiers (Q169, Q170, Q182) are three teams of the organization.
+# Dex lets in only members of those teams, and names them as groups
+# "<org>:<team>". The same names are in argocd/values.yaml (RBAC),
+# monitoring/values.yaml (Grafana's roles) and oauth2-proxy.yaml.
+image:
+  repository: ghcr.io/dexidp/dex   # the ApplicationSet sets the registry path
+# Memory storage needs no Kubernetes objects of its own.
+rbac:
+  create: false
+# The secrets (ExternalSecret dex-env, sign-on/secrets/).
+envFrom:
+  - secretRef:
+      name: dex-env
+config:
+  issuer: https://localhost/dex
+  storage:
+    type: memory
+  # Tokens (the security review of 2026-10-26, condition 1). An ID token
+  # lasts 1 hour, for every client: kubelogin and Grafana refresh theirs
+  # without a step, and Argo CD's UI asks for "Log in via GitHub" again (one
+  # click). A refresh token lasts 7 days, as the gate's cookie does, and
+  # dies after a day unused. At each refresh Dex reads the teams from GitHub
+  # again, so a removed person loses access within the hour.
+  expiry:
+    idTokens: 1h
+    refreshTokens:
+      reuseInterval: 3s
+      validIfNotUsedFor: 24h
+      absoluteLifetime: 168h
+  web:
+    http: 0.0.0.0:5556
+  oauth2:
+    skipApprovalScreen: true
+  enablePasswordDB: false
+  connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: $GITHUB_CLIENT_ID
+        clientSecret: $GITHUB_CLIENT_SECRET
+        redirectURI: https://localhost/dex/callback
+        orgs:
+          - name: tzvat
+            teams:
+              - brzl-admins
+              - brzl-operators
+              - brzl-auditors
+        teamNameField: slug
+        useLoginAsID: true
+  # One client for each application. Each confidential client's secret is
+  # an environment variable from dex-env.
+  staticClients:
+    - id: oauth2-proxy
+      name: Admin portal
+      secretEnv: OAUTH2_PROXY_CLIENT_SECRET
+      redirectURIs:
+        - https://localhost/oauth2/callback
+    - id: argo-cd
+      name: Argo CD
+      secretEnv: ARGOCD_CLIENT_SECRET
+      redirectURIs:
+        - https://localhost/argocd/auth/callback
+    - id: grafana
+      name: Grafana
+      secretEnv: GRAFANA_CLIENT_SECRET
+      redirectURIs:
+        - https://localhost/grafana/login/generic_oauth
+    # The Argo CD CLI (`argocd login <host> --sso`): a public client, with a
+    # callback on the operator's own machine.
+    - id: argo-cd-cli
+      name: Argo CD CLI
+      public: true
+      redirectURIs:
+        - http://localhost:8085/auth/callback
+    # kubectl (step 2 of pass 6a, Q174): kubelogin on the person's machine,
+    # a public client with the callback on localhost (kubelogin's default
+    # ports). The kube-API accepts only tokens with this audience.
+    - id: kubernetes
+      name: kubectl
+      public: true
+      redirectURIs:
+        - http://localhost:8000
+        - http://localhost:18000
+resources:
+  requests: { cpu: 10m, memory: 32Mi }
+  limits: { memory: 128Mi }
+# Dex writes its config, with the environment expanded, to a temporary file:
+# a writable /tmp, while the rest of the file system stays read-only.
+volumes:
+  - name: tmp
+    emptyDir: {}
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+# The image names its user (dex) and not its number, so the kubelet cannot
+# verify runAsNonRoot without the number: 1001 in the image's /etc/passwd.
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: ["ALL"] }
+  seccompProfile: { type: RuntimeDefault }

@@ -136,10 +136,6 @@ platform's registry. A tag is the workload's. An environment that follows
 the development branch gets the commit's tag from the SCM generator. One
 that follows a release gets the tag the manifests name (ADR-0034).
 
-**One older use.** `gitops/clusters/local/kustomization.yaml` combines the
-whole local stack into one directory. Only the legacy SSO bring-up
-(`gitops/clusters/local/k3d-up.sh --with-sso`) uses it. The driver does not.
-
 **The admin portal (pass 5c)** is a Kustomize directory,
 `gitops/infrastructure/portal/`: a Deployment of nginx, a Service, a
 Certificate, and a `configMapGenerator` that makes the ConfigMap from

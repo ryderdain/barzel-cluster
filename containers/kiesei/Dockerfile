@@ -7,8 +7,9 @@
 # from the same artifact: a laptop container, the cloud-init bootstrap VM
 # (../bootstrap-vm), or a k8s Job.
 #
-# Toolchain: tofu, ansible, kubectl, helm, kustomize, argocd, kubectl-cnpg,
-# aws-cli, session-manager-plugin, yq, trivy, tflint, psql, git, jq, tmux, k3d,
+# Toolchain: tofu, ansible, kubectl, helm, kustomize, argocd, kubelogin,
+# kubectl-cnpg, aws-cli, session-manager-plugin, yq, trivy, tflint, psql, git,
+# jq, tmux, k3d,
 # and the docker CLI (driver mode: it drives the host's engine through the
 # mounted socket — see driver/kiesei.sh) — see the pinned ARGs below.
 #
@@ -47,6 +48,7 @@ ARG ANSIBLE_POSIX_VERSION=2.2.0
 ARG KUBERNETES_CORE_VERSION=6.4.0
 ARG KUSTOMIZE_VERSION=5.8.1
 ARG ARGOCD_VERSION=3.4.3
+ARG KUBELOGIN_VERSION=1.36.4
 ARG CNPG_PLUGIN_VERSION=1.29.1
 ARG YQ_VERSION=4.53.2
 ARG TRIVY_VERSION=0.71.0
@@ -152,6 +154,18 @@ RUN set -eux; \
     install -m 0755 "${f}" /usr/local/bin/argocd; \
     rm -f "${f}" cli_checksums.txt; \
     argocd version --client
+
+# --- kubelogin (kubectl through Dex; verify against the published .sha256) --
+RUN set -eux; \
+    f="kubelogin_linux_${TARGETARCH}.zip"; \
+    base="https://github.com/int128/kubelogin/releases/download/v${KUBELOGIN_VERSION}"; \
+    curl -fsSLO "${base}/${f}"; \
+    curl -fsSLo "${f}.sha256" "${base}/${f}.sha256"; \
+    sha256sum -c "${f}.sha256"; \
+    unzip -q "${f}" kubelogin -d /usr/local/bin; \
+    ln -s /usr/local/bin/kubelogin /usr/local/bin/kubectl-oidc_login; \
+    rm -f "${f}" "${f}.sha256"; \
+    kubelogin version
 
 # --- kubectl-cnpg plugin (verify against published checksums.txt) -----------
 RUN set -eux; \

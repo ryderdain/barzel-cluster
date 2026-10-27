@@ -34,7 +34,7 @@
 #   prefixParams          chart values set to <prefix>/<path>, for a chart that
 #                         takes the host separately (global.imageRegistry)
 #   portalHostParams      chart values set to <prefix><the admin portal's host
-#                         name>, each a map {name, prefix}
+#                         name><suffix>, each a map {name, prefix, suffix}
 #   envParams             chart values set to the environment's name
 #
 # A kustomize element's path may carry __ENV__, replaced by the env label: the
@@ -65,9 +65,9 @@
 # Sync waves (annotation, per element): -1 argocd self-manage, 0 ebs-csi+gp3,
 # 1 operators (cnpg, external-secrets, cert-manager, monitoring) and the log
 # stack (log-store-admin, log-store-diagnostic, log-collector; ADR-0027), 2
-# secret-store, pki, 3 the example app (with its own Postgres Cluster), 4 the
-# admin portal (nginx names the Services it passes to, so they must exist
-# first).
+# secret-store, pki and sign-on-secrets, 3 sign-on (dex, oauth2-proxy;
+# ADR-0035) and the example app (with its own Postgres Cluster), 4 the admin
+# portal (nginx names the Services it passes to, so they must exist first).
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -105,6 +105,10 @@ spec:
                     - name: global.image.repository
                       upstream: quay
                       path: argoproj/argocd
+                  portalHostParams:
+                    - name: configs.cm.url
+                      prefix: https://
+                      suffix: /argocd
                 - appName: cnpg-operator
                   kind: helm
                   wave: "1"
@@ -205,6 +209,16 @@ spec:
                   portalHostParams:
                     - name: grafana.grafana\.ini.server.domain
                       prefix: ""
+                      suffix: ""
+                    - name: grafana.grafana\.ini.auth\.generic_oauth.auth_url
+                      prefix: https://
+                      suffix: /dex/auth
+                    - name: grafana.grafana\.ini.auth\.generic_oauth.token_url
+                      prefix: https://
+                      suffix: /dex/token
+                    - name: grafana.grafana\.ini.auth\.generic_oauth.api_url
+                      prefix: https://
+                      suffix: /dex/userinfo
                 # The log stack (ADR-0027): two Loki installations from one
                 # chart, set apart by their values files, and the node
                 # collector. The names are the Services the collector and
@@ -261,8 +275,10 @@ spec:
                   portalHostParams:
                     - name: extraManifests[0].spec.commonName
                       prefix: log-intake.
+                      suffix: ""
                     - name: extraManifests[0].spec.dnsNames[0]
                       prefix: log-intake.
+                      suffix: ""
                 - appName: secret-store
                   kind: kustomize
                   wave: "2"
@@ -279,6 +295,84 @@ spec:
                   # The environment's TLS mode: the ClusterIssuer the portal's
                   # Certificate names (ADR-0036).
                   path: gitops/clusters/__ENV__/pki
+                # Sign-on (ADR-0035): the Secrets from the store, then Dex (the
+                # issuer, served by the portal under /dex/) and oauth2-proxy
+                # (the portal's gate). Each "localhost" in their values
+                # becomes the portal's host name.
+                - appName: sign-on-secrets
+                  kind: kustomize
+                  wave: "2"
+                  namespace: sign-on
+                  serverSideApply: "false"
+                  path: gitops/infrastructure/sign-on/secrets
+                # What each tier may do with kubectl in this environment
+                # (sign-on step 2, Q182): the bindings for the groups that
+                # the kube-API takes from Dex.
+                - appName: access
+                  kind: kustomize
+                  wave: "3"
+                  namespace: sign-on
+                  serverSideApply: "false"
+                  path: gitops/clusters/__ENV__/access
+                - appName: dex
+                  kind: helm
+                  wave: "3"
+                  namespace: sign-on
+                  serverSideApply: "false"
+                  chartRepo: https://charts.dexidp.io
+                  chart: dex
+                  chartVersion: "0.25.2"
+                  valueFile: gitops/infrastructure/sign-on/dex.yaml
+                  imageParams:
+                    - name: image.repository
+                      upstream: github
+                      path: dexidp/dex
+                  portalHostParams:
+                    - name: config.issuer
+                      prefix: https://
+                      suffix: /dex
+                    - name: config.connectors[0].config.redirectURI
+                      prefix: https://
+                      suffix: /dex/callback
+                    - name: config.staticClients[0].redirectURIs[0]
+                      prefix: https://
+                      suffix: /oauth2/callback
+                    - name: config.staticClients[1].redirectURIs[0]
+                      prefix: https://
+                      suffix: /argocd/auth/callback
+                    - name: config.staticClients[2].redirectURIs[0]
+                      prefix: https://
+                      suffix: /grafana/login/generic_oauth
+                - appName: oauth2-proxy
+                  kind: helm
+                  wave: "3"
+                  namespace: sign-on
+                  serverSideApply: "false"
+                  chartRepo: https://oauth2-proxy.github.io/manifests
+                  chart: oauth2-proxy
+                  chartVersion: "10.6.2"
+                  valueFile: gitops/infrastructure/sign-on/oauth2-proxy.yaml
+                  moreValueFilesLocal:
+                    - gitops/infrastructure/sign-on/oauth2-proxy-local.yaml
+                  hostParams:
+                    - image.registry
+                  prefixParams:
+                    - name: image.repository
+                      upstream: quay
+                      path: oauth2-proxy/oauth2-proxy
+                  portalHostParams:
+                    - name: extraArgs.oidc-issuer-url
+                      prefix: https://
+                      suffix: /dex
+                    - name: extraArgs.redirect-url
+                      prefix: https://
+                      suffix: /oauth2/callback
+                    - name: extraArgs.whitelist-domain
+                      prefix: ""
+                      suffix: ""
+                    - name: extraArgs.extra-jwt-issuers
+                      prefix: https://
+                      suffix: /dex=argo-cd-cli
                 - appName: portal
                   kind: kustomize
                   wave: "4"
@@ -440,7 +534,7 @@ spec:
               {{- end }}
               {{- range .portalHostParams }}
               - name: {{ .name }}
-                value: "{{ .prefix }}{{ index $ann "brzl.dev/portal-host" }}"
+                value: "{{ .prefix }}{{ index $ann "brzl.dev/portal-host" }}{{ .suffix }}"
               {{- end }}
               {{- range .envParams }}
               - name: {{ . }}

@@ -485,3 +485,138 @@ shows only in Grafana and Prometheus (BACKLOG 21: a channel).
   claims a Ready pod that is not terminating and resets its idle timer.
   It stops with a message when the pod is gone.
 
+## 2026-10-23 — pass 6a, step 1: web sign-on
+
+User-verified on sleipnir. Every environment has sign-on in front of the
+admin portal (ADR-0035 amendment, Q169–Q185). Dex is the OIDC issuer at
+`/dex/`, with GitHub as the identity provider and one OAuth App for each
+environment. nginx asks oauth2-proxy about each request. Argo CD and
+Grafana are clients of Dex, and their built-in logins are off. Three
+access tiers are three GitHub teams. The workloads are outside sign-on.
+Phase 10 writes a host run sheet for the steps on the operator's machine,
+and `driver/kiesei.sh` runs it on the host (Q180). The legacy `--with-sso`
+path is removed.
+
+- **Checks.** The teams and the OAuth App were made with
+  `driver/access/github.sh`. After a new `up`, phase 40 passed. In the
+  browser, GitHub's approval led to the portal page. Argo CD's "Log in via
+  GitHub" gave the admin tier, and Grafana signed in as Admin. The example
+  app opened without sign-in in a private window. The host run sheet
+  reported its steps done.
+- **Sign-out.** Grafana's and the portal's "Sign out" sign the person in
+  again at once, because GitHub keeps its own session. Kept as it is for
+  now (Q185, BACKLOG 26).
+- **Found in the live test, each fixed and pushed:**
+  - The Dex image names its user, not its number, so the kubelet could
+    not verify `runAsNonRoot`. Then Dex needed a writable `/tmp` for its
+    expanded config.
+  - On a new cluster, the `grafana-admin` ExternalSecret failed while the
+    External Secrets webhook was not ready. The sync then waited for
+    Grafana without end. The ExternalSecret now has its own sync wave.
+  - An interrupted driver left phase 40 running in the conductor. The
+    next run started a second run, and the first run's exit status was
+    taken as the second's. `conductor.sh` now follows a run that still
+    runs, and never starts a second.
+  - nginx made the redirect to sign in absolute, with its container port
+    8443. Its redirects are relative now.
+  - argocd-server reads the Secrets that `oidc.config` names only when it
+    starts, and it started before External Secrets made the Secret. Its
+    settings API showed the right issuer, so phase 40 passed, but the
+    sign-in failed. Phase 25 now writes that Secret from the store and
+    restarts argocd-server when it changes. Phase 40 checks the order.
+
+## 2026-10-27 — pass 6a, step 2: `kubectl` through Dex
+
+User-verified on sleipnir: `kubectl auth whoami` with the sign-on
+kubeconfig answers `oidc:ryderdain`, with the group
+`oidc:tzvat:brzl-admins`, from the cached token and without a browser
+step. The design is Q186–Q192 with the conditions of an outside security
+review (ADR-0035, "As built", step 2). The kube-API trusts Dex through a
+structured `AuthenticationConfiguration` that phase 10 writes and the
+node mounts, and the API server reads again when it changes. Phase 10
+also writes `kubeconfig-sign-on` (no secret), whose user runs kubelogin,
+pinned in kiesei. The portal has a fixed Service address on local. The
+tiers' bindings are in `gitops/clusters/<env>/access/`. Dex's ID tokens
+last 1 hour and its refresh tokens 7 days. The gate and Grafana refresh
+every hour, so a removed person loses access within the hour. A
+NetworkPolicy admits only the collector, Grafana and itself to the admin
+log store. Phase 40 checks the parts: PKCE, the portal's address, the
+tiers' rights by impersonation, the policy.
+
+- **Checks.** Phase 40 passed on a new cluster, with the user running
+  phase 10 twice to confirm idempotency. The kube-API named the person.
+  SECURITY.md and SECRETS.md carry the review's findings (the four roots
+  of trust, the flows by scenario, sessions and revocation, the per-root
+  tables).
+- **Not yet run when this was written.** The `up` with the durable hosts
+  script (the user's next step). The audit log read in Grafana. The
+  hourly re-login in Argo CD. The merge to `main`. SCRATCHPAD holds them.
+- **Found in the live test, each fixed and pushed:**
+  - `ca.crt` has no newline at its end. So `sed` ran the certificate's
+    last line into the next heredoc, the API server refused the file,
+    and `k3d cluster create` waited without end. `awk` writes it now,
+    and phase 10's check parses the file.
+  - The substrate check looked for the host alias in CoreDNS before k3d
+    and k3s settled it (gone with the next item).
+  - The `v1` exec API requires `interactiveMode`. Phase 10 sets `Never`,
+    as kubelogin's own setup does.
+  - Docker Desktop's "Enable host networking" was off, so no callback
+    from a container could reach the browser. A probe listener proved it
+    for `0.0.0.0` and `127.0.0.1` alike. With it on, both reach the Mac.
+    LOCAL.md names the setting and the symptom. A wrapper added on a
+    wrong guess (only `0.0.0.0` forwarded) was reverted.
+  - A Docker Desktop restart dropped both lines of k3d's `--host-alias`
+    (the node's `/etc/hosts` and CoreDNS's NodeHosts), so the API server
+    resolved the issuer to `127.0.0.1` and refused a correct token. The
+    node now runs a k3d entrypoint script at every start, and the pods
+    keep step 1's CoreDNS rule: two mechanisms, against Q186's one,
+    recorded in the ADR.
+- **Decided on the way.** Q191 (a): 1-hour ID tokens, so Argo CD's UI
+  asks for a click every hour. Q192 (a): the sign-in stays in kiesei. A
+  remote shell gets the device code later (BACKLOG 32). The user's
+  side-channel question moved the fixed address into the local overlay,
+  with the range explained.
+
+## 2026-10-27 — pass 6a, step 2, addendum: the kiesei shell and the CLI path
+
+User-verified on sleipnir, after the entry above. The durable `up` (the
+node's hosts script, the CoreDNS rule) passed its checks, and the sign-in
+again. The kiesei shell makes the person the default (Q193):
+`driver/lib/kiesei-shell.sh` sets the sign-on kubeconfig and signs in at
+its start. It gives `argocd` a helper that signs in on first use, with
+its session in the run directory. `argocd app list` from the shell
+printed the applications through the gate.
+
+- **Found in the live test, each fixed and pushed.** Three faults in step
+  1's CLI path, which step 1's test had not covered. The CLI reads Argo
+  CD's settings over gRPC-web, not REST, so that path had to be outside
+  the gate too. Its service is `cluster.SettingsService` (argocd-server:
+  "unknown service"). The CLI sends its token in a header named `token`,
+  not as a bearer, so the gate ignored it. nginx now maps that header to
+  the bearer for the gate's subrequest.
+- **Docker Desktop.** "Enable host networking" must be on for any
+  callback to reach the browser (LOCAL.md).
+- **Not yet run:** the audit log read in Grafana, the hourly re-login in
+  Argo CD, the merge to `main`.
+
+## 2026-10-27 — pass 6a, step 2, second addendum: the last checks, the merge
+
+User-verified on sleipnir, after the entries above. The two checks that
+the first addendum listed as not yet run passed. Pass 6a is done: web
+sign-on, `kubectl` through Dex, the kiesei shell, the Argo CD CLI through
+the gate, and the auth flows as six diagrams in SECURITY.md. Merged to
+`main`.
+
+- **The audit log names the person.** The user ran `kubectl get nodes`
+  from the kiesei shell. In Grafana (Explore, the data source "Admin log
+  store"), the query
+  `{brzl_store="admin-log-store", brzl_source="api-audit"} |= "oidc:ryderdain"`
+  returned its records.
+  The same query through the API server's proxy to the store, as phase
+  40 runs it, returned one stream with several values.
+- **The hourly click in Argo CD.** Argo CD was opened through the portal
+  at 12:55 CET. A reload at 14:59 showed a "Grant Access" page, and one
+  click restored the session, with no step at GitHub. The ID token lasted
+  its hour (Q191), as designed. One open point: that page is Dex's
+  approval page, and Dex's `skipApprovalScreen` is on, so the page was
+  not expected. Which client asked, and why, is BACKLOG 33.

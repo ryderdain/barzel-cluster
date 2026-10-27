@@ -283,29 +283,20 @@ the query + results to Postgres while logging the outbound call — so the CNPG 
 `demoapp_*` panels show real traffic. Its `/metrics` are scraped by the
 ServiceMonitor above.
 
-### Operator SSO gateway — optional differentiator (local) 🧩
+### Sign-on
 
-> **Scope:** this is an **optional add-on, not part of the core deliverable.** The
-> core platform (Terraform → Ansible k3s → ArgoCD → CloudNativePG → demo-app, on AWS)
-> stands up and is operated **without it**. SSO is a self-contained extra that lives
-> only under [`gitops/clusters/local/sso/`](gitops/clusters/local/sso) and is brought
-> up on the **local k3d** cluster with a single opt-in flag (`k3d-up.sh --with-sso`).
-> It carries its **own** one-time pre-staging — a **GitHub OAuth App** + a **FreeDNS**
-> credential — entirely separate from the core's image-supply-chain creds (the
-> quay/ghcr/Docker-Hub ECR pull-through tokens, which the core needs regardless). Skip
-> this whole section and the core platform is unaffected.
-
-Per-service admin+password logins are the wrong posture for a team. The optional
-answer — built and proven on the **local k3d cluster** (no billing meter), portable
-to AWS unchanged — is a self-hosted **operator SSO gateway**: **Dex** federates a
-GitHub OAuth App and issues one OIDC identity that gates the web UIs **and** the
-kube-API. Three role tiers (`users` → the demo app; `operators` → Grafana/Prometheus;
-`admins` → org-team only), real **Let's Encrypt** certs via **cert-manager + DNS-01**
-over the operator's own `*.sso.barzel.sh`, and `kubectl` by the same GitHub identity
-through `oidc-login`. Access to the app UI never grants the operational UIs. Stand it
-up with `k3d-up.sh --with-sso` — rationale in
-[ADR-0018](docs/adr/0018-operator-sso-gateway-dex-github-local-first.md),
-onboarding + tiers in [`docs/ACCESS.md`](docs/ACCESS.md), steps in [`docs/LOCAL.md`](docs/LOCAL.md).
+Every environment has one sign-on in front of the admin portal (ADR-0035,
+pass 6a). Dex is the OIDC issuer, under the portal at `/dex/`, with GitHub
+as the identity provider. nginx asks oauth2-proxy about each request, so no
+path of the portal opens before a person signs in. Argo CD and Grafana are
+clients of Dex themselves. Their built-in admin logins are off. Three access
+tiers are three GitHub teams: `brzl-admins`, `brzl-operators` and
+`brzl-auditors`. The workloads stay outside sign-on. `kubectl` uses the
+same identity: a second kubeconfig in the run directory signs in through
+Dex with kubelogin, and the kube-API names the person. The flows, and what
+GitHub gives Dex at sign-in, are in [docs/SECURITY.md](docs/SECURITY.md).
+The steps are in [docs/LOCAL.md](docs/LOCAL.md) and
+[docs/INSTALL.md](docs/INSTALL.md).
 
 ## Documentation map
 

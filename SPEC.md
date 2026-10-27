@@ -133,8 +133,19 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **The admin portal (2026-10-14, ADR-0028).** One nginx in the cluster
   serves a static page and passes each path to its service (`/argocd/`,
   `/grafana/`, `/apps/<workload>/`): one host name, one certificate, the
-  same page on every environment, the same URL for HTTP CLI tools. Sign-on,
-  later, leads to it.
+  same page on every environment, the same URL for HTTP CLI tools. Sign-on
+  leads to it, in every environment (Q177).
+- **Sign-on (2026-10-23, ADR-0035 amendment).** Dex under the portal at
+  `/dex/`, GitHub as the identity provider, one OAuth App for each
+  environment. nginx asks oauth2-proxy about each request. Argo CD and
+  Grafana are clients of Dex themselves. The built-in logins are off. Three
+  access tiers from GitHub teams (`brzl-admins`, `brzl-operators`,
+  `brzl-auditors`). Workloads are outside sign-on. The CLI with the
+  kubeconfig is the emergency path. `kubectl` uses the same identity (step
+  2, 2026-10-27): the kube-API trusts Dex through a structured
+  authentication configuration, and bindings in each environment give the
+  tiers their rights. ID tokens last 1 hour, so a removed person loses
+  access within the hour.
 - **Certificates and the local stand-ins (2026-10-15, ADR-0036).**
   cert-manager is a platform component on every substrate; it renews the
   portal's certificate from the `ClusterIssuer` that each environment's
@@ -400,6 +411,20 @@ rather than replacing it.
 
 ## 10. Changelog
 
+- **v0.19 (2026-10-27):** Pass 6a step 2, `kubectl` through Dex
+  (Q186–Q191), with the conditions of an outside security review. The
+  kube-API trusts Dex through a structured authentication configuration.
+  Local has a fixed portal address, and kiesei has kubelogin. ID tokens
+  last 1 hour, the teams are checked again every hour, and a NetworkPolicy
+  guards the admin log store. SECURITY.md gains the roots of trust, the
+  flows by scenario and the session table. SECRETS.md gains the per-root
+  tables.
+- **v0.18 (2026-10-23):** Pass 6a design (Q169–Q183, ADR-0035 and
+  ADR-0028 amendments) and step 1, web sign-on. Dex and oauth2-proxy run
+  in the namespace `sign-on`, with the gate on the portal. Argo CD and
+  Grafana are Dex clients. Three tiers come from GitHub teams, and the
+  built-in logins are off. A host run sheet does the steps on the
+  operator's machine (Q180). The legacy `--with-sso` path is removed.
 - **v0.17 (2026-10-22):** BACKLOG 20 (Q167, Q168, ADR-0025 amendment). A
   failed sync is retried with no limit. Phase 40 names an Application that
   fails 3 times or more. The alert `BrzlSyncFailing` fires at 3 (warning)

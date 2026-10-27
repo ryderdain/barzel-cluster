@@ -6,7 +6,9 @@
 #   substrate_network_up            EMIT: the container network the registry,
 #                                   the secret store and the cluster share
 #   substrate_up <run_dir>          EMIT: make the registry and the cluster;
-#                                   write <run_dir>/kubeconfig
+#                                   write <run_dir>/kubeconfig and the
+#                                   kube-API's authentication configuration,
+#                                   <run_dir>/apiserver/
 #   substrate_down                  EMIT: remove the cluster (the registry and
 #                                   the collector beside it stay)
 #   substrate_image_ref <name:tag>  print the reference to push a locally built
@@ -63,9 +65,23 @@
 # brzl-<env>.localhost) resolves to 127.0.0.1 by itself on macOS and in
 # browsers, so it needs no stand-in.
 #
+# Sign-on (ADR-0035). The pods and the kube-API reach Dex at the issuer URL,
+# as browsers do: in the cluster's CoreDNS the portal's host name is the
+# portal's Service (cluster_dns_up, a rule in the ConfigMap coredns-custom),
+# and on the node it is the portal's fixed Service address
+# (BRZL_PORTAL_CLUSTER_IP), written into /etc/hosts by a k3d entrypoint
+# script at every start (node_hosts_up). k3d's own `--host-alias` was tried
+# first: it writes once, at create, and a restart of the container loses
+# its lines (2026-10-27). The kube-API trusts Dex through a structured
+# authentication configuration (api_auth_config_up), a file in
+# <run_dir>/apiserver/ that the server node mounts; the API server reads it
+# again when it changes. Its path is a k3s argument, fixed when the cluster
+# is made, and so is the script's mount: a cluster from before them needs
+# `down`, then `up`.
+#
 # Sourced by driver/phases/*.sh, never run on its own. Inputs: BRZL_K3D_*,
 # BRZL_K3S_IMAGE, BRZL_DOCKER_NETWORK, BRZL_ZOT_*, BRZL_DNS_*, BRZL_PORTAL_*,
-# BRZL_LOG_* from the environment definition. Needs k3d, docker, kubectl, curl, dig. No
+# BRZL_LOG_* from the environment definition. Needs k3d, docker, kubectl, curl, dig, yq. No
 # credentials (anonymous upstream pulls). The sourcing phase script sets
 # repo_root.
 # shellcheck disable=SC2154
@@ -129,27 +145,134 @@ substrate_up() {
   printf '}\n'
   dns_up
   log_collector_up "$run_dir"
-  local arg
+  api_auth_config_up "$run_dir"
+  node_hosts_up "$run_dir"
+  local arg run_abs="$run_dir"
+  [[ "$run_abs" == /* ]] || run_abs="$repo_root/$run_abs"
   printf '{ # k3d cluster %s (no Traefik, no servicelb; the portal NodePort on host port %s;\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_PORTAL_PORT"
-  printf '  # the admin log store'"'"'s data and the API audit policy mounted in), and its kubeconfig\n'
+  printf '  # the admin log store'"'"'s data, the API audit policy, the API authentication config\n'
+  printf '  # and the node'"'"'s hosts script mounted in), and its kubeconfig\n'
   printf '  k3d cluster create %q --image %q --servers %q --agents %q \\\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_K3S_IMAGE" "$BRZL_K3D_SERVERS" "$BRZL_K3D_AGENTS"
   printf '    --api-port %q --network %q --registry-config %q \\\n' \
     "127.0.0.1:$BRZL_K3D_API_PORT" "$BRZL_DOCKER_NETWORK" "$run_dir/registries.yaml"
   printf '    --volume %q \\\n' \
     "$repo_root/$BRZL_LOG_STORE_DIR/admin:/var/lib/brzl/admin-log-store@server:0" \
-    "$repo_root/driver/substrates/k3s-audit-policy.yaml:/etc/brzl/audit-policy.yaml@server:*"
+    "$repo_root/driver/substrates/k3s-audit-policy.yaml:/etc/brzl/audit-policy.yaml@server:*" \
+    "$run_abs/apiserver:/etc/brzl/apiserver@server:*" \
+    "$run_abs/node-hosts.sh:/bin/k3d-entrypoint-brzl-hosts.sh@server:*"
   for arg in --disable=traefik,servicelb \
       --kube-apiserver-arg=audit-policy-file=/etc/brzl/audit-policy.yaml \
       --kube-apiserver-arg=audit-log-path=/var/log/kubernetes/audit/audit.log \
       --kube-apiserver-arg=audit-log-maxsize=50 --kube-apiserver-arg=audit-log-maxbackup=3 \
+      "--kube-apiserver-arg=authentication-config=$api_auth_config_path" \
       --log=/var/log/k3s.log --alsologtostderr; do
     printf '    --k3s-arg %q \\\n' "$arg@server:*"
   done
   printf '    --port %q --wait\n' "127.0.0.1:$BRZL_PORTAL_PORT:$BRZL_PORTAL_NODE_PORT@server:0"
   printf '  k3d kubeconfig get %q > %q\n' "$BRZL_K3D_CLUSTER" "$run_dir/kubeconfig"
   printf '}\n'
+  cluster_dns_up
+}
+
+# cluster_dns_up — EMIT: in the cluster, the portal's host name is the
+# portal's Service. Browsers reach Dex at https://<host>/dex through the
+# portal; Argo CD, oauth2-proxy and Grafana must reach the same issuer URL
+# from their pods (sign-on, pass 6a). k3s's CoreDNS reads extra rules from
+# the ConfigMap coredns-custom; the restart makes it read them at once.
+cluster_dns_up() {
+  local svc=portal.portal.svc.cluster.local
+  printf '{ # in the cluster, %s is the portal'"'"'s Service (so pods reach Dex at the issuer URL)\n' "$BRZL_PORTAL_HOST"
+  printf "  kubectl apply -f - <<'EOF'\n"
+  printf 'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: coredns-custom\n  namespace: kube-system\n'
+  printf 'data:\n  brzl-portal.override: |\n'
+  printf '    rewrite stop {\n      name exact %s %s\n      answer name %s %s\n    }\n' \
+    "$BRZL_PORTAL_HOST" "$svc" "$svc" "$BRZL_PORTAL_HOST"
+  printf 'EOF\n'
+  printf '  kubectl -n kube-system rollout restart deployment/coredns\n'
+  printf '}\n'
+}
+
+# node_hosts_up <run_dir> — EMIT: write <run_dir>/node-hosts.sh, a k3d
+# entrypoint script that the server node runs at every start
+# (/bin/k3d-entrypoint-*.sh): it puts the portal's host name, as the
+# portal's fixed Service address, into the node's /etc/hosts, so the
+# kube-API reaches Dex at the issuer URL (sign-on step 2, Q186). The file is
+# rewritten in place on each run, because the node mounts that one file.
+node_hosts_up() {
+  local file="$1/node-hosts.sh"
+  printf '{ # the node'"'"'s hosts script: at every start, %s is the portal'"'"'s address %s on the node\n' \
+    "$BRZL_PORTAL_HOST" "$BRZL_PORTAL_CLUSTER_IP"
+  printf "  cat > %q <<'EOF'\n" "$file"
+  printf '#!/bin/sh\n'
+  printf '# brzl: the portal'"'"'s host name is its fixed Service address (sign-on); k3d runs this at every start\n'
+  printf "grep -q ' %s\$' /etc/hosts || printf '%s %s\\\\n' >> /etc/hosts\n" \
+    "$BRZL_PORTAL_HOST" "$BRZL_PORTAL_CLUSTER_IP" "$BRZL_PORTAL_HOST"
+  printf 'EOF\n'
+  printf '  chmod 0755 %q\n' "$file"
+  printf '}\n'
+}
+
+# The kube-API's authentication configuration, where the server node sees it.
+api_auth_config_path=/etc/brzl/apiserver/authentication-config.yaml
+
+# api_auth_config_up <run_dir> — EMIT: write <run_dir>/apiserver/
+# authentication-config.yaml, the kube-API's trust in Dex (sign-on step 2,
+# Q174): ID tokens from the issuer https://<portal host>/dex for the audience
+# `kubernetes`; the person is `oidc:<login>` and their teams
+# `oidc:<org>:<team>` (Q190). The server node mounts the directory, and the
+# API server reads the file again when it changes, so a later change needs
+# no new cluster; the file is replaced by rename, which a mounted directory
+# shows and a mounted file would not. In local-ca mode the store's CA goes
+# in, so the file is written after the CA exists (phase 10 makes it first).
+api_auth_config_up() {
+  local dir="$1/apiserver" file="$1/apiserver/authentication-config.yaml"
+  printf '{ # the kube-API trusts Dex at https://%s/dex (sign-on step 2); the API server reads this file again when it changes\n' "$BRZL_PORTAL_HOST"
+  printf '  mkdir -p %q\n' "$dir"
+  printf '  {\n'
+  printf "    cat <<'EOF'\n"
+  printf 'apiVersion: apiserver.config.k8s.io/v1beta1\nkind: AuthenticationConfiguration\n'
+  printf 'jwt:\n  - issuer:\n      url: https://%s/dex\n      audiences: [kubernetes]\n' "$BRZL_PORTAL_HOST"
+  if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
+    # awk, not sed: ca.crt has no newline at its end, and sed would keep it
+    # that way, so the next line would run into the certificate (seen in
+    # the live test of 2026-10-27).
+    printf '      certificateAuthority: |\n'
+    printf 'EOF\n'
+    # shellcheck disable=SC2016  # $0 is awk's
+    printf '    awk %s %q\n' "$(squote '{ print "        " $0 }')" "$BRZL_SECRET_STORE_DIR/ca.crt"
+    printf "    cat <<'EOF'\n"
+  fi
+  printf '    claimMappings:\n'
+  printf '      username:\n        claim: preferred_username\n        prefix: "oidc:"\n'
+  printf '      groups:\n        claim: groups\n        prefix: "oidc:"\n'
+  printf 'EOF\n'
+  printf '  } > %q\n' "$file.new"
+  printf '  mv %q %q\n' "$file.new" "$file"
+  printf '}\n'
+}
+
+# substrate_host_steps — print the part of the host run sheet (phase 10,
+# Q180) that makes the operator's machine resolve the portal's host name:
+# on macOS a file in /etc/resolver that sends the name to the DNS stand-in,
+# on Linux a line in /etc/hosts. Each step is added only when it is not
+# done; the sheet runs on the host, so it can tell. Nothing for a .localhost
+# name.
+# shellcheck disable=SC2016  # the host run sheet expands these, not this script
+substrate_host_steps() {
+  local host="$BRZL_PORTAL_HOST" want
+  dns_needed || return 0
+  want="nameserver 127.0.0.1"$'\n'"port $BRZL_DNS_PORT"
+  printf '# resolve %s: ask the DNS stand-in on 127.0.0.1:%s (macOS), or /etc/hosts (Linux)\n' "$host" "$BRZL_DNS_PORT"
+  printf 'if [[ "$(uname)" == Darwin ]]; then\n'
+  printf '  if [[ "$(cat %s 2>/dev/null)" != %q ]]; then\n' "/etc/resolver/$host" "$want"
+  printf '    steps+=(%s\n' "$(squote "sudo mkdir -p /etc/resolver")"
+  printf '           %s)\n' "$(squote "printf 'nameserver 127.0.0.1\\nport $BRZL_DNS_PORT\\n' | sudo tee /etc/resolver/$host >/dev/null")"
+  printf '  fi\n'
+  printf 'elif ! grep -Eq %s /etc/hosts; then\n' "$(squote "^127\\.0\\.0\\.1[[:space:]]+(.*[[:space:]])?${host//./\\.}([[:space:]]|\$)")"
+  printf '  steps+=(%s)\n' "$(squote "printf '127.0.0.1 $host\\n' | sudo tee -a /etc/hosts >/dev/null")"
+  printf 'fi\n'
 }
 
 # log_collector_up <run_dir> — EMIT: the log store's directories and the
@@ -216,12 +339,13 @@ dns_up() {
   printf '}\n'
 }
 
-# dns_check — GENERATOR: the stand-in runs (and answers, where dig exists).
+# dns_check <run_dir> — GENERATOR: the stand-in runs (and answers, where dig exists).
 # Whether the operator's machine asks it is checked only when the check runs
-# on that machine (macOS); from kiesei it cannot be, so the one-time line is
-# printed as information. Never a failure: it is the operator's machine.
+# on that machine; in kiesei (BRZL_HOST_OS is set) it cannot be, so the check
+# names the host run sheet as information. Never a failure: it is the
+# operator's machine.
 dns_check() {
-  local answer resolver="/etc/resolver/$BRZL_PORTAL_HOST"
+  local answer
   if ! dns_needed; then
     printf 'portal host %s is under .localhost: it resolves to 127.0.0.1 by itself (no DNS stand-in)\n' "$BRZL_PORTAL_HOST"
     return 0
@@ -239,24 +363,17 @@ dns_check() {
     fi
   fi
   printf 'local DNS stand-in %s runs: %s -> 127.0.0.1 on 127.0.0.1:%s\n' "$BRZL_DNS_NAME" "$BRZL_PORTAL_HOST" "$BRZL_DNS_PORT"
-  case "$(host_os)" in
-    Darwin)
-      if [[ "$(uname)" == Darwin ]] \
-          && [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" == *'ip_address: 127.0.0.1'* ]]; then
-        return 0
-      fi
-      operator_step "so that your machine asks the stand-in for $BRZL_PORTAL_HOST (skip if done):" \
-        "sudo mkdir -p /etc/resolver" \
-        "printf 'nameserver 127.0.0.1\\nport $BRZL_DNS_PORT\\n' | sudo tee $resolver >/dev/null"
-      ;;
-    *)
-      if [[ "$(uname)" != Darwin ]] && getent hosts "$BRZL_PORTAL_HOST" >/dev/null 2>&1; then
-        return 0
-      fi
-      operator_step "so that your machine resolves $BRZL_PORTAL_HOST (skip if done; /etc/resolver is macOS-only):" \
-        "printf '127.0.0.1 $BRZL_PORTAL_HOST\\n' | sudo tee -a /etc/hosts >/dev/null"
-      ;;
-  esac
+  if [[ -n "${BRZL_HOST_OS:-}" ]]; then
+    printf 'whether your machine resolves %s is in the host run sheet (10-host.sh, docs/LOCAL.md)\n' "$BRZL_PORTAL_HOST"
+    return 0
+  fi
+  if [[ "$(uname)" == Darwin ]]; then
+    [[ "$(dscacheutil -q host -a name "$BRZL_PORTAL_HOST" 2>/dev/null)" == *'ip_address: 127.0.0.1'* ]] && return 0
+  else
+    getent hosts "$BRZL_PORTAL_HOST" >/dev/null 2>&1 && return 0
+  fi
+  operator_step "your machine does not resolve $BRZL_PORTAL_HOST yet. The host run sheet does it:" \
+    "bash $1/10-host.sh"
 }
 
 substrate_down() {
@@ -330,7 +447,43 @@ substrate_check() {
     return 1
   fi
   printf 'the collector beside the cluster %s runs\n' "$BRZL_LOG_COLLECTOR_NAME"
-  dns_check
+  # Sign-on step 2: the hosts script's mount and the authentication config
+  # are set when the cluster is made, so a cluster from before them must be
+  # remade. The hosts line itself is written at every start of the node.
+  local node="k3d-$BRZL_K3D_CLUSTER-server-0" ip="${BRZL_PORTAL_CLUSTER_IP:?}"
+  if ! docker exec "$node" test -x /bin/k3d-entrypoint-brzl-hosts.sh 2>/dev/null; then
+    printf 'fix: the node %s has no hosts script (/bin/k3d-entrypoint-brzl-hosts.sh): a cluster from before sign-on step 2; run the driver'"'"'s down, then up\n' \
+      "$node" >&2
+    return 1
+  fi
+  if ! docker exec "$node" grep -Eq "^${ip//./\\.}[[:space:]]+${BRZL_PORTAL_HOST//./\\.}([[:space:]]|\$)" /etc/hosts 2>/dev/null; then
+    printf 'fix: the node %s does not resolve %s to the portal'"'"'s address %s (/etc/hosts); see: docker exec %s sh -c '"'"'cat /var/log/k3d-entrypoints_*.log'"'"'\n' \
+      "$node" "$BRZL_PORTAL_HOST" "$ip" "$node" >&2
+    return 1
+  fi
+  if [[ "$(kubectl --kubeconfig "$run_dir/kubeconfig" -n kube-system get configmap coredns-custom \
+        -o jsonpath='{.data.brzl-portal\.override}' 2>/dev/null)" != *"name exact $BRZL_PORTAL_HOST "* ]]; then
+    printf 'fix: the cluster'"'"'s CoreDNS does not answer %s with the portal'"'"'s Service (ConfigMap kube-system/coredns-custom); run the 10-substrate phase again\n' \
+      "$BRZL_PORTAL_HOST" >&2
+    return 1
+  fi
+  if ! docker exec "$node" sh -c "tr '\\0' '\\n' < /proc/1/cmdline" 2>/dev/null \
+      | grep -qx -- "--kube-apiserver-arg=authentication-config=$api_auth_config_path"; then
+    printf 'fix: the kube-API of %s runs without its authentication configuration (sign-on step 2): a cluster from before it; run the driver'"'"'s down, then up\n' \
+      "$node" >&2
+    return 1
+  fi
+  # The file must parse as the API server reads it: a wrong indentation
+  # puts a key in the wrong place, and the API server then refuses to start.
+  if ! yq -e '.jwt[0].issuer.url == "https://'"$BRZL_PORTAL_HOST"'/dex" and .jwt[0].claimMappings.username.claim == "preferred_username"' \
+      "$run_dir/apiserver/authentication-config.yaml" >/dev/null 2>&1; then
+    printf 'fix: %s/apiserver/authentication-config.yaml does not parse as expected (the issuer https://%s/dex, the claim mappings); run the 10-substrate phase again; see: yq . %s/apiserver/authentication-config.yaml\n' \
+      "$run_dir" "$BRZL_PORTAL_HOST" "$run_dir" >&2
+    return 1
+  fi
+  printf 'on the node, %s is the portal'"'"'s address %s, and in the cluster the portal'"'"'s Service; the kube-API reads %s/apiserver/authentication-config.yaml\n' \
+    "$BRZL_PORTAL_HOST" "$ip" "$run_dir"
+  dns_check "$run_dir"
 }
 
 substrate_check_down() {

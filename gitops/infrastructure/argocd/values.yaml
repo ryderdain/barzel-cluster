@@ -12,9 +12,8 @@ global:
     # pull-through (quay.io/argoproj/argocd upstream).
     repository: __ECR_REGISTRY_HOST__/brzl-dev-quay/argoproj/argocd
 
-# No in-cluster SSO for the PoC (avoids the ghcr.io/dexidp/dex pull). AWS OIDC /
-# Identity Center is the platform's identity story for operators (ADR-0005);
-# Dex/Ory is the documented future for in-cluster app SSO.
+# Argo CD's own Dex is off: sign-on uses the platform's Dex in the namespace
+# sign-on (ADR-0035, pass 6a), which Argo CD is a client of (oidc.config).
 dex:
   enabled: false
 
@@ -35,6 +34,46 @@ applicationSet:
   replicas: 1
 
 configs:
+  # Sign-on (ADR-0035, Q171, Q175): Argo CD signs people in through Dex
+  # itself and maps their GitHub teams to its roles; the built-in admin
+  # login is off. In an emergency, use the CLI with the cluster's kubeconfig
+  # (`argocd --core`). The ApplicationSet replaces "localhost" in `url` with
+  # the portal's host name. oidc.config reads `$<Secret>:<key>` from the
+  # Secret brzl-argocd-oidc, which phase 25 writes from the store: the
+  # issuer, the client secret and, in local-ca mode, the store's CA
+  # certificate. argocd-server reads it only when it starts, so phase 25
+  # restarts argocd-server when the Secret changes.
+  cm:
+    url: https://localhost/argocd
+    admin.enabled: "false"
+    oidc.config: |
+      name: GitHub
+      issuer: $brzl-argocd-oidc:issuer
+      clientID: argo-cd
+      cliClientID: argo-cd-cli
+      clientSecret: $brzl-argocd-oidc:clientSecret
+      rootCA: $brzl-argocd-oidc:rootCA
+      requestedScopes: ["openid", "profile", "email", "groups"]
+  # The access tiers (Q169, Q170, Q173): the GitHub teams that Dex names as
+  # groups "<org>:<team>". admins administer; operators sync and read, but
+  # change no settings; auditors read everything and change nothing. A
+  # signed-in person in no tier gets nothing (policy.default is empty), but
+  # Dex and the portal's gate already refuse such a person.
+  rbac:
+    scopes: "[groups]"
+    policy.default: ""
+    policy.csv: |
+      p, role:operator, applications, get, */*, allow
+      p, role:operator, applications, sync, */*, allow
+      p, role:operator, applications, action/*, */*, allow
+      p, role:operator, applicationsets, get, */*, allow
+      p, role:operator, logs, get, */*, allow
+      p, role:operator, projects, get, *, allow
+      p, role:operator, clusters, get, *, allow
+      p, role:operator, repositories, get, *, allow
+      g, tzvat:brzl-admins, role:admin
+      g, tzvat:brzl-operators, role:operator
+      g, tzvat:brzl-auditors, role:readonly
   params:
     # TLS ends at the admin portal's nginx (ADR-0028), not in-pod.
     server.insecure: true

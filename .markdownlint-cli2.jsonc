@@ -1,6 +1,7 @@
 {
   "config": {
-    // Table rows cannot wrap; the 80-column limit stays on for prose.
-    "MD013": { "tables": false }
+    // Table rows and diagram lines cannot wrap; the 80-column limit stays
+    // on for prose.
+    "MD013": { "tables": false, "code_blocks": false }
   }
 }

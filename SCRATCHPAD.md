@@ -19,15 +19,16 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-22, opus. Pruned to the current state. The history is in git,
+*(2026-10-27, fable. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 6, item 4a and BACKLOG 20 DONE and user-verified**
-(RETROSPECTIVE 2026-10-21 and 2026-10-22), merged to `main`. Logs with
-two Loki stores and mutual TLS between the collectors; metrics and
-Grafana on every substrate; sync retries with no limit, a warning in
-phase 40 and the alert `BrzlSyncFailing`. The local cluster is up.
+**Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
+(RETROSPECTIVE 2026-10-23 and 2026-10-27, three entries), merged to
+`main`. It built web sign-on through Dex and oauth2-proxy, and `kubectl`
+through Dex with the browser callback. The kiesei shell makes the person
+the default, and the Argo CD CLI passes the gate. SECURITY.md has the
+auth flows as six Mermaid diagrams. The local cluster is up.
 
 **Facts to keep in mind:** a portal location must not set its own
 `proxy_set_header`. Loki with auth off stores everything under the tenant
@@ -35,9 +36,14 @@ phase 40 and the alert `BrzlSyncFailing`. The local cluster is up.
 server-only. An Application keeps its last operation record (phase,
 retry count) after its resources converge. The conductor scales itself to
 zero after 30 minutes idle; `conductor.sh` claims a live pod. A stacked
-graph hides series at 0.
+graph hides series at 0. k3d's `--host-alias` does not survive a
+container restart (the node runs a hosts script at every start). Docker
+Desktop's "Enable host networking" must be on for a callback to reach
+the browser. The Argo CD CLI sends its token in a header named `token`.
+The Mermaid tool's result goes to a file; read `.valid` with jq.
 
-**▶ NEXT: pass 6a, SSO** (BACKLOG item 5): Dex and oauth2-proxy in front
-of nginx, leading to the admin portal; it replaces the legacy local SSO
-path. Start with a short design round. Open: BACKLOG 21 (an alert
-channel) fits with 6a or later.
+**▶ NEXT:** the user picks the next BACKLOG item. Candidates: item 6
+(pass 6b, break-glass; it carries the user's refresher on the admin
+kubeconfig beside the sign-on one), or items 21 to 33 (an alert channel,
+narrower `kubectl` roles, image integrity, the device code for a remote
+shell, the "Grant Access" page on the hourly re-login).

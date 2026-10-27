@@ -113,8 +113,7 @@ _Avoid_: run-log, log, transcript
 
 **Admin portal**:
 The landing page of an environment, over HTTPS. It links to every service in
-the cluster and gives the matching CLI commands. It is available with or
-without sign-on; sign-on, when there is one, leads to it.
+the cluster and gives the matching CLI commands. Sign-on leads to it.
 _Avoid_: dashboard, homepage, launcher
 
 **TLS mode**:
@@ -217,7 +216,9 @@ each node.
 _Avoid_: IAM user, account
 
 **Access tier**:
-A group of people that sign-on lets through to a set of services: `users`
-(the workloads), `operators` (Grafana, Prometheus) and `admins`. Pass 6a
-decides them again.
+A group of people that sign-on lets through, with the same access in each
+service. Three exist: `admins` (all access), `operators` (operate the
+platform, but not administer it) and `auditors` (read everything, change
+nothing). Membership is a
+team in the GitHub organization.
 _Avoid_: role tier, group (for this meaning)
