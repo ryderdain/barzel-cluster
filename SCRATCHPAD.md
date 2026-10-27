@@ -80,7 +80,7 @@ later (BACKLOG 32).
 in the group `oidc:tzvat:brzl-admins` (RETROSPECTIVE). After that, the
 rebuilt image, `down`, `up` with the durable hosts script, and the
 sign-in again all passed. **Q193 (a), built after that:** the kiesei
-shell makes the person the default (`driver/kiesei-shell.sh`: KUBECONFIG
+shell makes the person the default (`driver/lib/kiesei-shell.sh`: KUBECONFIG
 is the sign-on file, a sign-in at start, an `argocd` helper that signs in
 on first use with its config in the run directory). Untested by the
 user: the shell's start, and the `argocd` callback on 8085. The user's

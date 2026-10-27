@@ -84,8 +84,9 @@ builds on the new platform.
   the live test). Phase 25 restarts argocd-server when the Secret changes.
 - **Outside the gate:** Dex (`/dex/`), oauth2-proxy (`/oauth2/`), the
   workloads (Q144), and Argo CD's public settings
-  (`/argocd/api/v1/settings`). The Argo CD CLI reads those settings before
-  it signs in. After `argocd login --sso`, the gate accepts the CLI's token
+  (`/argocd/api/v1/settings`, and `/argocd/settings.SettingsService/Get`
+  for the CLI, which speaks gRPC-web; found in the step 2 test). The Argo
+  CD CLI reads those settings before it signs in. After `argocd login --sso`, the gate accepts the CLI's token
   from Dex (`skip_jwt_bearer_tokens`, the public client `argo-cd-cli`).
 - Phase 40 checks the parts of sign-on but cannot sign in: the redirect to
   sign in, Dex at the issuer URL, the issuer in Argo CD's settings, and
@@ -105,9 +106,9 @@ builds on the new platform.
   `kubernetes` (Q190).
 - On the node, the portal's host name is the portal's fixed Service address
   (`BRZL_PORTAL_CLUSTER_IP`), through a script that k3d runs at every
-  start of the node (its entrypoint hooks); in the cluster, CoreDNS keeps
+  start of the node (its entrypoint hooks). In the cluster, CoreDNS keeps
   the rule of step 1. Q186 chose one mechanism for both, k3d's
-  `--host-alias`, and the live test dropped it: it writes once, at create,
+  `--host-alias`, and the live test dropped it. It writes once, at create,
   and a restart of the container (a Docker Desktop restart, a reboot) loses
   both of its lines (2026-10-27). The fixed address is local only (the
   overlay `gitops/clusters/local/portal/`), a stand-in for public DNS, in

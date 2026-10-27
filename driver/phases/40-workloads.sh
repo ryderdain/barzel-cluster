@@ -203,6 +203,15 @@ portal_check() {
     printf 'fix: Argo CD does not name the issuer %s in its settings; see: kubectl -n argocd get secret brzl-argocd-oidc; kubectl -n argocd logs deploy/argocd-server\n' "$issuer" >&2
     return 1
   fi
+  # The Argo CD CLI reads the same settings over gRPC-web before it signs in
+  # (seen 2026-10-27: the gate redirected that call, and the CLI died with
+  # "unexpected EOF"): that path must be outside the gate too.
+  code="$("${get[@]}" -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/grpc-web+proto' \
+    --data-binary '' "$url/argocd/settings.SettingsService/Get" 2>&1)"
+  if [[ "$code" == 30? || "$code" == 401 ]]; then
+    printf 'fix: the gate does not let the Argo CD CLI read the settings over gRPC-web (%s on /argocd/settings.SettingsService/Get); see gitops/infrastructure/portal/nginx.conf\n' "$code" >&2
+    return 1
+  fi
   # Argo CD's settings read the Secret on each request, but its sign-in reads
   # it only when argocd-server starts (seen 2026-10-23): the server must have
   # started after the Secret's last change.

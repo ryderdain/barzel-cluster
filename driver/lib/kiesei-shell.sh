@@ -11,7 +11,7 @@
 #   KUBECONFIG=var/run/<env>/current/kubeconfig kubectl ...
 #
 # Interactive run-once script (bash-doctrine core): bash reads it as its rc
-# file (`bash --rcfile driver/kiesei-shell.sh -i`); never run it. Inputs:
+# file (`bash --rcfile driver/lib/kiesei-shell.sh -i`); never run it. Inputs:
 # BRZL_RUN (the current run directory, absolute) and BRZL_PORTAL_HOST, from
 # driver/kiesei.sh. No credentials of its own: the sessions are the person's.
 
