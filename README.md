@@ -291,7 +291,9 @@ as the identity provider. nginx asks oauth2-proxy about each request, so no
 path of the portal opens before a person signs in. Argo CD and Grafana are
 clients of Dex themselves. Their built-in admin logins are off. Three access
 tiers are three GitHub teams: `brzl-admins`, `brzl-operators` and
-`brzl-auditors`. The workloads stay outside sign-on. The flows, and what
+`brzl-auditors`. The workloads stay outside sign-on. `kubectl` uses the
+same identity: a second kubeconfig in the run directory signs in through
+Dex with kubelogin, and the kube-API names the person. The flows, and what
 GitHub gives Dex at sign-in, are in [docs/SECURITY.md](docs/SECURITY.md).
 The steps are in [docs/LOCAL.md](docs/LOCAL.md) and
 [docs/INSTALL.md](docs/INSTALL.md).

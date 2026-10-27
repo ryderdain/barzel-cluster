@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted, amended Q169–Q183 (2026-10-23). Step 1, web sign-on, built in
-pass 6a · **Date:** 2026-10-14 (split from ADR-0018, 2026-06-04)
+Accepted, amended Q169–Q183 (2026-10-23). Steps 1 (web sign-on) and 2
+(`kubectl` through Dex) built in pass 6a · **Date:** 2026-10-14 (split
+from ADR-0018, 2026-06-04)
 
 ## Context
 

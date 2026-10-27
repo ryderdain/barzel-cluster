@@ -137,7 +137,7 @@ environment (ADR-0035). The design and its flows are in
 **The three access tiers** are three teams of the GitHub organization. Dex
 admits only their members and names them as groups `<org>:<team>`:
 
-| Tier | Team | Argo CD | Grafana | Kubernetes (step 2) |
+| Tier | Team | Argo CD | Grafana | Kubernetes |
 | --- | --- | --- | --- | --- |
 | admins | `brzl-admins` | `role:admin` | Admin | `cluster-admin` |
 | operators | `brzl-operators` | read and sync, no settings | Editor | view |

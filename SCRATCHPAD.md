@@ -59,10 +59,14 @@ added conditions, taken on in BACKLOG item 5: the structured
 `AuthenticationConfiguration` file, 1-hour ID tokens, `cookie_refresh`,
 a PKCE check, and a NetworkPolicy for the admin Loki store. BACKLOG 28
 to 31 hold the rest. Q191 (a): 1-hour ID tokens (Argo CD's UI asks for a
-click every hour). **Step 2 built 2026-10-26, waiting for the live test.**
-It needs a new cluster (the API server's argument) and a new kiesei image
-(kubelogin): `docker build -t kiesei:local containers/kiesei`, `down`, `up`.
-The live test, in four parts. `kubectl auth whoami` with
+click every hour). **Step 2 built 2026-10-26, and `up` passed every check 2026-10-27**
+after two fixes. The authentication config ran into the certificate
+(ca.crt has no final newline), so awk writes it and phase 10 parses the
+file. The substrate check looked for the host alias in CoreDNS too early,
+so it waits now. The user ran phase 10 twice to confirm idempotency. The
+documentation of the review is done (SECURITY.md has the roots, the
+scenarios and the sessions, and SECRETS.md the per-root tables). The
+sign-in checks remain, in four parts. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
 person. An auditor has `view` only. The admin Loki pod stays Ready behind
 its NetworkPolicy: k3s's policy controller and the kubelet's probes are

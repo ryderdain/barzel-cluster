@@ -12,13 +12,20 @@ the same shape as local.
 
 Guiding principle: **no standing credential for a job that a short-lived
 credential can do**, such as a role, a service-account token or a
-certificate. Each substrate
-has one root of trust that a person holds:
+certificate. Each substrate has roots of trust that a person holds.
+Everything else derives from them. [SECRETS.md](SECRETS.md) lists what
+each one opens ("The roots of trust").
 
-- **Local:** the files in `var/secret-store/<env>/` on the operator's
-  machine: the store's seal key, the driver's token and the recovery key
-  (ADR-0026). The store's CA, and every certificate it signs, comes from
-  them.
+- **Local:** four roots. The files in `var/secret-store/<env>/` on the
+  operator's machine: the store's seal key, the driver's token and the
+  recovery key (ADR-0026). The store's CA, and every certificate it signs,
+  come from them. The cluster-admin kubeconfig in `var/run/<env>/`, for
+  the life of the cluster. The operator's `gh` login, which makes the
+  teams, the OAuth App, the GitHub App and the deploy key. And the
+  operator's own account on the machine. That account holds the container
+  engine's socket, which is root on every node and on the store's volume,
+  and the disk with the seal key. On a laptop, that last root is the
+  honest answer to "what does one compromised thing cost": everything.
 - **AWS:** the operator's IAM identity. Everything else reaches AWS through
   a short-lived assumed role or the EC2 instance profile (ADR-0005,
   ADR-0010). Prod replaces the one operator access key with IAM Identity
@@ -88,6 +95,29 @@ The store's own listener is plain HTTP on the Docker network and on
 `127.0.0.1`. Flows 1, 3 and 4 send their tokens over it. That is a known
 local gap. Pass 8 uses the cloud's store over TLS.
 
+A residual risk of flow 17: a certificate for the portal's host from the
+store's CA could serve a false issuer to the kube-API. The PKI role
+`portal` signs such certificates, and cert-manager's auth role may ask it.
+The attack also needs the portal's Service address redirected, which
+needs API rights. The authentication configuration pins the issuer URL,
+the audience and the CA, so nothing less than both does it.
+
+### The flows by scenario
+
+The same flows, by what a person does. The numbers are the flows above.
+
+| Scenario | Flows | Who the records name |
+| --- | --- | --- |
+| Bootstrap (`up` from nothing) | 1 and 2, then 3 to 9 as the operators start | The run outputs name the run. The store's audit log names the token `driver`. The API audit log says `system:admin`. |
+| A phase run again, a rotation | 1 and 2 (the conductor acts with its service account) | The same: the driver is a machine identity (BACKLOG 29). |
+| A person in the web UIs | 10 to 13, 15 | Argo CD, Grafana and the gate name the person. |
+| A person with the CLIs | 14 (Argo CD), 16 and 17 (`kubectl`) | The API audit log names `oidc:<login>`. |
+| A change through git, to the platform or to a workload | 6, 7, 8, 9 | The git history names the person. The platform holds only read-only credentials. Who may push is GitHub's control (branch protection), assumed here, not provided. |
+| Fast mode (local) | 2 | The run output, under the driver. |
+| An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana has no path (BACKLOG 28). | `system:admin`. |
+| The machines, on their own | 3, 4, 5, 6, 7, 8, and 15 when Dex refreshes a session | Each machine's own identity. |
+| `down` | none | The in-cluster credentials end. The store, GitHub and the files on the machine stay ([SECRETS.md](SECRETS.md)). |
+
 ### Sign-on (pass 6a)
 
 Two layers check each person (ADR-0035 amendment, Q169–Q183):
@@ -149,6 +179,10 @@ the scope `read:org`:
   anything.
 - **Where it is kept:** in Dex's memory, so that Dex can read the teams
   again when a session is refreshed (Q178). It is lost when Dex restarts.
+- **What a compromise of Dex costs:** the token of every person who signed
+  in since Dex last started, over each organization those people
+  approved. Memory storage limits that to the life of the process. After
+  an incident, restart Dex: that ends every session and drops every token.
 
 To try the platform without this exposure, use a GitHub account and an
 organization that you make for the trial. A narrower option is a GitHub
@@ -232,8 +266,37 @@ the GitHub dependency as a whole.
 - **People reach the web services only through the admin portal**
   (ADR-0028). Sign-on (pass 6a) gates the portal in every environment,
   with three access tiers: `admins`, `operators` and `auditors`, from
-  GitHub teams (Q169, Q170, Q173). `kubectl` through the same identity is
-  in ADR-0035.
+  GitHub teams (Q169, Q170, Q173).
+- **`kubectl` uses the same identity** (ADR-0035, step 2). The kube-API
+  trusts Dex and names a person `oidc:<login>`. The bindings in
+  `gitops/clusters/<env>/access/` give the tiers their rights: admins
+  everything, operators and auditors the built-in `view` role. `view` reads
+  the pods' logs and the ConfigMaps of every namespace, which is wider
+  than an audit needs (BACKLOG 30).
+- **The driver is a machine identity.** Every phase acts as `system:admin`
+  and as the store token `driver`. The record of who ran a phase is the
+  operator's shell (BACKLOG 29, and BACKLOG 23 on a cloud).
+- **Branch protection is assumed, not provided.** A push to the workload's
+  development branch deploys it (ADR-0034). A push to this repository's
+  branch changes the platform. Who may push is GitHub's control.
+
+### Sessions and revocation
+
+A person who leaves a team keeps each session until it is checked again.
+At each refresh Dex reads the person's teams from GitHub again and refuses
+a person who left them. So the worst case is one hour.
+
+| Session | Lasts | Checked again | Ends within |
+| --- | --- | --- | --- |
+| The gate's cookie | 7 days | every hour, with Dex (`cookie_refresh`) | 1 hour |
+| Argo CD's UI | 1 hour (the ID token; no refresh) | at each sign-in | 1 hour |
+| Grafana | its own session; the token 1 hour | every hour (the refresh token) | 1 hour |
+| The `argocd` CLI | 1 hour, refreshed without a step | at each refresh | 1 hour |
+| `kubectl` (kubelogin) | 1 hour, refreshed without a step; the refresh token 7 days, or 24 hours unused | at each refresh | 1 hour |
+
+To end every session at once, restart Dex: its state is in memory. To end
+one person's `kubectl`, delete their `oidc-cache/` in the run directory.
+To end the emergency path, remake the cluster.
 
 ## Network
 
@@ -252,9 +315,12 @@ the GitHub dependency as a whole.
 - **One entry point for people.** The admin portal (nginx) is the only
   ingress for the platform's web services, on every substrate (ADR-0028).
   Workloads get a path on it (`/apps/<workload>/`).
-- **No NetworkPolicy objects yet.** k3s enforces NetworkPolicy with its
-  built-in controller, but the platform does not ship policies. The next
-  step is a default-deny policy for each namespace (for example, only the
+- **One NetworkPolicy, and no default-deny yet.** The admin log store
+  admits only the collector, Grafana and itself
+  (`gitops/infrastructure/logs/loki-admin.yaml`), because any pod could
+  otherwise write into the audit trail (the security review of
+  2026-10-26). k3s enforces it with its built-in controller. The next step
+  is a default-deny policy for each namespace (for example, only the
   workload's namespace reaches its database on 5432, only monitoring
   scrapes). This is a known gap, not a claim.
 
@@ -265,7 +331,9 @@ the GitHub dependency as a whole.
   (ADR-0022, ADR-0027).
 - **The kube-API audit log**, at metadata level, and **the secret store's
   audit log**, with a hash of each secret, not its value. Both go to the
-  admin log store, which is outside the cluster and outlives it.
+  admin log store, which is outside the cluster and outlives it. The API
+  audit log names a person for `kubectl` (`oidc:<login>`, step 2) and
+  `system:admin` for the driver's phases.
 - **Kubernetes events**, through the collector in the cluster.
 
 ## Encryption at rest and in transit (summary)

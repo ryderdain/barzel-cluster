@@ -23,6 +23,59 @@ behind these choices) and the operator runbooks.
   `read:packages` for the image. The platform never holds a credential that
   can write to the workload's repository.
 
+## The roots of trust (local)
+
+The inventory below is by kind. This section is by root: the few things a
+person holds, and what each one opens. Everything in §5 to §8 derives
+from one of them ([SECURITY.md](SECURITY.md), "Authentication flows").
+
+**1. The operator's account on the machine.** It holds everything below,
+and it is the root that costs the most.
+
+| What it holds | Where | What that opens |
+| --- | --- | --- |
+| the container engine's socket | the host | root on every node: the k3s PKI, every in-cluster Secret; the store's volume |
+| the disk | `var/` | the store's files, the run directories, the log data |
+| the `gh` login and the SSH key | `~/.config/gh`, `~/.ssh` | the GitHub root (4) |
+
+Its controls are the machine's own. On a cloud, BACKLOG 23 decides.
+
+**2. The store's files**: `seal.key`, `driver.token`, `recovery.key` in
+`var/secret-store/<env>/` (§5).
+
+| Derives | Lands in | Ends or rotates |
+| --- | --- | --- |
+| the store itself | the volume `brzl-openbao-data` | a lost seal key is a lost store: purge (LOCAL.md) |
+| the entries `repo-deploy-key`, `workload-*`, `sign-on-*`, `grafana-admin`, `smoke` (§6) | the store, then the cluster (phase 25, External Secrets) | §6, "Rotation & lifecycle" |
+| the PKI CA: `portal-tls`, `log-intake-tls`, the log-shipper client certificate, `portal-ca` | the cluster; `var/secret-store/<env>/log-shipper/` | 90 days (cert-manager renews), 30 days (phase 10 issues again) |
+| the auth roles `eso` and `cert-manager`, and the reviewer token | the store; `brzl-system/openbao-auth-token` | phase 25 writes them again |
+
+**3. The cluster-admin kubeconfig**: `var/run/<env>/<run>/kubeconfig`
+(§8). It ends with the cluster (`down`).
+
+| Derives | Made by |
+| --- | --- |
+| the conductor (a service account with `cluster-admin`) | phase 25 |
+| every in-cluster Secret that a phase writes: `repo-barzel-cluster`, `workload-github-app`, `brzl-argocd-oidc`, `openbao-auth-token` | phase 25 |
+| the kube-API's trust in Dex, and `kubeconfig-sign-on` (no secret in either) | phase 10 |
+| the emergency path when Dex or GitHub is down | ADR-0035 (Q175); BACKLOG 23 on a cloud |
+
+**4. The operator's `gh` login**, with the SSH key for the deploy key.
+The platform removes nothing on GitHub.
+
+| Derives | Lands in | Ends or rotates |
+| --- | --- | --- |
+| the teams `brzl-admins`, `brzl-operators`, `brzl-auditors` | GitHub | membership, at GitHub; in effect within the hour (SECURITY.md, "Sessions and revocation") |
+| the OAuth App of each environment (client id and secret) | `var/access/github/<org>/`, the store (`sign-on-github-*`), Dex | "Rotation & lifecycle" |
+| the GitHub App `brzl-reader-<org>` (id, key, installation) | the files, the store, Argo CD's `repo-creds` | "Rotation & lifecycle" (ADR-0034) |
+| the packages token | the files, the store, Zot | "Rotation & lifecycle" |
+| the deploy key | the store, Argo CD's repository Secret | at GitHub, then phase 25 |
+
+A person's own credentials are not a root of the platform: their GitHub
+account, and the sessions it opens (the gate's cookie, Argo CD's and
+Grafana's sessions, the `argocd` CLI's token, kubelogin's cache). Their
+lifetimes are in [SECURITY.md](SECURITY.md), "Sessions and revocation".
+
 ## 1. KMS customer-managed keys (encryption at rest)
 
 All have `enable_key_rotation = true`; key policy delegates use to IAM, so

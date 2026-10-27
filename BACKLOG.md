@@ -114,8 +114,10 @@ Order of work (Q120):
    the store's CA could serve a false issuer to the kube-API (a residual
    risk). Branch protection on the workload repo is an assumed control.
    Items 30 and 31 hold the rest of the review. **Step 2 built
-   2026-10-26, waiting for the live test** (a new cluster and a new kiesei
-   image; SCRATCHPAD).
+   2026-10-26; the cluster came up 2026-10-27** after two fixes (a file
+   that ran into the certificate; a check that looked too early). The
+   sign-in checks are the user's (SCRATCHPAD). The documentation of the
+   review is done (SECURITY.md, SECRETS.md).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
