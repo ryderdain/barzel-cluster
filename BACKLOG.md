@@ -119,10 +119,11 @@ Order of work (Q120):
    sign-in found two more: Docker Desktop's host networking was off, and
    k3d's `--host-alias` does not survive a container restart (replaced by
    an entrypoint script on the node and the CoreDNS rule of step 1).
-   **The sign-in was user-verified 2026-10-27** (RETROSPECTIVE). Left:
-   the `up` with the durable script, the remaining checks, the merge to
-   `main` (SCRATCHPAD). The documentation of the
-   review is done (SECURITY.md, SECRETS.md).
+   **The sign-in was user-verified 2026-10-27** (RETROSPECTIVE). The
+   documentation of the review is done (SECURITY.md, SECRETS.md), and
+   SECURITY.md carries the auth flows as six Mermaid diagrams. The kiesei
+   shell makes the person the default (Q193). **DONE 2026-10-27,
+   user-verified, merged to `main`** (RETROSPECTIVE, three entries).
 6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
    conductor; a record of each use; a Grafana reader of the admin store that
    runs only in break-glass mode and also loads the newest cold records
@@ -423,6 +424,11 @@ Order of work (Q120):
     `device-code` there (a URL and a short code, no callback), with a
     shorter refresh-token lifetime than local's 7 days, or none. The
     `argocd` CLI has no device flow; it keeps the callback.
+33. **Dex's approval page appeared on Argo CD's hourly re-login** (seen
+    2026-10-27). Dex's `skipApprovalScreen` is on, so no "Grant Access"
+    page was expected. Find which client asked, and why Dex showed it
+    (the Dex version, the `offline_access` scope, or the client). One
+    click restores the session, so this is a polish item.
 
 Standing concerns (check in every pass):
 

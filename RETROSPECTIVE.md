@@ -598,3 +598,25 @@ printed the applications through the gate.
   callback to reach the browser (LOCAL.md).
 - **Not yet run:** the audit log read in Grafana, the hourly re-login in
   Argo CD, the merge to `main`.
+
+## 2026-10-27 — pass 6a, step 2, second addendum: the last checks, the merge
+
+User-verified on sleipnir, after the entries above. The two checks that
+the first addendum listed as not yet run passed. Pass 6a is done: web
+sign-on, `kubectl` through Dex, the kiesei shell, the Argo CD CLI through
+the gate, and the auth flows as six diagrams in SECURITY.md. Merged to
+`main`.
+
+- **The audit log names the person.** The user ran `kubectl get nodes`
+  from the kiesei shell. In Grafana (Explore, the data source "Admin log
+  store"), the query
+  `{brzl_store="admin-log-store", brzl_source="api-audit"} |= "oidc:ryderdain"`
+  returned its records.
+  The same query through the API server's proxy to the store, as phase
+  40 runs it, returned one stream with several values.
+- **The hourly click in Argo CD.** Argo CD was opened through the portal
+  at 12:55 CET. A reload at 14:59 showed a "Grant Access" page, and one
+  click restored the session, with no step at GitHub. The ID token lasted
+  its hour (Q191), as designed. One open point: that page is Dex's
+  approval page, and Dex's `skipApprovalScreen` is on, so the page was
+  not expected. Which client asked, and why, is BACKLOG 33.

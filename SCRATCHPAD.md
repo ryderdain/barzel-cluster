@@ -19,15 +19,16 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-22, opus. Pruned to the current state. The history is in git,
+*(2026-10-27, fable. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**Pass 6, item 4a and BACKLOG 20 DONE and user-verified**
-(RETROSPECTIVE 2026-10-21 and 2026-10-22), merged to `main`. Logs with
-two Loki stores and mutual TLS between the collectors; metrics and
-Grafana on every substrate; sync retries with no limit, a warning in
-phase 40 and the alert `BrzlSyncFailing`. The local cluster is up.
+**Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
+(RETROSPECTIVE 2026-10-23 and 2026-10-27, three entries), merged to
+`main`. It built web sign-on through Dex and oauth2-proxy, and `kubectl`
+through Dex with the browser callback. The kiesei shell makes the person
+the default, and the Argo CD CLI passes the gate. SECURITY.md has the
+auth flows as six Mermaid diagrams. The local cluster is up.
 
 **Facts to keep in mind:** a portal location must not set its own
 `proxy_set_header`. Loki with auth off stores everything under the tenant
@@ -35,84 +36,14 @@ phase 40 and the alert `BrzlSyncFailing`. The local cluster is up.
 server-only. An Application keeps its last operation record (phase,
 retry count) after its resources converge. The conductor scales itself to
 zero after 30 minutes idle; `conductor.sh` claims a live pod. A stacked
-graph hides series at 0.
+graph hides series at 0. k3d's `--host-alias` does not survive a
+container restart (the node runs a hosts script at every start). Docker
+Desktop's "Enable host networking" must be on for a callback to reach
+the browser. The Argo CD CLI sends its token in a header named `token`.
+The Mermaid tool's result goes to a file; read `.valid` with jq.
 
-**▶ IN FLIGHT: pass 6a, sign-on** (BACKLOG item 5), branch
-`pass-6a-sign-on`. Design Q169–Q185 (ADR-0035 amendment; the decision log
-is `notes/DECISIONS.md`, local only). **Step 1, web sign-on: DONE and
-user-verified 2026-10-23** (RETROSPECTIVE). Sign-out stays as it is
-(Q185, BACKLOG 26); oauth2-proxy's trusted proxies are BACKLOG 27.
-
-**2026-10-26: a throwaway round before Q186–Q188.** The user wants the
-full view first: `notes/AUTH-FLOWS.md` (local only), in Mermaid. Part A:
-the flows and secrets now, by scenario. Part B: the `kubectl` through Dex
-proposal, and what it changes. Part C: production shapes against it. A
-browser copy is `var/scratch/auth-flows.html`. Findings: Grafana has no
-emergency path since sign-on (its login form is off). SECRETS.md could
-carry a by-flow view. **Decided.** Q186 (a): one host alias to a fixed
-portal ClusterIP. Q187 (a): the browser callback. kiesei already has the
-host's network, and the step is once per sign-in. Q188 (a): phase 10
-writes `kubeconfig-sign-on`. Q189 (a): kubelogin's cache under the run
-directory. Q190 (a): `preferred_username` and `groups`, prefix `oidc:`.
-**An outside review** (`notes/AUTH-FLOWS-FableAudit-202610261655.md`)
-added conditions, taken on in BACKLOG item 5: the structured
-`AuthenticationConfiguration` file, 1-hour ID tokens, `cookie_refresh`,
-a PKCE check, and a NetworkPolicy for the admin Loki store. BACKLOG 28
-to 31 hold the rest. Q191 (a): 1-hour ID tokens (Argo CD's UI asks for a
-click every hour). **Step 2 built 2026-10-26, and `up` passed every check 2026-10-27**
-after two fixes. The authentication config ran into the certificate
-(ca.crt has no final newline), so awk writes it and phase 10 parses the
-file. The substrate check looked for the host alias in CoreDNS too early,
-so it waits now. The user ran phase 10 twice to confirm idempotency. The
-documentation of the review is done (SECURITY.md has the roots, the
-scenarios and the sessions, and SECRETS.md the per-root tables). The
-sign-in checks remain, in four parts. **2026-10-27, later:** the sign-in
-reached Dex (the token is right) and the kube-API refused it. A Docker
-Desktop restart dropped k3d's `--host-alias` lines from the node and from
-CoreDNS. So the node gets a k3d entrypoint script at every start, and the
-pods get step 1's CoreDNS rule back (two mechanisms, ADR-0035). That needs
-one more `down`, then `up`. Also found: Docker Desktop's "Enable host
-networking" was off, so no callback could reach the browser. Q192 (a):
-the browser callback stays in kiesei. A remote shell gets the device code
-later (BACKLOG 32).
-
-**Verified 2026-10-27:** `kubectl auth whoami` shows `oidc:ryderdain`
-in the group `oidc:tzvat:brzl-admins` (RETROSPECTIVE). After that, the
-rebuilt image, `down`, `up` with the durable hosts script, and the
-sign-in again all passed. **Q193 (a), built after that:** the kiesei
-shell makes the person the default (`driver/lib/kiesei-shell.sh`: KUBECONFIG
-is the sign-on file, a sign-in at start, an `argocd` helper that signs in
-on first use with its config in the run directory). **User-verified:**
-the shell's start, and `argocd app list` through the gate. That took
-three fixes to step 1's CLI path (RETROSPECTIVE addendum): the gRPC-web
-settings path, its service name `cluster.SettingsService`, and the CLI's
-`token` header mapped to the bearer. The user's concern about the admin
-kubeconfig beside the sign-on one is a refresher in BACKLOG item 6 (pass
-6b).
-
-**Done 2026-10-27, the diagrams:** `docs/SECURITY.md` has six Mermaid
-diagrams, adapted to the built state. They are the cast with the four
-roots, the bootstrap sequence, the machines, and the person in the web
-UIs (in place of the ASCII sequence). The last two are `kubectl`
-through Dex as built, and the Argo CD CLI through the gate (the `token`
-header, the helper). Each was validated with the Mermaid tool.
-**▶ NEXT:** the audit log read in Grafana, Argo CD's hourly click, and
-the merge to `main` (a RETROSPECTIVE addendum when the user verifies
-the pass).
-
-The live test, in four parts. `kubectl auth whoami` with
-`kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
-person. An auditor has `view` only. The admin Loki pod stays Ready behind
-its NetworkPolicy: k3s's policy controller and the kubelet's probes are
-unverified, and if the pod goes NotReady, the policy needs an ipBlock for
-the node. The old CoreDNS rule is gone, and the checks of phases 10 and 40
-name the fixes.
-
-**Next: step 2, `kubectl` through Dex** (Q174). A short design round
-first. Facts: k3d v5.9.0 has `--host-alias ip:host` (it writes the nodes'
-/etc/hosts and CoreDNS's NodeHosts); kubelogin is not in kiesei. The k3s
-API server runs in the node's network namespace, where kube-proxy routes
-a ClusterIP, so a host alias to a fixed portal ClusterIP would let it
-reach Dex at the issuer URL, and could replace the CoreDNS rule. k3s
-args are set at create: step 2 needs a new cluster.
-BACKLOG 21 (an alert channel) fits with 6a or later.
+**▶ NEXT:** the user picks the next BACKLOG item. Candidates: item 6
+(pass 6b, break-glass; it carries the user's refresher on the admin
+kubeconfig beside the sign-on one), or items 21 to 33 (an alert channel,
+narrower `kubectl` roles, image integrity, the device code for a remote
+shell, the "Grant Access" page on the hourly re-login).
