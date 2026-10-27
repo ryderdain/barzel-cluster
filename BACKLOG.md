@@ -399,6 +399,13 @@ Order of work (Q120):
     signature policy (cosign). Branch protection on the workload's
     development branch is a control outside the platform. Name it as
     assumed in SECURITY.md.
+32. **`kubectl` sign-in from a remote kiesei shell** (user, Q192,
+    2026-10-27). The browser callback (Q187) needs the browser on the
+    machine where `kubectl` runs, or an SSH port forward. When a remote
+    shell exists, make kubelogin's grant type an environment value:
+    `device-code` there (a URL and a short code, no callback), with a
+    shorter refresh-token lifetime than local's 7 days, or none. The
+    `argocd` CLI has no device flow; it keeps the callback.
 
 Standing concerns (check in every pass):
 

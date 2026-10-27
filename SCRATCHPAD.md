@@ -72,7 +72,9 @@ Desktop restart dropped k3d's `--host-alias` lines from the node and from
 CoreDNS. So the node gets a k3d entrypoint script at every start, and the
 pods get step 1's CoreDNS rule back (two mechanisms, ADR-0035). That needs
 one more `down`, then `up`. Also found: Docker Desktop's "Enable host
-networking" was off, so no callback could reach the browser.
+networking" was off, so no callback could reach the browser. Q192 (a):
+the browser callback stays in kiesei. A remote shell gets the device code
+later (BACKLOG 32).
 
 The live test, in four parts. `kubectl auth whoami` with
 `kubeconfig-sign-on` shows `oidc:<login>`. The API audit log names the
