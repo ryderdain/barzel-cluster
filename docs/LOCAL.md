@@ -466,7 +466,8 @@ Zot's push namespace, and points `deploy/local` at the build.
 Fast mode is for changes to the structure of the cluster: you apply your
 working tree directly and do not push first. Argo CD holds while fast mode is
 on. Fast mode is only for the local environment. For an emergency in any
-environment, break-glass mode is planned (BACKLOG pass 6b).
+environment, use break-glass mode ([BREAK-GLASS.md](BREAK-GLASS.md),
+designed in pass 6b, not built). Fast mode refuses to run during a hold.
 
 ```sh
 bash driver/driver.sh local fast_on  | bash driver/kiesei.sh  # Argo CD holds
@@ -592,7 +593,9 @@ it tells you how to put the client id and secret into
 they are absent.
 
 **In an emergency** (Dex or GitHub fails), use the CLI with the
-kubeconfig: `kubectl`, `argocd --core`, or a port-forward.
+kubeconfig: `kubectl`, `argocd --core`, or a port-forward. A change to the
+cluster in that state is a break-glass hold with a declared name
+([BREAK-GLASS.md](BREAK-GLASS.md), "When Dex is down").
 
 ## Down
 

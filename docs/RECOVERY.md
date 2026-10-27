@@ -210,6 +210,58 @@ SA was recreated). Recover without a rebuild:
   `kubectl apply -f gitops/bootstrap/repo-deploy-key.yaml`; the repo-server picks it
   up within ~3 minutes and the apps move Unknown → OutOfSync → Synced by wave.
 
+## Break-glass mode 🔜
+
+Designed in pass 6b (ADR-0037), not built. The working model, the
+procedure and the traps are in [BREAK-GLASS.md](BREAK-GLASS.md). The
+command names below are planned names.
+
+**When a recovery needs it.** In GitOps mode, Argo CD undoes a change that
+a person makes to a live object. The admins have only `view` in
+Kubernetes. A recovery that changes live objects by hand needs a hold
+first. Examples from this runbook:
+
+- The Argo CD control plane after a self-inflicted prune (above): the
+  `helm upgrade --install` and the rollout restarts are hand changes
+  while Argo CD cannot sync.
+- A forced sync, a removed `operation`, or a deploy-key Secret applied by
+  hand (above, "Stuck sync").
+- A recovery `Cluster` for CNPG applied outside git (Step 5 above) when
+  the GitOps path is not available.
+
+A recovery that goes through git (a PR, then a sync) needs no hold. A
+recovery that only reads needs no hold.
+
+```sh
+bash driver/driver.sh <env> hold 'INC-123: restore Argo CD after prune' | bash driver/kiesei.sh
+# ... the hand changes, with your own kubectl in the kiesei shell ...
+bash driver/driver.sh <env> release | bash driver/kiesei.sh   # stops on differences from git
+```
+
+`release` lists each resource that differs from git and stops. Commit
+the recovered state to the branch that Argo CD follows, or confirm the
+undo (`release confirm`). When Dex is down, `hold` records a declared
+name, and the kiesei shell's `as_admin` switches `kubectl` to the
+cluster-admin kubeconfig with a banner (BREAK-GLASS.md, "When Dex is
+down").
+
+**The admin log store when the cluster is down.** The store's data is
+outside the cluster (local: `var/log-store/<env>/admin/`), but the Loki
+and the Grafana that serve it are in the cluster. A one-off driver action
+starts a Loki and a Grafana in containers on the operator's machine, on
+that directory. Grafana listens on `127.0.0.1` only, with no sign-on
+(BACKLOG 28, Q197):
+
+```sh
+bash driver/driver.sh <env> reader | bash        # start the reader
+bash driver/driver.sh <env> reader_stop | bash   # stop it after use
+```
+
+It refuses to start while the cluster's admin Loki uses the directory:
+two Lokis on one directory can damage it. Use it for root-cause analysis
+after a lost cluster, and to read the break-glass records of a cluster
+that is gone. Pass 6c adds the cold records to it.
+
 ## Disaster recovery (region/account) 🔜
 1. Re-run [BOOTSTRAP.md](BOOTSTRAP.md) phases 0–2 in the target region/account.
 2. Restore Postgres from the S3 backup (above) — cross-region: ensure the backup

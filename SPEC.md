@@ -99,8 +99,15 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   30-gitops (local) — never in git. The annotation `brzl.dev/auto-sync: "false"`
   is the one switch that stops automated sync: **fast mode** (local,
   `fast_on`/`fast_off`, `apply` renders the working tree with Argo's own
-  injection) and **break-glass mode** (any environment, emergencies, BACKLOG
-  pass 6b). Guard against the ADR-0016 prune cascade: `applicationsSync:
+  injection) and **break-glass mode** (any environment, emergencies,
+  designed in pass 6b, ADR-0037, not built: `hold` sets the switch for the
+  whole environment and adds a record annotation `brzl.dev/break-glass`.
+  It elevates the admins to `cluster-admin` with a second binding for the
+  hold. Outside a hold the admins have `view`. `release` stops on
+  differences from git, then gives the cluster back to Argo CD. The
+  reader of the admin log store runs outside the cluster.
+  `docs/BREAK-GLASS.md` is the working model). Guard against the ADR-0016
+  prune cascade: `applicationsSync:
   create-update` + `preserveResourcesOnDeletion`, and phase 30-gitops stops
   before an apply that would orphan a live Application. Argo CD reads the
   private repo with a read-only deploy key from the bootstrap source

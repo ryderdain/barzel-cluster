@@ -90,7 +90,8 @@ commit and the image CI published for it. The page shows the change
 about eight minutes after the push. The other environments follow a release
 tag, which `promote workloads` moves along the chain (pass 9). The driver
 never builds or touches a workload. In both cases Argo CD, not an operator,
-applies the change. Break-glass mode (pass 6b) is the audited exception.
+applies the change. Break-glass mode is the recorded exception
+([BREAK-GLASS.md](BREAK-GLASS.md), ADR-0037, designed, not built).
 
 **Adding a workload.** The platform does not know its workloads. A new one
 is a contract on its own side and one element on the platform's side.
@@ -347,3 +348,4 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh, private, from its own repo and CI); an environment follows a branch or a release; the platform depends on no workload | Accepted; built (pass 5d) |
 | [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted; amended Q169–Q183; steps 1 (web sign-on) and 2 (`kubectl` through Dex) built in pass 6a |
 | [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |
+| [ADR-0037](adr/0037-break-glass-mode.md) | Break-glass mode: `hold` stops sync and elevates the admins for the hold, with a record; `release` gives the cluster back to git; the reader of the admin log store | Accepted (designed in pass 6b, Q195–Q201, not built) |

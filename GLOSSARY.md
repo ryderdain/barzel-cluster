@@ -92,8 +92,9 @@ _Avoid_: dev mode, inner loop, direct mode
 
 **Break-glass mode**:
 A mode of any environment for an emergency. Argo CD holds and does not sync,
-and an operator or an agent makes changes through the conductor. Each use is
-recorded and reviewed afterwards. It is not for usual work.
+and the admins get full rights for the time of the hold, each under their
+own name. Each use is recorded and reviewed afterwards. It is not for usual
+work.
 _Avoid_: fast mode, intervention mode, emergency mode
 
 **Run sheet**:
