@@ -62,8 +62,13 @@ release, the audit rule, the alert (`kube_clusterrolebinding_created`),
 The kiesei guide now names `as_admin` and `as_me` (the user had missed
 them; Q201).
 
-**▶ NOW: step 2, the reader of the admin log store** (BACKLOG 28): Loki
-and Grafana containers on the host read `var/log-store/<env>/admin/`,
-Grafana on 127.0.0.1 with no sign-on; refuse while the cluster's admin
-Loki uses the directory; actions `reader` and `reader_stop` (names still
-planned). Then pass 6c, then item 13.
+**▶ NOW: step 2 built, the live test is the user's.** `reader_on` and
+`reader_off` (Q205 b), `driver/modes/reader.sh`, with
+`reader-loki.yaml` (querier alone, read-only mount, query_store_only,
+deletion off, no scheduler ring) and `reader-datasources.yaml`. Grafana
+shares the Loki container's network; port 3300 on 127.0.0.1. Run sheets
+in `var/run/<env>/reader-<UTC>Z`. Tried: the Loki and Grafana on a copy
+of the store, then the emitted sheet and the check from kiesei on the
+copy; 27 driver cases. **Q206 open:** the docs said refuse while the
+cluster's Loki uses the directory; built as "run beside it, about 15
+minutes late". Then pass 6c, then item 13.

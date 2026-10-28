@@ -213,9 +213,7 @@ SA was recreated). Recover without a rebuild:
 ## Break-glass mode
 
 Built in pass 6b (ADR-0037). The working model, the procedure and the
-traps are in [BREAK-GLASS.md](BREAK-GLASS.md). The reader of the admin
-log store (below) is step 2 and is not built yet. Its command names are
-planned names.
+traps are in [BREAK-GLASS.md](BREAK-GLASS.md).
 
 **When a recovery needs it.** In GitOps mode, Argo CD undoes a change that
 a person makes to a live object. The admins have only `view` in
@@ -248,20 +246,21 @@ down").
 
 **The admin log store when the cluster is down.** The store's data is
 outside the cluster (local: `var/log-store/<env>/admin/`), but the Loki
-and the Grafana that serve it are in the cluster. A one-off driver action
-starts a Loki and a Grafana in containers on the operator's machine, on
-that directory. Grafana listens on `127.0.0.1` only, with no sign-on
-(BACKLOG 28, Q197):
+and the Grafana that serve it are in the cluster. A driver action starts
+a Loki and a Grafana in containers on the operator's machine, on that
+directory. Grafana listens on `127.0.0.1` only, with no sign-on
+(BACKLOG 28, Q197, Q205):
 
 ```sh
-bash driver/driver.sh <env> reader | bash        # start the reader
-bash driver/driver.sh <env> reader_stop | bash   # stop it after use
+bash driver/driver.sh <env> reader_on | bash driver/kiesei.sh    # start the reader
+bash driver/driver.sh <env> reader_off | bash driver/kiesei.sh   # stop it after use
 ```
 
-It refuses to start while the cluster's admin Loki uses the directory:
-two Lokis on one directory can damage it. Use it for root-cause analysis
-after a lost cluster, and to read the break-glass records of a cluster
-that is gone. Pass 6c adds the cold records to it.
+The reader only reads: its Loki has the directory read-only. It can run
+beside a cluster that runs, and then it sees records up to about 15
+minutes late. Use it for root-cause analysis after a lost cluster, and to
+read the break-glass records of a cluster that is gone. Pass 6c adds the
+cold records to it. The details are in BREAK-GLASS.md.
 
 ## Disaster recovery (region/account) 🔜
 1. Re-run [BOOTSTRAP.md](BOOTSTRAP.md) phases 0–2 in the target region/account.

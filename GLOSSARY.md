@@ -149,6 +149,12 @@ and access records of an environment. It is external to the cluster and
 outlives it.
 _Avoid_: external log store, audit store, central logging
 
+**Reader of the admin log store**:
+A Grafana and a Loki on the operator's machine that only read the admin log
+store, when the cluster's own Grafana cannot. It needs no cluster, and it has
+no sign-on: only the operator's machine can reach it.
+_Avoid_: emergency Grafana, offline Grafana, log viewer
+
 **Diagnostic log store**:
 The log store for detailed logs, from workloads and from the platform
 applications, that operators read to find a fault. It is lost with the

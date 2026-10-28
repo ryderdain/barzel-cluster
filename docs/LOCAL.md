@@ -265,6 +265,17 @@ queries:
 {k8s_namespace_name="chofesh"}
 ```
 
+When the cluster is down or gone, use the reader of the admin log store
+([BREAK-GLASS.md](BREAK-GLASS.md)). It gives the same data source on
+`http://127.0.0.1:3300/explore`, with no sign-on. It shows only what is in the store.
+The run outputs of a `down`, and of every action while there is no
+cluster, are still in the queue:
+
+```sh
+bash driver/driver.sh local reader_on | bash driver/kiesei.sh
+bash driver/driver.sh local reader_off | bash driver/kiesei.sh
+```
+
 To remove the collector beside the cluster and all log data that is kept
 outside the cluster (the admin log store's data, the queue and the store's
 audit log):

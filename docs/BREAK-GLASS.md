@@ -6,11 +6,11 @@ Companions: [SECURITY.md](SECURITY.md) (identities, the audit records),
 [LOCAL.md](LOCAL.md) (fast mode, sign-on). The decision record is
 [ADR-0037](adr/0037-break-glass-mode.md).
 
-**Status: built in pass 6b, step 1 (2026-10-27).** Step 1 has `hold`
-and `release`, the elevation, the audit rule and the alert. It also has
-`as_admin` and `as_me` in the kiesei shell. The reader of the admin log
-store is step 2 and is not built yet. Its command names are planned
-names. The vocabulary is the one of [GLOSSARY.md](../GLOSSARY.md).
+**Status: built in pass 6b.** Step 1 (2026-10-27) has `hold` and
+`release`, the elevation, the audit rule and the alert. It also has
+`as_admin` and `as_me` in the kiesei shell. Step 2 (2026-10-28) has the
+reader of the admin log store. The vocabulary is the one of
+[GLOSSARY.md](../GLOSSARY.md).
 
 ## What it is
 
@@ -320,27 +320,43 @@ directory `var/log-store/<env>/admin/`. The Loki and the Grafana that
 serve it run in the cluster (ADR-0027). When the cluster is down, out of
 reach or gone, nothing serves the data.
 
-The reader is a one-off driver action, usable at any time. It starts a
-Loki and a Grafana in two containers on the operator's machine, which
-read that directory (BACKLOG 28, Q197):
+The reader is a driver action, usable at any time, also without a
+cluster. It starts a Loki and a Grafana in two containers on the
+operator's machine, which read that directory (BACKLOG 28, Q197, Q205):
 
 ```sh
-bash driver/driver.sh <env> reader | bash        # start it
-bash driver/driver.sh <env> reader_stop | bash   # stop it after use
+bash driver/driver.sh <env> reader_on | bash driver/kiesei.sh    # start it
+bash driver/driver.sh <env> reader_off | bash driver/kiesei.sh   # stop it after use
 ```
+
+`reader_on` prints the address when Grafana is ready:
+`http://127.0.0.1:3300/explore` on local (`BRZL_READER_PORT`). The data
+source has the same name as in the cluster, "Admin log store", so the
+queries in this document work in both. Each action writes its run sheet
+in a new run directory, `var/run/<env>/reader-<UTC>Z/`.
 
 - Grafana listens on `127.0.0.1` only, with no sign-on. Dex is in the
   cluster, so no sign-on is possible, and the local address is the
-  boundary.
-- The reader refuses to start while the cluster's own admin Loki uses the
-  directory. Two Lokis on one directory can damage it. Bring the cluster
-  down first, or wait for the reader until the cluster is gone.
+  boundary. Anyone who can use this machine can read the store while
+  the reader runs.
+- The reader only reads. Its Loki has the directory read-only, and it
+  runs as a querier alone, with no ingester and no compactor. So it
+  cannot change the store.
+- It can run while the cluster runs, for example when the cluster's
+  Grafana cannot help. The cluster's Loki builds its index every 15
+  minutes. So the reader sees records up to about 15 minutes late.
+  `reader_on` says so when the cluster runs.
+- It shows only what is in the store. Without a cluster, the collector
+  beside the cluster keeps the run outputs in its queue. The next `up`
+  sends them. So the reader does not show a `down` or later actions.
 - You stop it after use. It does not stop by itself.
-- Pass 6c adds the cold records to it.
+- Pass 6c adds the cold records to it. A store in a bucket (a public
+  cloud, pass 8) needs its own settings: the reader reads only a local
+  store now.
 
 It is for two cases: root-cause analysis after a lost cluster, and
 emergency remediation when the in-cluster Grafana cannot help. For a
-cluster that runs, use the in-cluster Grafana.
+cluster that runs and a Grafana that works, use the in-cluster Grafana.
 
 ## Odd parts and traps
 
@@ -404,10 +420,11 @@ is out of scope: SPEC §3 keeps k3s on every substrate.
 ## Not decided yet
 
 - **The cluster-admin kubeconfig on a public cloud** (above, BACKLOG 23).
-- **The reader's command names.** `reader` and `reader_stop` are planned
-  names (step 2).
 
-Decided in the last design round:
+Decided in the last design rounds:
+
+- **The reader's command names** are `reader_on` and `reader_off`, like
+  fast mode's `fast_on` and `fast_off` (Q205).
 
 - **An agent does not hold, for now** (Q202). An agent has no sign-on
   identity. It proposes the commands, and an admin holds under their own

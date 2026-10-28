@@ -17,6 +17,11 @@
 #                                               #    the admins are cluster-admin
 #   bash driver/driver.sh <env> release [confirm] | bash driver/kiesei.sh
 #                                               # ...back to git (docs/BREAK-GLASS.md)
+#   bash driver/driver.sh <env> reader_on | bash driver/kiesei.sh
+#                                               # the reader of the admin log
+#                                               #    store, on 127.0.0.1, also
+#                                               #    without a cluster
+#   bash driver/driver.sh <env> reader_off | bash driver/kiesei.sh   # ...stop it
 #   bash driver/driver.sh <env> status          # GENERATOR: the current run
 #   bash driver/driver.sh <env> check <phase> <run_dir> [down]   # GENERATOR;
 #                                               #    the emitted groups call this
@@ -46,6 +51,11 @@
 # person, the reason, the differences from git) goes to <name>-emit.out, so a
 # refused release is on record too. hold takes the reason, and a declared
 # name only when Dex is down; release takes `confirm` to accept the undo.
+#
+# The reader of the admin log store (GLOSSARY; ADR-0037): reader_on /
+# reader_off need no cluster and no current run. Each writes its run sheet
+# in a new run directory, var/run/<env>/reader-<UTC>Z, with
+# driver/modes/reader.sh.
 #
 # Inputs: <env> selects env/<env>.env. Needs the tools of each phase (k3d,
 # docker, kubectl, helm, jq, yq, git for local). Credentials for local: phase
@@ -251,6 +261,27 @@ emit_break_glass() {
   end_function 0 "emitted $env break-glass $what for $run_dir"
 }
 
+# emit_reader <env> <on|off> — one group for the reader of the admin log
+# store, in a new run directory (the cluster can be gone), at the driver
+# locus.
+emit_reader() {
+  local env="$1" what="$2" run_dir name
+  run_dir="$(new_run_dir "$env" reader)"
+  name="reader-$what"
+  printf 'cd %q || exit 1\n' "$repo_root"
+  awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+  printf '{ # the reader of the admin log store: %s (%s, locus: driver; docs/BREAK-GLASS.md)\n' "$what" "$env"
+  printf '  mkdir -p %q\n' "$run_dir"
+  printf '  bash driver/modes/reader.sh reader_%s %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
+  printf '    || error 3 %s\n' "$(squote "reader $what could not be emitted (the message above says why); nothing ran")"
+  printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+    "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+  printf '  bash driver/modes/reader.sh reader_%s_check %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
+  printf '    || error 3 %s\n' "$(squote "reader $what did not take effect; read $run_dir/$name.out")"
+  printf '}\n'
+  end_function 0 "emitted $env reader $what for $run_dir"
+}
+
 # check <env> <phase> <run_dir> [down] — GENERATOR. Runs the phase's check in a
 # subshell (so the phase script's globals stay out of this one) and writes .ok.
 check() {
@@ -291,7 +322,7 @@ status() {
 main() {
   local env="${1:-}" action="${2:-}"
   if [[ -z "$env" || -z "$action" ]]; then
-    sed -n '2,53p' "${BASH_SOURCE[0]}" >&2
+    sed -n '2,63p' "${BASH_SOURCE[0]}" >&2
     return 2
   fi
   if [[ ! -r "$repo_root/env/$env.env" ]]; then
@@ -310,7 +341,9 @@ main() {
     apply)    emit_fast "$env" apply ;;
     hold)     emit_break_glass "$env" hold "$@" ;;
     release)  emit_break_glass "$env" release "$@" ;;
-    *) printf 'error: unknown action %q (up, next, down, status, check, fast_on, fast_off, apply, hold, release)\n' "$action" >&2; return 2 ;;
+    reader_on)  emit_reader "$env" on ;;
+    reader_off) emit_reader "$env" off ;;
+    *) printf 'error: unknown action %q (up, next, down, status, check, fast_on, fast_off, apply, hold, release, reader_on, reader_off)\n' "$action" >&2; return 2 ;;
   esac
 }
 

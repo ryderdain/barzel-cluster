@@ -189,7 +189,7 @@ The same flows, by what a person does. The numbers are the flows above.
 | A change through git, to the platform or to a workload | 6, 7, 8, 9 | The git history names the person. The platform holds only read-only credentials. Who may push is GitHub's control (branch protection), assumed here, not provided. |
 | Fast mode (local) | 2 | The run output, under the driver. |
 | Break-glass mode (any environment; pass 6b) | 16 and 17, elevated to `cluster-admin` for the hold. `hold` and `release` are driver actions (flow 2). | The API audit log names `oidc:<login>`, with the request body of each write. The annotation and the run outputs name the person and the reason ([BREAK-GLASS.md](BREAK-GLASS.md)). |
-| An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana in the cluster has no path. The reader of the admin log store, outside the cluster, is step 2 of pass 6b (BACKLOG 28, [BREAK-GLASS.md](BREAK-GLASS.md)). | `system:admin`. A `hold` in this path records a declared name, not a verified one. |
+| An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana in the cluster has no path. The reader of the admin log store (`reader_on`) runs outside the cluster, on `127.0.0.1` with no sign-on, and only reads ([BREAK-GLASS.md](BREAK-GLASS.md)). | `system:admin`. A `hold` in this path records a declared name, not a verified one. |
 | The machines, on their own | 3, 4, 5, 6, 7, 8, and 15 when Dex refreshes a session | Each machine's own identity. |
 | `down` | none | The in-cluster credentials end. The store, GitHub and the files on the machine stay ([SECRETS.md](SECRETS.md)). |
 

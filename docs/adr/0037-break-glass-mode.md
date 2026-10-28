@@ -119,4 +119,27 @@ model for an operator is `docs/BREAK-GLASS.md`.
   rights in and outside a hold.
 - Q202 (a): an agent does not hold, for now. Q203 (a): the review is a
   written rule. Q204 (a): the doctrine questions wait until after pass 6.
-- Step 2, not built: the reader of the admin log store.
+
+## As built (pass 6b, step 2, 2026-10-28)
+
+- The reader's actions are `reader_on` and `reader_off` (Q205), with
+  `driver/modes/reader.sh`. They need no cluster and no current run.
+  Each writes its run sheet in a new run directory, `reader-<UTC>Z`.
+- Its Loki has the store's directory read-only and runs as a querier
+  alone (`target: querier`, `query_store_only`), with no ingester and no
+  compactor. So it cannot change the store.
+- That changes one point of the design. The decision above says the
+  reader refuses while the cluster's admin Loki uses the directory,
+  because two Lokis on one directory can damage it. A reader that cannot
+  write removes that reason. So the reader also runs beside a running
+  cluster, and it sees records up to about 15 minutes late (the cluster's
+  Loki builds its index every 15 minutes). This is Q206, open with the
+  user.
+- Grafana shares the Loki container's network, and only Grafana's port is
+  published, on `127.0.0.1` (`BRZL_READER_PORT`, 3300 on local). Its
+  data source has the same name and uid as in the cluster.
+- The images are the upstream ones, at the cluster's versions
+  (`BRZL_READER_LOKI_IMAGE`, `BRZL_READER_GRAFANA_IMAGE`), so the reader
+  does not need the registry beside the cluster. An upgrade of the
+  cluster's Loki or Grafana must change them too.
+- Local only: a store in a bucket needs its own settings (pass 8).

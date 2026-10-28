@@ -147,6 +147,18 @@ emit_out=("$dir"/break-glass-hold-*-emit.out); sheet_rc=("$dir"/break-glass-hold
 report 'a refused hold stops with exit 3, keeps its emit output, runs no sheet' '3 kept none' \
   "$rc $([[ -s "${emit_out[0]}" ]] && printf kept || printf none) $([[ -e "${sheet_rc[0]}" ]] && printf ran || printf none)"
 
+# 7b. The reader of the admin log store (ADR-0037): reader_on and reader_off
+# emit one group each, in a new run directory reader-<UTC>Z, not in the
+# current run. Here reader_on refuses because the fake environment has no
+# local admin log store: exit 3, and the current run stays.
+report 'reader_on emits one group' '1' "$(drive reader_on | grep -c '^{ # the reader of the admin log store: on')"
+report 'reader_off emits one group' '1' "$(drive reader_off | grep -c '^{ # the reader of the admin log store: off')"
+report 'the reader writes into var/run/<env>/reader-<UTC>Z' '1' \
+  "$(drive reader_on | grep -cE '^  mkdir -p var/run/test/reader-[0-9]{8}T[0-9]{4}Z(-[0-9]+)?$')"
+before="$(run_dir)"
+drive reader_on | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
+report 'reader_on without a local store stops with exit 3; the current run stays' "3 $before" "$rc $(run_dir)"
+
 # 8. `down` removes the cluster, passes its check, and drops the current run.
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)
 drive down | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?

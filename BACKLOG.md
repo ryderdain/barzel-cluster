@@ -131,7 +131,9 @@ Order of work (Q120):
    model in [docs/BREAK-GLASS.md](docs/BREAK-GLASS.md)). The person acts
    with their own `kubectl`, not through the conductor (Q196).
    **Step 1 (hold, release, audit rule, alert) DONE 2026-10-28,
-   user-verified** (RETROSPECTIVE). Step 2, the reader, is next.
+   user-verified** (RETROSPECTIVE). **Step 2, the reader of the admin log
+   store, built 2026-10-28** (`reader_on`, `reader_off`; item 28); its
+   live test is next.
    **Refresher for the design round (user, 2026-10-27).** After step 2 of
    pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
    `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same
@@ -403,6 +405,9 @@ Order of work (Q120):
     or out of reach, the operator needs the admin log store. Prepare a
     thin image that runs Grafana alone, outside the cluster, as a UI for
     the backed-up logs (local: `var/log-store/<env>/admin/`).
+    **Built 2026-10-28** in pass 6b, step 2 (ADR-0037): `reader_on` and
+    `reader_off`, a read-only Loki and a Grafana on `127.0.0.1`. Pass 6c
+    adds the cold records.
 29. **The driver is a machine identity in every scenario** (found
     2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
     `system:admin` (the kubeconfig) and as the store token `driver`. The
