@@ -563,6 +563,12 @@ a person who left them. So the worst case is one hour.
 | The `argocd` CLI | 1 hour, refreshed without a step | at each refresh | 1 hour |
 | `kubectl` (kubelogin) | 1 hour, refreshed without a step; the refresh token 7 days, or 24 hours unused | at each refresh | 1 hour |
 
+The gate's cookie is a credential: a person who has its value has the
+session. oauth2-proxy writes all cookies of a request to its log when a
+callback has no CSRF cookie. The log collector replaces the values of the
+gate's cookies with `<redacted>` before a log store gets the line. The
+diagnostic log store of a cluster made before 2026-10-28 can keep a value.
+
 To end every session at once, restart Dex: its state is in memory. To end
 one person's `kubectl`, delete their `oidc-cache/` in the run directory.
 To end the emergency path, remake the cluster.

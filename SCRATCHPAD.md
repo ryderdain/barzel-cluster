@@ -67,3 +67,16 @@ The audit policy's path is set when the cluster is made: `down`, then
 `up`. Tried before the test: 23 driver cases pass, both emitters ran
 read-only against the live cluster, and `argocd app diff --core` works
 against the v2.13 server. **Step 2:** the reader of the admin log store.
+
+**Live test, 2026-10-28 (user): steps 1 to 5 pass, step 6 two faults.**
+(1) The metric was missing: kube-state-metrics finds custom-resource
+kinds only from CRDs and skipped ClusterRoleBinding without an error.
+Fixed: the built-in collector, `kube_clusterrolebinding_created
+{clusterrolebinding}`. (2) A 500 from the gate, then Grafana's own page
+with an error: two sign-ins at once in one browser (an old Grafana tab).
+The gate: one CSRF cookie per sign-in (fixed). Grafana: BACKLOG 34. (3)
+Found on the way: oauth2-proxy logs all cookies of a callback without
+its CSRF cookie; the collector now redacts the gate's cookie values
+(tested with the collector image). Pushed during the hold, so `release`
+can also list monitoring, oauth2-proxy and log-collector. Steps 7 to 9
+next, then a short second hold for the metric.

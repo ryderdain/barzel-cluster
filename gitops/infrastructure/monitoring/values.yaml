@@ -73,15 +73,50 @@ prometheus:
 kube-state-metrics:
   image:
     repository: kube-state-metrics/kube-state-metrics
+  # The chart's default collectors (kube-state-metrics 7.4.0), and the
+  # built-in collector for ClusterRoleBindings, for the alert on a
+  # break-glass hold (ADR-0037): kube_clusterrolebinding_created
+  # {clusterrolebinding}; the alert reads brzl-break-glass, which exists only
+  # during a hold. The chart adds the RBAC rule for each collector in this
+  # list. The list replaces the chart's list, so a chart upgrade must compare
+  # it with the new defaults. A custom-resource entry cannot do this:
+  # kube-state-metrics finds those kinds only from CustomResourceDefinitions,
+  # and it skips a built-in kind without an error (seen 2026-10-28).
+  collectors:
+    - certificatesigningrequests
+    - configmaps
+    - cronjobs
+    - daemonsets
+    - deployments
+    - endpointslices
+    - horizontalpodautoscalers
+    - ingresses
+    - jobs
+    - leases
+    - limitranges
+    - mutatingwebhookconfigurations
+    - namespaces
+    - networkpolicies
+    - nodes
+    - persistentvolumeclaims
+    - persistentvolumes
+    - poddisruptionbudgets
+    - pods
+    - replicasets
+    - replicationcontrollers
+    - resourcequotas
+    - secrets
+    - services
+    - statefulsets
+    - storageclasses
+    - validatingwebhookconfigurations
+    - volumeattachments
+    - clusterrolebindings
   # Each Argo CD Application's sync retries, for the alert below (Q168,
   # BACKLOG 20): brzl_argocd_app_sync_retries{name, phase, sync}. The count
   # and the phase stay on the Application after the operation ends, even
   # when the resources converge later (seen 2026-10-22: Failed, 5, but
   # Synced). So the alert counts only an Application that is not Synced.
-  # Also the creation time of each ClusterRoleBinding, for the alert on a
-  # break-glass hold (ADR-0037): brzl_clusterrolebinding_created{name}; the
-  # alert reads brzl-break-glass, which exists only during a hold. The
-  # built-in collector for bindings is off in this chart.
   customResourceState:
     enabled: true
     config:
@@ -105,28 +140,10 @@ kube-state-metrics:
                   gauge:
                     path: [status, operationState, retryCount]
                     nilIsZero: true
-          - groupVersionKind:
-              group: rbac.authorization.k8s.io
-              version: v1
-              kind: ClusterRoleBinding
-            resourcePlural: clusterrolebindings
-            metricNamePrefix: brzl_clusterrolebinding
-            labelsFromPath:
-              name: [metadata, name]
-            metrics:
-              - name: created
-                help: Creation time of the ClusterRoleBinding (Unix seconds)
-                each:
-                  type: Gauge
-                  gauge:
-                    path: [metadata, creationTimestamp]
   rbac:
     extraRules:
       - apiGroups: [argoproj.io]
         resources: [applications]
-        verbs: [list, watch]
-      - apiGroups: [rbac.authorization.k8s.io]
-        resources: [clusterrolebindings]
         verbs: [list, watch]
 
 prometheus-node-exporter:
@@ -269,7 +286,7 @@ additionalPrometheusRulesMap:
       - name: brzl-break-glass
         rules:
           - alert: BrzlBreakGlassHeld
-            expr: time() - brzl_clusterrolebinding_created{name="brzl-break-glass"} > 4 * 3600
+            expr: time() - kube_clusterrolebinding_created{clusterrolebinding="brzl-break-glass"} > 4 * 3600
             labels:
               severity: warning
             annotations:

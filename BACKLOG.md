@@ -447,6 +447,16 @@ Order of work (Q120):
     the pass 6b branch (ADR-0035, "Corrections"). **DONE 2026-10-27,
     user-verified** (RETROSPECTIVE): no page, and no sign-in after the
     hour.
+34. **Two sign-ins at once in one browser** (seen 2026-10-28, the live
+    test of pass 6b). After a new cluster, an old Grafana tab and a new
+    one started Grafana's sign-in at the same time. Grafana keeps one
+    state cookie, so the first callback failed ("state did not match"),
+    and Grafana showed its own page with an error. One click on its
+    sign-in button continued. The gate had the same fault, fixed on the
+    pass 6b branch (one CSRF cookie per sign-in). Grafana has no such
+    setting. The option: Grafana reads the person from the gate's
+    headers (`auth.proxy`) and has no sign-in of its own. That also
+    helps item 26. A polish item: close old tabs after a new cluster.
 
 Standing concerns (check in every pass):
 

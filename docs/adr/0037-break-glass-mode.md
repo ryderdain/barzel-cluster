@@ -108,8 +108,12 @@ model for an operator is `docs/BREAK-GLASS.md`.
   old `brzl-tier-admins` had `cluster-admin`, and Argo CD prunes it.
 - The audit policy is a template that phase 10 writes into the run
   directory with the organization of the teams.
-- kube-state-metrics gives `brzl_clusterrolebinding_created`, from its
-  custom-resource configuration. The alert `BrzlBreakGlassHeld` reads it.
+- kube-state-metrics gives `kube_clusterrolebinding_created`, from its
+  built-in collector for ClusterRoleBindings. The alert
+  `BrzlBreakGlassHeld` reads it. The first build used a custom-resource
+  entry, but kube-state-metrics finds those kinds only from
+  CustomResourceDefinitions. It skipped the built-in kind, and it did not
+  show an error (found in the live test, 2026-10-28).
 - Fast mode refuses `fast_on`, `fast_off` and `apply` during a hold.
 - Phase 40 checks that the binding and the record agree, and the admins'
   rights in and outside a hold.
