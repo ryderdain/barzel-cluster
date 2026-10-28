@@ -58,4 +58,15 @@ a restore drill went to item 9 (Q217). Argo CD after the hour: a reload
 in a private window asked for no step (the user, 2026-10-28). That open
 item is closed.
 
-**▶ NEXT: item 13, the Argo CD upgrade.** Start with a design round.
+**▶ IN FLIGHT: item 13, the Argo CD upgrade**, branch
+`item-13-argocd-upgrade` from `main` at `c5182ea`. Design round 1 asked
+(Q218 to Q221). Facts found: the newest chart is 10.11.6 = Argo CD
+v3.5.6 (2026-10-26); 7.7.23 = v2.13.4 now. The jump crosses the chart's
+notes 8.0 (Argo CD 3.0), 9.0 (`configs.params` defaults removed; the
+interface stays) and 10.0 (NetworkPolicies on: `argocd-server` stays
+open, repo-server and Redis accept only Argo CD's pods). Argo CD 3.0
+makes annotation tracking the default; fast mode needs label tracking.
+The built-in roles cover the tiers (readonly has `logs, get`; admin has
+`update/*`, `delete/*`). The repository credential is a Secret already.
+The kiesei CLI is 3.4.3. The running local cluster follows
+`pass-6c-cold-storage`.
