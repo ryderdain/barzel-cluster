@@ -686,3 +686,35 @@ docs/BREAK-GLASS.md).
 - **Docs.** The user did not know `as_admin` and `as_me` (Q201). They
   were only in the break-glass docs. The kiesei guide now names them, and
   it no longer tells the reader to export the cluster-admin kubeconfig.
+
+## 2026-10-28 — pass 6b, step 2 and round 4: the reader, the person
+
+User-verified on sleipnir, with the cluster up, at `78797ad`. Design:
+Q205 to Q209, all (a) except Q205 (b) (ADR-0037, docs/BREAK-GLASS.md).
+This closes pass 6b (BACKLOG item 6) and item 28.
+
+- **The reader of the admin log store** (`reader_on`, `reader_off`,
+  `driver/modes/reader.sh`). It starts a Loki and a Grafana in containers
+  on the operator's machine, on `127.0.0.1:3300`, with no sign-on. Its
+  Loki has the store's directory read-only and runs as a querier alone,
+  so it cannot change the store. It needs no cluster and no current run,
+  and it writes into its own run directory, `reader-<UTC>Z`.
+- **The agent's test** (the user was away and allowed it once):
+  `reader_on` printed its note about the running cluster, and Grafana
+  returned the break-glass run outputs and the scale record at level
+  `Request`. A second `reader_on` replaced the first reader. `reader_off`
+  removed both containers.
+- **The user's test** (`reader-20261028T1537Z`, `reader-20261028T1544Z`)
+  gave the same results, both with rc 0. The test with the cluster
+  removed (`down`) was not run.
+- **Q206:** the reader runs beside a running cluster and sees records up
+  to about 15 minutes late. This replaces the first design, a refusal
+  while the cluster's Loki uses the directory.
+- **Q207 and Q209:** on local, the cluster-admin kubeconfig and the store
+  token `driver` stay. On a laptop, they give no power beyond the
+  container engine's socket and the recovery key. Pass 8 decides the
+  public-cloud shape (BACKLOG 23 and 29).
+- **Q208:** each run output's header line names the account on the
+  operator's machine, `person=<account> person_verified=false`. Both of
+  the user's reader outputs show `person=rdain`. The driver's 27 test
+  cases pass.

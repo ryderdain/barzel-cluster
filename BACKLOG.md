@@ -133,11 +133,12 @@ Order of work (Q120):
    **Step 1 (hold, release, audit rule, alert) DONE 2026-10-28,
    user-verified** (RETROSPECTIVE). **Step 2, the reader of the admin log
    store, built 2026-10-28** (`reader_on`, `reader_off`; item 28),
-   tested by the agent with the cluster up; the user's check is open.
+   tested by the agent with the cluster up, then by the user.
    **The local shape of items 23 and 29, decided and built 2026-10-28**
    (Q206 to Q209, all (a)): the kubeconfig and the store token `driver`
    stay on local; each run output names the account on the operator's
-   machine (`person=`, declared). The user's checks are open.
+   machine (`person=`, declared). **Pass 6b DONE 2026-10-28,
+   user-verified** (RETROSPECTIVE, two entries), merged to `main`.
    **Refresher for the design round (user, 2026-10-27).** After step 2 of
    pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
    `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same
