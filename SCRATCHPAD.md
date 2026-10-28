@@ -74,5 +74,13 @@ prints its note on stderr only, so the note is not in `reader-on.out`.
 mount, query_store_only, deletion off, no scheduler ring),
 `reader-datasources.yaml`; port 3300.
 
-**▶ NOW: round 4, the local shape of items 23 and 29** (Q207 to Q209),
-and Q206 still open. Then pass 6c, then item 13.
+**Round 4 decided 2026-10-28** (Q206 to Q209, all (a)) and built: the
+run-output header line gets `person=<account> person_verified=false`
+(`run_output_header` in driver.sh; kiesei.sh passes `BRZL_HOST_USER`;
+the host run sheets use `id -un`). The kubeconfig and `driver.token`
+stay on local. Docs: ADR-0037 (new "As built" section), BREAK-GLASS,
+SECURITY, LOCAL, the kiesei guide, BACKLOG 6, 23, 29.
+
+**▶ NOW: the user's checks** (the reader, with `down` if wished; the new
+header line after any phase). Then the RETROSPECTIVE entry for step 2 and
+round 4, close pass 6b, merge to `main`. Then pass 6c, then item 13.

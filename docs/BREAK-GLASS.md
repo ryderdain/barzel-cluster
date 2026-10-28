@@ -412,7 +412,8 @@ already ([SECURITY.md](SECURITY.md), the four roots). On a cloud, one
 possible shape: the kubeconfig is kept in the cloud's secret store behind
 an IAM role and fetched only for a hold. The driver still acts as a
 machine identity, `system:admin` and the store token `driver` (BACKLOG
-29).
+29). On local, each run output names the account on your machine
+(Q208), but the API audit log still says `system:admin`.
 
 With EKS or GKE, cloud IAM could also give rights inside Kubernetes. That
 is out of scope: SPEC §3 keeps k3s on every substrate.
@@ -425,6 +426,15 @@ Decided in the last design rounds:
 
 - **The reader's command names** are `reader_on` and `reader_off`, like
   fast mode's `fast_on` and `fast_off` (Q205).
+- **The reader runs beside a running cluster** (Q206). It cannot write,
+  so it cannot damage the store.
+- **On local, the cluster-admin kubeconfig stays** in the run directory
+  (Q207), and the store token `driver` stays a standing token (Q209). On
+  a laptop, the files of the run directory and of the store's directory
+  are one root together (SECURITY.md).
+- **Each run output names the person** (Q208): the account on your
+  machine, in the header line, as `person=<account>
+  person_verified=false`. It is declared, not verified.
 
 - **An agent does not hold, for now** (Q202). An agent has no sign-on
   identity. It proposes the commands, and an admin holds under their own

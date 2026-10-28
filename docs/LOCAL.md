@@ -147,8 +147,9 @@ Each phase writes a run sheet to `var/run/local/cluster-<UTC>Z/`, for
 example `cluster-20261019T1300Z`: the commands (`<NN>-<phase>.sh`), their
 output (`.out`), the exit status (`.rc`), and `.ok` when the check of the
 phase is correct. A `down` writes to `teardown-<UTC>Z`. Each output starts
-with a header line that names the environment, the run, the phase and the
-start time. The admin log store receives every output (below, "The logs").
+with a header line that names the environment, the run, the phase, the
+start time and the account on your machine (`person=`, declared, not
+verified). The admin log store receives every output (below, "The logs").
 If a phase stops, repair the cause and
 operate `up` or `next` again. The driver starts at the first phase that has no
 `.ok`.

@@ -53,6 +53,9 @@ image with:
   reach the portal without DNS inside the container.
 - `BRZL_HOST_OS`, the operating system of your machine, so a check can
   print a one-time step in the right form.
+- `BRZL_HOST_USER`, your account on your machine, so each run output
+  names you (`person=` in its header line). In the container, the account
+  is root.
 
 ```text
  your machine                         kiesei container (same image as the conductor)

@@ -182,7 +182,7 @@ The same flows, by what a person does. The numbers are the flows above.
 
 | Scenario | Flows | Who the records name |
 | --- | --- | --- |
-| Bootstrap (`up` from nothing) | 1 and 2, then 3 to 9 as the operators start | The run outputs name the run. The store's audit log names the token `driver`. The API audit log says `system:admin`. |
+| Bootstrap (`up` from nothing) | 1 and 2, then 3 to 9 as the operators start | The run outputs name the run, and the account on the operator's machine (declared, not verified). The store's audit log names the token `driver`. The API audit log says `system:admin`. |
 | A phase run again, a rotation | 1 and 2 (the conductor acts with its service account) | The same: the driver is a machine identity (BACKLOG 29). |
 | A person in the web UIs | 10 to 13, 15 | Argo CD, Grafana and the gate name the person. |
 | A person with the CLIs | 14 (Argo CD), 16 and 17 (`kubectl`) | The API audit log names `oidc:<login>`. |
@@ -543,8 +543,11 @@ the GitHub dependency as a whole.
   at all times. `view` reads the pods' logs and the ConfigMaps of every
   namespace, which is wider than an audit needs (BACKLOG 30).
 - **The driver is a machine identity.** Every phase acts as `system:admin`
-  and as the store token `driver`. The record of who ran a phase is the
-  operator's shell (BACKLOG 29, and BACKLOG 23 on a cloud).
+  and as the store token `driver`. Two records show who ran a phase: the
+  operator's shell, and the header line of the run output. That line
+  names the account on the operator's machine (Q208). The name is
+  declared, not verified. On local, the kubeconfig and the token stay
+  (Q207, Q209). On a cloud, pass 8 decides (BACKLOG 23 and 29).
 - **Branch protection is assumed, not provided.** A push to the workload's
   development branch deploys it (ADR-0034). A push to this repository's
   branch changes the platform. Who may push is GitHub's control.

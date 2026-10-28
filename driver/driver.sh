@@ -108,9 +108,12 @@ new_run_dir() {
 # run output with its header line (logfmt; ADR-0027). The start time is taken
 # when the line runs, not when it is emitted. The collector tells files apart
 # by their first bytes, so two outputs with the same text need this line.
+# The person is the account on the operator's machine (Q208): BRZL_HOST_USER
+# from driver/kiesei.sh, else the account that runs the line. It is declared,
+# not verified: every phase still acts as system:admin.
 run_output_header() {
   # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
-  printf 'printf '\''# brzl run-output env=%s run=%s phase=%s start=%%s\\n'\'' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"' \
+  printf 'printf '\''# brzl run-output env=%s run=%s phase=%s start=%%s person=%%s person_verified=false\\n'\'' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "${BRZL_HOST_USER:-$(id -un)}"' \
     "$1" "${2##*/}" "$3"
 }
 

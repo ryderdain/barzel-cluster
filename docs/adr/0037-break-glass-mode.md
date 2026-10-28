@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (designed in pass 6b, Q195–Q204, step 1 built) · **Date:**
+Accepted (designed in pass 6b, Q195–Q209, built) · **Date:**
 2026-10-27 · **Extends:** ADR-0025 (the sync switch), ADR-0027 (the admin
 log store), ADR-0035 (the identities) · **Amends:** ADR-0035 (the admins'
 rights in Kubernetes)
@@ -58,8 +58,9 @@ model for an operator is `docs/BREAK-GLASS.md`.
   driver action, usable at any time, also when the cluster is gone. It
   starts a Loki and a Grafana in containers on the operator's machine,
   on the admin store's data directory, Grafana on `127.0.0.1` with no
-  sign-on. It refuses to start while the cluster's admin Loki uses the
-  directory. Pass 6c adds the cold records.
+  sign-on. It only reads, so it also runs beside a running cluster
+  (Q206, which replaces the first design: a refusal while the cluster's
+  admin Loki uses the directory). Pass 6c adds the cold records.
 - **The cluster-admin kubeconfig** stays in the run directory on local:
   the driver's credential and the Dex-down path. On a laptop it adds no
   power beyond the container engine's socket and the seal key. On a
@@ -133,8 +134,8 @@ model for an operator is `docs/BREAK-GLASS.md`.
   because two Lokis on one directory can damage it. A reader that cannot
   write removes that reason. So the reader also runs beside a running
   cluster, and it sees records up to about 15 minutes late (the cluster's
-  Loki builds its index every 15 minutes). This is Q206, open with the
-  user.
+  Loki builds its index every 15 minutes). The user accepted this
+  (Q206).
 - Grafana shares the Loki container's network, and only Grafana's port is
   published, on `127.0.0.1` (`BRZL_READER_PORT`, 3300 on local). Its
   data source has the same name and uid as in the cluster.
@@ -143,3 +144,21 @@ model for an operator is `docs/BREAK-GLASS.md`.
   does not need the registry beside the cluster. An upgrade of the
   cluster's Loki or Grafana must change them too.
 - Local only: a store in a bucket needs its own settings (pass 8).
+
+## As built (pass 6b, the local shape of items 23 and 29, 2026-10-28)
+
+- Q207 (a): the cluster-admin kubeconfig stays in the run directory for
+  the life of the local cluster. Anyone with the container engine's
+  socket can get it again (`k3d kubeconfig get`), so removing it takes no
+  power away. The check for a public cloud stays in pass 8 (BACKLOG 23).
+- Q208 (a): the header line of each run output names the person, as the
+  account on the operator's machine: `person=<account>
+  person_verified=false`. `driver/kiesei.sh` passes it as
+  `BRZL_HOST_USER`, because the account in the container is root. The
+  name is declared, not verified: each phase still acts as `system:admin`.
+  The sign-on name is not used, because Dex does not exist before phase
+  30.
+- Q209 (a): the store token `driver` stays a standing token on local. The
+  recovery key in the same directory can make a root token, so a
+  short-lived token gives no boundary on a laptop. Pass 8 decides the
+  shape on a public cloud, with BACKLOG 23.

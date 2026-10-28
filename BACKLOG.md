@@ -134,7 +134,10 @@ Order of work (Q120):
    user-verified** (RETROSPECTIVE). **Step 2, the reader of the admin log
    store, built 2026-10-28** (`reader_on`, `reader_off`; item 28),
    tested by the agent with the cluster up; the user's check is open.
-   Last: the local shape of items 23 and 29 (Q207 to Q209).
+   **The local shape of items 23 and 29, decided and built 2026-10-28**
+   (Q206 to Q209, all (a)): the kubeconfig and the store token `driver`
+   stay on local; each run output names the account on the operator's
+   machine (`person=`, declared). The user's checks are open.
    **Refresher for the design round (user, 2026-10-27).** After step 2 of
    pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
    `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same
@@ -367,7 +370,8 @@ Order of work (Q120):
     public-cloud environment still has such a kubeconfig after bootstrap.
     Then decide the emergency path there, for example a short-lived
     credential from the cloud's identity service. Do it in pass 8, before
-    the first public-cloud environment.
+    the first public-cloud environment. **Local decided 2026-10-28**
+    (Q207): the kubeconfig stays for the life of the cluster.
 24. **A workload viewer tier** (user, Q170, Q173, Q179, 2026-10-23). A
     restricted access tier for the people who develop one workload: in
     Grafana, only that workload's logs (the diagnostic log store, its
@@ -419,6 +423,10 @@ Order of work (Q120):
     person's identity on a public cloud. The store token `driver` is a
     standing credential of the same kind. OpenBao can issue a short-lived
     token for each run from a local auth method (review finding 5).
+    **Local decided and built 2026-10-28** (Q208, Q209): each run
+    output's header line names the account on the operator's machine,
+    declared, not verified; the token `driver` stays. The cloud shape is
+    pass 8, with item 23.
 30. **Narrower `kubectl` roles for the tiers** (user, after the
     auth-flows review, 2026-10-26). Step 2 binds `brzl-auditors` and
     `brzl-operators` to the built-in `view` ClusterRole. `view` reads
