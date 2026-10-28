@@ -132,8 +132,9 @@ Order of work (Q120):
    with their own `kubectl`, not through the conductor (Q196).
    **Step 1 (hold, release, audit rule, alert) DONE 2026-10-28,
    user-verified** (RETROSPECTIVE). **Step 2, the reader of the admin log
-   store, built 2026-10-28** (`reader_on`, `reader_off`; item 28); its
-   live test is next.
+   store, built 2026-10-28** (`reader_on`, `reader_off`; item 28),
+   tested by the agent with the cluster up; the user's check is open.
+   Last: the local shape of items 23 and 29 (Q207 to Q209).
    **Refresher for the design round (user, 2026-10-27).** After step 2 of
    pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
    `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same

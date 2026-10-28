@@ -62,13 +62,17 @@ release, the audit rule, the alert (`kube_clusterrolebinding_created`),
 The kiesei guide now names `as_admin` and `as_me` (the user had missed
 them; Q201).
 
-**▶ NOW: step 2 built, the live test is the user's.** `reader_on` and
-`reader_off` (Q205 b), `driver/modes/reader.sh`, with
-`reader-loki.yaml` (querier alone, read-only mount, query_store_only,
-deletion off, no scheduler ring) and `reader-datasources.yaml`. Grafana
-shares the Loki container's network; port 3300 on 127.0.0.1. Run sheets
-in `var/run/<env>/reader-<UTC>Z`. Tried: the Loki and Grafana on a copy
-of the store, then the emitted sheet and the check from kiesei on the
-copy; 27 driver cases. **Q206 open:** the docs said refuse while the
-cluster's Loki uses the directory; built as "run beside it, about 15
-minutes late". Then pass 6c, then item 13.
+**Step 2 built (`1c14f02`) and tested by the agent, 2026-10-28** (the
+user was away and allowed it once). `reader_on` with the cluster up: the
+note, then the address; Grafana returned the break-glass run outputs
+(both holds, the refused release, both releases) and the scale record
+at level Request; `reader_on` again replaced the reader; `reader_off`
+removed both containers. Not run: the test with the cluster gone
+(`down`). Not user-verified, so no RETROSPECTIVE entry yet. `reader_on`
+prints its note on stderr only, so the note is not in `reader-on.out`.
+`driver/modes/reader.sh`, `reader-loki.yaml` (querier alone, read-only
+mount, query_store_only, deletion off, no scheduler ring),
+`reader-datasources.yaml`; port 3300.
+
+**▶ NOW: round 4, the local shape of items 23 and 29** (Q207 to Q209),
+and Q206 still open. Then pass 6c, then item 13.
