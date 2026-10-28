@@ -51,13 +51,11 @@ removed. Argo CD's own hourly click is still not seen cleanly. The user
 watches a private window.
 
 **Pass 6c, cold storage (BACKLOG item 7) DONE and user-verified
-2026-10-28** (RETROSPECTIVE), on branch `pass-6c-cold-storage`, not yet
-merged. On local the cold log store is `var/log-store/<env>/cold/`, OTLP
+2026-10-28** (RETROSPECTIVE), merged to `main`. On local the cold log store is `var/log-store/<env>/cold/`, OTLP
 JSON lines, one directory for each node, read with
 `driver/lib/cold-records.jq` (RECOVERY.md, "The cold records": the files'
 purposes and an incident example). Backups and a restore drill went to
 item 9 (Q217). Argo CD after the hour: a reload in a private window
 asked for no step (the user, 2026-10-28). That open item is closed.
 
-**▶ NEXT:** the user reads RECOVERY.md "The cold records". Then merge to
-`main`. Then item 13 (the Argo CD upgrade).
+**▶ NEXT: item 13, the Argo CD upgrade.** Start with a design round.
