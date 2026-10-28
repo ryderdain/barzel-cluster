@@ -1,4 +1,5 @@
 {
+  "idleCompaction": false,
   "permissions": {
     "allow": [
       "Bash(command -v hadolint)",

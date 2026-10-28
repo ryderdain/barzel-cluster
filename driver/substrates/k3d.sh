@@ -45,7 +45,8 @@
 # Logs (ADR-0027). The admin log store's data is a host directory,
 # BRZL_LOG_STORE_DIR/admin, mounted into the server node; the admin Loki in
 # the cluster keeps it there, so it outlives the cluster as a bucket would.
-# The API server writes an audit log (k3s-audit-policy.yaml, metadata level)
+# The API server writes an audit log (k3s-audit-policy.yaml, metadata level;
+# the request body of the admins' writes, for break-glass mode, ADR-0037)
 # and k3s writes its own log to a file, both on the server node, where the
 # in-cluster collector reads them. A collector beside the cluster
 # (BRZL_LOG_COLLECTOR_NAME, config k3d-otelcol.yaml) reads the run outputs in
@@ -146,6 +147,7 @@ substrate_up() {
   dns_up
   log_collector_up "$run_dir"
   api_auth_config_up "$run_dir"
+  api_audit_policy_up "$run_dir"
   node_hosts_up "$run_dir"
   local arg run_abs="$run_dir"
   [[ "$run_abs" == /* ]] || run_abs="$repo_root/$run_abs"
@@ -159,11 +161,10 @@ substrate_up() {
     "127.0.0.1:$BRZL_K3D_API_PORT" "$BRZL_DOCKER_NETWORK" "$run_dir/registries.yaml"
   printf '    --volume %q \\\n' \
     "$repo_root/$BRZL_LOG_STORE_DIR/admin:/var/lib/brzl/admin-log-store@server:0" \
-    "$repo_root/driver/substrates/k3s-audit-policy.yaml:/etc/brzl/audit-policy.yaml@server:*" \
     "$run_abs/apiserver:/etc/brzl/apiserver@server:*" \
     "$run_abs/node-hosts.sh:/bin/k3d-entrypoint-brzl-hosts.sh@server:*"
   for arg in --disable=traefik,servicelb \
-      --kube-apiserver-arg=audit-policy-file=/etc/brzl/audit-policy.yaml \
+      "--kube-apiserver-arg=audit-policy-file=$api_audit_policy_path" \
       --kube-apiserver-arg=audit-log-path=/var/log/kubernetes/audit/audit.log \
       --kube-apiserver-arg=audit-log-maxsize=50 --kube-apiserver-arg=audit-log-maxbackup=3 \
       "--kube-apiserver-arg=authentication-config=$api_auth_config_path" \
@@ -249,6 +250,24 @@ api_auth_config_up() {
   printf '      groups:\n        claim: groups\n        prefix: "oidc:"\n'
   printf 'EOF\n'
   printf '  } > %q\n' "$file.new"
+  printf '  mv %q %q\n' "$file.new" "$file"
+  printf '}\n'
+}
+
+# The kube-API's audit policy, where the server node sees it.
+api_audit_policy_path=/etc/brzl/apiserver/audit-policy.yaml
+
+# api_audit_policy_up <run_dir> — EMIT: write <run_dir>/apiserver/
+# audit-policy.yaml from the template k3s-audit-policy.yaml, with the
+# organization of the access tiers in the break-glass rule (the request body
+# of each write by oidc:<org>:brzl-admins, ADR-0037). The API server reads it
+# only when it starts: a change needs `down` and `up`.
+api_audit_policy_up() {
+  local file="$1/apiserver/audit-policy.yaml"
+  printf '{ # the kube-API'"'"'s audit policy: metadata, and the request body of the admins'"'"' writes (break-glass, ADR-0037)\n'
+  printf '  mkdir -p %q\n' "$1/apiserver"
+  printf '  sed %s driver/substrates/k3s-audit-policy.yaml > %q\n' \
+    "$(squote "s/BRZL_SIGN_ON_ORG/${BRZL_SIGN_ON_ORG:?}/")" "$file.new"
   printf '  mv %q %q\n' "$file.new" "$file"
   printf '}\n'
 }
@@ -481,7 +500,21 @@ substrate_check() {
       "$run_dir" "$BRZL_PORTAL_HOST" "$run_dir" >&2
     return 1
   fi
-  printf 'on the node, %s is the portal'"'"'s address %s, and in the cluster the portal'"'"'s Service; the kube-API reads %s/apiserver/authentication-config.yaml\n' \
+  # Break-glass (ADR-0037): the audit policy with the admins' rule is in the
+  # run directory, and the API server was started with it.
+  if ! docker exec "$node" sh -c "tr '\\0' '\\n' < /proc/1/cmdline" 2>/dev/null \
+      | grep -qx -- "--kube-apiserver-arg=audit-policy-file=$api_audit_policy_path"; then
+    printf 'fix: the kube-API of %s runs without the audit policy in the run directory (break-glass, ADR-0037): a cluster from before it; run the driver'"'"'s down, then up\n' \
+      "$node" >&2
+    return 1
+  fi
+  if ! yq -e '.rules[] | select(.level == "Request") | .userGroups[0] == "oidc:'"$BRZL_SIGN_ON_ORG"':brzl-admins"' \
+      "$run_dir/apiserver/audit-policy.yaml" >/dev/null 2>&1; then
+    printf 'fix: %s/apiserver/audit-policy.yaml has no Request rule for oidc:%s:brzl-admins; run the 10-substrate phase again, then down and up\n' \
+      "$run_dir" "$BRZL_SIGN_ON_ORG" >&2
+    return 1
+  fi
+  printf 'on the node, %s is the portal'"'"'s address %s, and in the cluster the portal'"'"'s Service; the kube-API reads %s/apiserver/authentication-config.yaml and audit-policy.yaml\n' \
     "$BRZL_PORTAL_HOST" "$ip" "$run_dir"
   dns_check "$run_dir"
 }

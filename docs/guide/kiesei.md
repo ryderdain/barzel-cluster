@@ -53,6 +53,9 @@ image with:
   reach the portal without DNS inside the container.
 - `BRZL_HOST_OS`, the operating system of your machine, so a check can
   print a one-time step in the right form.
+- `BRZL_HOST_USER`, your account on your machine, so each run output
+  names you (`person=` in its header line). In the container, the account
+  is root.
 
 ```text
  your machine                         kiesei container (same image as the conductor)
@@ -76,7 +79,13 @@ Open the shell once, then:
 
 ```sh
 bash driver/kiesei.sh shell
-export KUBECONFIG=var/run/local/current/kubeconfig
+# kubectl is you: the shell uses the sign-on kubeconfig of the current run
+# and signs in through Dex at its start (the browser opens on localhost:8000)
+kubectl auth whoami
+# only in a break-glass hold when Dex is down (docs/BREAK-GLASS.md):
+# kubectl as cluster-admin, with a red prompt, then back to you
+as_admin
+as_me
 
 # Argo CD, through the portal, signed in with GitHub: open the URL it
 # prints (the callback on localhost:8085 needs the host's network)

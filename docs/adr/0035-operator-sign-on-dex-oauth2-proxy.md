@@ -86,8 +86,9 @@ builds on the new platform.
   workloads (Q144), and Argo CD's public settings
   (`/argocd/api/v1/settings`, and `/argocd/cluster.SettingsService/Get`
   for the CLI, which speaks gRPC-web; found in the step 2 test). The Argo
-  CD CLI reads those settings before it signs in. After `argocd login --sso`, the gate accepts the CLI's token
-  from Dex (`skip_jwt_bearer_tokens`, the public client `argo-cd-cli`).
+  CD CLI reads those settings before it signs in. After `argocd login
+  --sso`, the gate accepts the CLI's token from Dex
+  (`skip_jwt_bearer_tokens`, the public client `argo-cd-cli`).
   The CLI sends that token in a header named `token`, not as a bearer;
   nginx maps it to `Authorization: Bearer` for the gate's subrequest
   (found in the step 2 test).
@@ -130,3 +131,20 @@ builds on the new platform.
   person loses access within the hour. Phase 40 checks that Dex advertises
   PKCE S256. A NetworkPolicy admits only the collector, Grafana and the
   store itself to the admin log store.
+
+### Corrections (pass 6b, 2026-10-27)
+
+- **The gate's hourly refresh did not reach the browser.** oauth2-proxy
+  refreshed the session in its answer to nginx's subrequest, and nginx
+  dropped the new cookie. The browser kept the old cookie, Dex refused
+  its refresh token as "claimed twice", and the person signed in again
+  about every hour. nginx now passes that cookie
+  (`auth_request_set`, `add_header Set-Cookie`). The re-login that the
+  second addendum of 2026-10-27 recorded as Argo CD's came from this
+  fault (RETROSPECTIVE).
+- **Dex's approval page.** oauth2-proxy sends `approval_prompt=force` by
+  default, and Dex then shows its "Grant Access" page, although
+  `skipApprovalScreen` is on. The gate sends `auto` now (BACKLOG 33).
+- **Only the portal reaches oauth2-proxy.** It trusts the
+  `X-Forwarded-*` headers (`reverse_proxy`), so a NetworkPolicy admits
+  only the portal's pods (BACKLOG 27). Phase 40 checks that it exists.

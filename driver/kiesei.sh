@@ -95,7 +95,8 @@ if [[ -n "$store_dir" && -s "$repo_root/$store_dir/ca.crt" ]]; then
 fi
 
 # BRZL_HOST_OS: the checks print steps for the operator's machine, and inside
-# the container uname says Linux.
+# the container uname says Linux. BRZL_HOST_USER: each run output names the
+# person (Q208), and inside the container the account is root.
 if [[ "${1:-}" == shell ]]; then
   tty_args=(-i); [[ -t 0 && -t 1 ]] && tty_args=(-it)   # a terminal, when there is one
   # The shell's rc file makes the person themselves (lib/kiesei-shell.sh):
@@ -105,7 +106,7 @@ if [[ "${1:-}" == shell ]]; then
     --user 0:0 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$repo_root:$repo_root" -w "$repo_root" \
-    "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
+    "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" -e "BRZL_HOST_USER=$(id -un)" \
     -e "BRZL_RUN=$repo_root/var/run/local/current" -e "BRZL_PORTAL_HOST=$portal_host" \
     "$image" -c "$prelude; exec bash --rcfile $repo_root/driver/lib/kiesei-shell.sh -i"
 fi
@@ -114,7 +115,7 @@ docker run --rm -i \
   --user 0:0 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$repo_root:$repo_root" -w "$repo_root" \
-  "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" \
+  "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" -e "BRZL_HOST_USER=$(id -un)" \
   "$image" -c "$prelude; exec bash -s"
 rc=$?
 
@@ -131,8 +132,8 @@ for sheet in "$repo_root"/var/run/*/current/*-host.sh; do
   run="$(cd -- "${sheet%/*}" && pwd -P)"; run="${run##*/}"
   printf '\nkiesei: steps on your machine, from %s\n' "${sheet#"$repo_root"/}" >&2
   {
-    printf '# brzl run-output env=%s run=%s phase=%s start=%s\n' \
-      "$env" "$run" "${base##*/}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '# brzl run-output env=%s run=%s phase=%s start=%s person=%s person_verified=false\n' \
+      "$env" "$run" "${base##*/}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(id -un)"
     bash "$sheet" < /dev/tty
     printf '%s\n' "$?" > "$base.rc"
   } 2>&1 | tee "$base.out"

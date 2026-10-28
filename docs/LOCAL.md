@@ -147,8 +147,9 @@ Each phase writes a run sheet to `var/run/local/cluster-<UTC>Z/`, for
 example `cluster-20261019T1300Z`: the commands (`<NN>-<phase>.sh`), their
 output (`.out`), the exit status (`.rc`), and `.ok` when the check of the
 phase is correct. A `down` writes to `teardown-<UTC>Z`. Each output starts
-with a header line that names the environment, the run, the phase and the
-start time. The admin log store receives every output (below, "The logs").
+with a header line that names the environment, the run, the phase, the
+start time and the account on your machine (`person=`, declared, not
+verified). The admin log store receives every output (below, "The logs").
 If a phase stops, repair the cause and
 operate `up` or `next` again. The driver starts at the first phase that has no
 `.ok`.
@@ -263,6 +264,17 @@ queries:
 {brzl_source="run-output", brzl_phase="25-bootstrap"}
 {brzl_source="api-audit"} |= "secrets"
 {k8s_namespace_name="chofesh"}
+```
+
+When the cluster is down or gone, use the reader of the admin log store
+([BREAK-GLASS.md](BREAK-GLASS.md)). It gives the same data source on
+`http://127.0.0.1:3300/explore`, with no sign-on. It shows only what is in the store.
+The run outputs of a `down`, and of every action while there is no
+cluster, are still in the queue:
+
+```sh
+bash driver/driver.sh local reader_on | bash driver/kiesei.sh
+bash driver/driver.sh local reader_off | bash driver/kiesei.sh
 ```
 
 To remove the collector beside the cluster and all log data that is kept
@@ -466,7 +478,8 @@ Zot's push namespace, and points `deploy/local` at the build.
 Fast mode is for changes to the structure of the cluster: you apply your
 working tree directly and do not push first. Argo CD holds while fast mode is
 on. Fast mode is only for the local environment. For an emergency in any
-environment, break-glass mode is planned (BACKLOG pass 6b).
+environment, use break-glass mode ([BREAK-GLASS.md](BREAK-GLASS.md)).
+Fast mode refuses to run during a hold.
 
 ```sh
 bash driver/driver.sh local fast_on  | bash driver/kiesei.sh  # Argo CD holds
@@ -592,7 +605,9 @@ it tells you how to put the client id and secret into
 they are absent.
 
 **In an emergency** (Dex or GitHub fails), use the CLI with the
-kubeconfig: `kubectl`, `argocd --core`, or a port-forward.
+kubeconfig: `kubectl`, `argocd --core`, or a port-forward. A change to the
+cluster in that state is a break-glass hold with a declared name
+([BREAK-GLASS.md](BREAK-GLASS.md), "When Dex is down").
 
 ## Down
 

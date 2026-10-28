@@ -20,7 +20,12 @@ each one opens ("The roots of trust").
   operator's machine: the store's seal key, the driver's token and the
   recovery key (ADR-0026). The store's CA, and every certificate it signs,
   come from them. The cluster-admin kubeconfig in `var/run/<env>/`, for
-  the life of the cluster. The operator's `gh` login, which makes the
+  the life of the cluster: the driver's credential, and the emergency
+  path when Dex is down. A person's direct use of it outside a recorded
+  hold is the gap that break-glass mode narrows
+  ([BREAK-GLASS.md](BREAK-GLASS.md), pass 6b). On a public
+  cloud, pass 8 decides where it lives (BACKLOG 23). The operator's `gh`
+  login, which makes the
   teams, the OAuth App, the GitHub App and the deploy key. And the
   operator's own account on the machine. That account holds the container
   engine's socket, which is root on every node and on the store's volume,
@@ -177,13 +182,14 @@ The same flows, by what a person does. The numbers are the flows above.
 
 | Scenario | Flows | Who the records name |
 | --- | --- | --- |
-| Bootstrap (`up` from nothing) | 1 and 2, then 3 to 9 as the operators start | The run outputs name the run. The store's audit log names the token `driver`. The API audit log says `system:admin`. |
+| Bootstrap (`up` from nothing) | 1 and 2, then 3 to 9 as the operators start | The run outputs name the run, and the account on the operator's machine (declared, not verified). The store's audit log names the token `driver`. The API audit log says `system:admin`. |
 | A phase run again, a rotation | 1 and 2 (the conductor acts with its service account) | The same: the driver is a machine identity (BACKLOG 29). |
 | A person in the web UIs | 10 to 13, 15 | Argo CD, Grafana and the gate name the person. |
 | A person with the CLIs | 14 (Argo CD), 16 and 17 (`kubectl`) | The API audit log names `oidc:<login>`. |
 | A change through git, to the platform or to a workload | 6, 7, 8, 9 | The git history names the person. The platform holds only read-only credentials. Who may push is GitHub's control (branch protection), assumed here, not provided. |
 | Fast mode (local) | 2 | The run output, under the driver. |
-| An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana has no path (BACKLOG 28). | `system:admin`. |
+| Break-glass mode (any environment; pass 6b) | 16 and 17, elevated to `cluster-admin` for the hold. `hold` and `release` are driver actions (flow 2). | The API audit log names `oidc:<login>`, with the request body of each write. The annotation and the run outputs name the person and the reason ([BREAK-GLASS.md](BREAK-GLASS.md)). |
+| An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana in the cluster has no path. The reader of the admin log store (`reader_on`) runs outside the cluster, on `127.0.0.1` with no sign-on, and only reads ([BREAK-GLASS.md](BREAK-GLASS.md)). | `system:admin`. A `hold` in this path records a declared name, not a verified one. |
 | The machines, on their own | 3, 4, 5, 6, 7, 8, and 15 when Dex refreshes a session | Each machine's own identity. |
 | `down` | none | The in-cluster credentials end. The store, GitHub and the files on the machine stay ([SECRETS.md](SECRETS.md)). |
 
@@ -226,7 +232,7 @@ sequenceDiagram
   K->>S: ESO and cert-manager: service-account token, auth role: read entries, sign the portal certificate
   S->>K: the store asks the kube-API if the token is valid (reviewer token)
   K->>K: the kube-API reads Dex's signing keys at the issuer URL (by the node's hosts entry, through the portal)
-  Note over D,C: phase 40 checks: the gate, Dex at the issuer URL, PKCE, each tier's rights by impersonation, the log store's NetworkPolicy
+  Note over D,C: phase 40 checks: the gate, Dex at the issuer URL, PKCE, each tier's rights by impersonation, the NetworkPolicies
 ```
 
 What the phases never hold: the store's root token (revoked at init), the
@@ -331,7 +337,8 @@ with a callback on localhost, and then refreshes its token with no step.
 In the kiesei shell, `kubectl` is the person by default, and the shell
 signs in at its start when no session is cached (`driver/kiesei.sh
 shell`, Q193). The cluster-admin kubeconfig stays the driver's, and the
-emergency path.
+emergency path when Dex is down ([BREAK-GLASS.md](BREAK-GLASS.md), "When
+Dex is down").
 
 ```mermaid
 sequenceDiagram
@@ -501,8 +508,13 @@ the GitHub dependency as a whole.
 
 - **Argo CD is the only writer to the cluster in GitOps mode.** People change
   git, not live objects. Two modes are exceptions. In fast mode (local
-  only), the driver applies the working tree. In break-glass mode (pass 6b),
-  each use is recorded.
+  only), the driver applies the working tree. In break-glass mode (any
+  environment, pass 6b), `hold` stops automated
+  sync for the whole environment and elevates the admins to
+  `cluster-admin` for the hold. Each admin writes with their own name,
+  and `release` gives the cluster back to git. Each use is recorded in
+  the admin log store and reviewed afterwards
+  ([BREAK-GLASS.md](BREAK-GLASS.md), ADR-0037).
 - **Operations run from kiesei** (ADR-0021). The driver runs outside the
   cluster. The conductor is a pod in the cluster with `cluster-admin`, and
   runs the run sheets that the driver sends. A locus never removes or
@@ -523,13 +535,19 @@ the GitHub dependency as a whole.
   GitHub teams (Q169, Q170, Q173).
 - **`kubectl` uses the same identity** (ADR-0035, step 2). The kube-API
   trusts Dex and names a person `oidc:<login>`. The bindings in
-  `gitops/clusters/<env>/access/` give the tiers their rights: admins
-  everything, operators and auditors the built-in `view` role. `view` reads
-  the pods' logs and the ConfigMaps of every namespace, which is wider
-  than an audit needs (BACKLOG 30).
+  `gitops/clusters/<env>/access/` give the tiers their rights. Every
+  tier has the built-in `view` role. Admins get `cluster-admin` only
+  during a break-glass hold (pass 6b): `hold` creates a second binding,
+  `brzl-break-glass`, and `release` deletes it
+  ([BREAK-GLASS.md](BREAK-GLASS.md)). Admins keep `role:admin` in Argo CD
+  at all times. `view` reads the pods' logs and the ConfigMaps of every
+  namespace, which is wider than an audit needs (BACKLOG 30).
 - **The driver is a machine identity.** Every phase acts as `system:admin`
-  and as the store token `driver`. The record of who ran a phase is the
-  operator's shell (BACKLOG 29, and BACKLOG 23 on a cloud).
+  and as the store token `driver`. Two records show who ran a phase: the
+  operator's shell, and the header line of the run output. That line
+  names the account on the operator's machine (Q208). The name is
+  declared, not verified. On local, the kubeconfig and the token stay
+  (Q207, Q209). On a cloud, pass 8 decides (BACKLOG 23 and 29).
 - **Branch protection is assumed, not provided.** A push to the workload's
   development branch deploys it (ADR-0034). A push to this repository's
   branch changes the platform. Who may push is GitHub's control.
@@ -547,6 +565,12 @@ a person who left them. So the worst case is one hour.
 | Grafana | its own session; the token 1 hour | every hour (the refresh token) | 1 hour |
 | The `argocd` CLI | 1 hour, refreshed without a step | at each refresh | 1 hour |
 | `kubectl` (kubelogin) | 1 hour, refreshed without a step; the refresh token 7 days, or 24 hours unused | at each refresh | 1 hour |
+
+The gate's cookie is a credential: a person who has its value has the
+session. oauth2-proxy writes all cookies of a request to its log when a
+callback has no CSRF cookie. The log collector replaces the values of the
+gate's cookies with `<redacted>` before a log store gets the line. The
+diagnostic log store of a cluster made before 2026-10-28 can keep a value.
 
 To end every session at once, restart Dex: its state is in memory. To end
 one person's `kubectl`, delete their `oidc-cache/` in the run directory.
@@ -569,11 +593,13 @@ To end the emergency path, remake the cluster.
 - **One entry point for people.** The admin portal (nginx) is the only
   ingress for the platform's web services, on every substrate (ADR-0028).
   Workloads get a path on it (`/apps/<workload>/`).
-- **One NetworkPolicy, and no default-deny yet.** The admin log store
+- **Two NetworkPolicies, and no default-deny yet.** The admin log store
   admits only the collector, Grafana and itself
   (`gitops/infrastructure/logs/loki-admin.yaml`). Without it, any pod
   could write into the audit trail (the security review of 2026-10-26).
-  k3s enforces it with its built-in controller. The next step is a
+  oauth2-proxy admits only the portal, because it trusts the
+  `X-Forwarded-*` headers that it receives (BACKLOG 27). k3s enforces both
+  with its built-in controller. The next step is a
   default-deny policy for each namespace (for example, only the
   workload's namespace reaches its database on 5432, only monitoring
   scrapes). This is a known gap, not a claim.
@@ -588,6 +614,15 @@ To end the emergency path, remake the cluster.
   admin log store, which is outside the cluster and outlives it. The API
   audit log names a person for `kubectl` (`oidc:<login>`, step 2) and
   `system:admin` for the driver's phases.
+- **One Request-level rule in the API audit policy** (pass 6b).
+  A write by the admins group is recorded with its request body. A write
+  to a Secret is not, so no secret value reaches the log. Outside a hold
+  the admins cannot write, so the rule records only break-glass changes.
+  The rest stays at Metadata level. On local, the change needs `down` and
+  `up` ([BREAK-GLASS.md](BREAK-GLASS.md), "What is recorded").
+- **Break-glass records** (pass 6b): the outputs of `hold` and
+  `release`, also when they stop before any change, and the annotation
+  `brzl.dev/break-glass` on the cluster Secret while a hold lasts.
 - **Kubernetes events**, through the collector in the cluster.
 
 ## Encryption at rest and in transit (summary)

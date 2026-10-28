@@ -9,6 +9,21 @@
 # refresh token from the offline_access scope). Dex then reads the teams
 # from GitHub again and refuses a person who left them, so a removed person
 # loses the portal within the hour (the security review of 2026-10-26).
+# nginx passes the refreshed cookie to the browser (portal/nginx.conf).
+# approval_prompt "auto": Dex skips its "Grant Access" page, as its
+# skipApprovalScreen says; the default "force" made Dex show it at each
+# sign-in (BACKLOG 33).
+# One CSRF cookie for each sign-in (cookie_csrf_per_request): with the
+# default single cookie, a second sign-in in the same browser (another tab,
+# or a page's background requests after its session ended) replaced the
+# first one's cookie, and the first callback failed with "Invalid
+# code_verifier" and a 500 page (seen 2026-10-28). Each cookie expires
+# after 5 minutes, and the newest 10 stay, so they cannot fill the headers.
+# A callback without its CSRF cookie makes oauth2-proxy log every cookie of
+# the request; the log collector removes the values of this gate's cookies
+# (logs/collector.yaml).
+# Only the portal reaches oauth2-proxy (NetworkPolicy, BACKLOG 27): it trusts
+# the X-Forwarded-* headers (reverse_proxy), so no other pod may set them.
 # The chart takes the registry host and the path apart (it writes quay.io when
 # the registry is empty): the ApplicationSet sets both (hostParams,
 # prefixParams).
@@ -27,6 +42,7 @@ config:
     oidc_groups_claim = "groups"
     allowed_groups = ["tzvat:brzl-admins", "tzvat:brzl-operators", "tzvat:brzl-auditors"]
     code_challenge_method = "S256"
+    approval_prompt = "auto"
     reverse_proxy = true
     set_xauthrequest = true
     skip_provider_button = true
@@ -34,11 +50,24 @@ config:
     cookie_name = "_brzl_sign_on"
     cookie_secure = true
     cookie_samesite = "lax"
+    cookie_csrf_per_request = true
+    cookie_csrf_per_request_limit = 10
+    cookie_csrf_expire = "5m"
 extraArgs:
   oidc-issuer-url: https://localhost/dex
   redirect-url: https://localhost/oauth2/callback
   whitelist-domain: localhost
   extra-jwt-issuers: https://localhost/dex=argo-cd-cli
+networkPolicy:
+  create: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: portal
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: portal
 resources:
   requests: { cpu: 10m, memory: 32Mi }
   limits: { memory: 128Mi }

@@ -124,10 +124,21 @@ Order of work (Q120):
    SECURITY.md carries the auth flows as six Mermaid diagrams. The kiesei
    shell makes the person the default (Q193). **DONE 2026-10-27,
    user-verified, merged to `main`** (RETROSPECTIVE, three entries).
-6. **6b. Break-glass mode** — `hold` / `release`; the procedure through the
-   conductor; a record of each use; a Grafana reader of the admin store that
-   runs only in break-glass mode and also loads the newest cold records
-   (Q62–Q65, Q94, Q107).
+6. **6b. Break-glass mode** — `hold` / `release`; a record of each use; a
+   reader of the admin store outside the cluster, which pass 6c extends to
+   the newest cold records (Q62–Q65, Q94, Q107). **Designed 2026-10-27**
+   (Q195–Q201, [ADR-0037](docs/adr/0037-break-glass-mode.md), the working
+   model in [docs/BREAK-GLASS.md](docs/BREAK-GLASS.md)). The person acts
+   with their own `kubectl`, not through the conductor (Q196).
+   **Step 1 (hold, release, audit rule, alert) DONE 2026-10-28,
+   user-verified** (RETROSPECTIVE). **Step 2, the reader of the admin log
+   store, built 2026-10-28** (`reader_on`, `reader_off`; item 28),
+   tested by the agent with the cluster up, then by the user.
+   **The local shape of items 23 and 29, decided and built 2026-10-28**
+   (Q206 to Q209, all (a)): the kubeconfig and the store token `driver`
+   stay on local; each run output names the account on the operator's
+   machine (`person=`, declared). **Pass 6b DONE 2026-10-28,
+   user-verified** (RETROSPECTIVE, two entries), merged to `main`.
    **Refresher for the design round (user, 2026-10-27).** After step 2 of
    pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
    `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same
@@ -143,6 +154,9 @@ Order of work (Q120):
    exception: decide there who may hold that file, for how long, and how
    each use is recorded with the person's name from sign-on. Re-surface
    this with the user before the round.
+   **In this pass (user, 2026-10-27):** item 28 (the reader of the admin
+   store), and the local shape of items 23 and 29. Item 27 was built at
+   the start of the pass. Design round 1 was Q194 to Q197.
 7. **6c. Cold storage + backups** — the `cold` route; each workload's
    database backups (Q92).
 8. **7. `promote platform`** — roll a platform revision one environment at a
@@ -357,7 +371,8 @@ Order of work (Q120):
     public-cloud environment still has such a kubeconfig after bootstrap.
     Then decide the emergency path there, for example a short-lived
     credential from the cloud's identity service. Do it in pass 8, before
-    the first public-cloud environment.
+    the first public-cloud environment. **Local decided 2026-10-28**
+    (Q207): the kubeconfig stays for the life of the cluster.
 24. **A workload viewer tier** (user, Q170, Q173, Q179, 2026-10-23). A
     restricted access tier for the people who develop one workload: in
     Grafana, only that workload's logs (the diagnostic log store, its
@@ -384,6 +399,11 @@ Order of work (Q120):
     `trusted_proxy_ip`, any pod that reaches oauth2-proxy directly can set
     those headers. Limit them to the portal (its pod network, or a
     NetworkPolicy that admits only the portal).
+    **Built 2026-10-27** on the pass 6b branch (user: do it now): the
+    chart's NetworkPolicy admits only the portal's pods, and phase 40
+    checks that it exists. **DONE 2026-10-27, user-verified:** phase 40
+    passed, the portal reaches `/ping`, and pods in other namespaces are
+    refused at once (k3s rejects with `icmp-port-unreachable`).
 28. **An emergency Grafana for the backed-up logs** (user, 2026-10-26).
     Since sign-on, Grafana has no emergency path: its login form and
     basic auth are off, so `grafana-admin` opens nothing (found in the
@@ -391,6 +411,9 @@ Order of work (Q120):
     or out of reach, the operator needs the admin log store. Prepare a
     thin image that runs Grafana alone, outside the cluster, as a UI for
     the backed-up logs (local: `var/log-store/<env>/admin/`).
+    **Built 2026-10-28** in pass 6b, step 2 (ADR-0037): `reader_on` and
+    `reader_off`, a read-only Loki and a Grafana on `127.0.0.1`. Pass 6c
+    adds the cold records.
 29. **The driver is a machine identity in every scenario** (found
     2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
     `system:admin` (the kubeconfig) and as the store token `driver`. The
@@ -401,6 +424,10 @@ Order of work (Q120):
     person's identity on a public cloud. The store token `driver` is a
     standing credential of the same kind. OpenBao can issue a short-lived
     token for each run from a local auth method (review finding 5).
+    **Local decided and built 2026-10-28** (Q208, Q209): each run
+    output's header line names the account on the operator's machine,
+    declared, not verified; the token `driver` stays. The cloud shape is
+    pass 8, with item 23.
 30. **Narrower `kubectl` roles for the tiers** (user, after the
     auth-flows review, 2026-10-26). Step 2 binds `brzl-auditors` and
     `brzl-operators` to the built-in `view` ClusterRole. `view` reads
@@ -429,6 +456,24 @@ Order of work (Q120):
     page was expected. Find which client asked, and why Dex showed it
     (the Dex version, the `offline_access` scope, or the client). One
     click restores the session, so this is a polish item.
+    **Cause found 2026-10-27** (the logs of the gate and of Dex). The page
+    named "Admin portal", the gate's client. The gate sends
+    `approval_prompt=force` by default, and Dex obeys it. The re-login
+    itself was a second fault: nginx dropped the gate's refreshed cookie,
+    so Dex refused the old refresh token as "claimed twice". Both fixed on
+    the pass 6b branch (ADR-0035, "Corrections"). **DONE 2026-10-27,
+    user-verified** (RETROSPECTIVE): no page, and no sign-in after the
+    hour.
+34. **Two sign-ins at once in one browser** (seen 2026-10-28, the live
+    test of pass 6b). After a new cluster, an old Grafana tab and a new
+    one started Grafana's sign-in at the same time. Grafana keeps one
+    state cookie, so the first callback failed ("state did not match"),
+    and Grafana showed its own page with an error. One click on its
+    sign-in button continued. The gate had the same fault, fixed on the
+    pass 6b branch (one CSRF cookie per sign-in). Grafana has no such
+    setting. The option: Grafana reads the person from the gate's
+    headers (`auth.proxy`) and has no sign-in of its own. That also
+    helps item 26. A polish item: close old tabs after a new cluster.
 
 Standing concerns (check in every pass):
 

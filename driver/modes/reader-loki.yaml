@@ -1,0 +1,51 @@
+# The Loki of the reader of the admin log store (driver/modes/reader.sh;
+# ADR-0037, BACKLOG 28). It only reads: the store's directory is mounted
+# read-only at /store, it runs as a querier alone (no ingester, no
+# compactor), and it asks only the store, never an ingester. So it cannot
+# change the store, also while the cluster's admin Loki writes it.
+#
+# The schema and the storage paths must stay the same as the cluster's
+# (gitops/infrastructure/logs/loki.yaml, loki-admin-local.yaml): the store
+# keeps the chunks and the uploaded TSDB index under chunks/. The working
+# state (the index cache) is in the container and goes with it.
+target: querier
+auth_enabled: false                         # the cluster's stores: tenant "fake"
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+common:
+  path_prefix: /tmp/loki
+  replication_factor: 1
+  # Loki asks for a compactor to filter deleted lines. There is none, and
+  # deletion_mode is off, so this address (Loki itself) is never asked.
+  compactor_address: http://127.0.0.1:3100
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /store/chunks
+      rules_directory: /store/rules
+schema_config:
+  configs:
+    - from: "2026-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+storage_config:
+  tsdb_shipper:
+    cache_location: /tmp/loki/tsdb-cache
+query_scheduler:
+  use_scheduler_ring: false                 # no scheduler: Grafana asks the querier
+querier:
+  query_ingesters_within: 0
+  query_store_only: true
+limits_config:
+  allow_structured_metadata: true
+  max_query_lookback: 0
+  deletion_mode: disabled
+analytics:
+  reporting_enabled: false

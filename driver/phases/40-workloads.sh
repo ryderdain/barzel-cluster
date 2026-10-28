@@ -31,8 +31,8 @@
 # through the cluster's DNS rule and the CA); Grafana is healthy. The workload's
 # path stays open (Q144). For kubectl through Dex (step 2): Dex advertises
 # PKCE, the portal has its fixed address, the tiers' bindings give the
-# expected rights (by impersonation), and the admin log store has its
-# NetworkPolicy. The sign-in itself is the operator's test (docs/LOCAL.md,
+# expected rights (by impersonation), and the admin log store and
+# oauth2-proxy have their NetworkPolicies. The sign-in itself is the operator's test (docs/LOCAL.md,
 # "Sign-on" and "Use it").
 
 (return 0 2>/dev/null) && is_sourced=true || is_sourced=false
@@ -105,7 +105,7 @@ phase_check() {
     rc=1
   fi
   logs_check || rc=1
-  portal_check || rc=1
+  portal_check "$env" || rc=1
   return "$rc"
 }
 
@@ -151,14 +151,14 @@ logs_check() {
   printf 'the diagnostic log store has the example app'"'"'s logs (%s)\n' "$app"
 }
 
-# portal_check — the admin portal answers over TLS at its host name, from this
-# machine, with sign-on in front of it (see the header), and passes the
-# example app's /apps/<name>/ through without it.
-# The name is resolved here (--resolve),
-# so the check does not depend on the operating system's resolver; the CA is
-# the store's in local-ca mode.
+# portal_check <env> — the admin portal answers over TLS at its host name, from
+# this machine, with sign-on in front of it (see the header), and passes the
+# example app's /apps/<name>/ through without it. The name is resolved here
+# (--resolve), so the check does not depend on the operating system's
+# resolver; the CA is the store's in local-ca mode. Also the access tiers'
+# rights, in and outside a break-glass hold (ADR-0037).
 portal_check() {
-  local url="https://$BRZL_PORTAL_HOST" issuer="https://$BRZL_PORTAL_HOST/dex" code out
+  local env="$1" url="https://$BRZL_PORTAL_HOST" issuer="https://$BRZL_PORTAL_HOST/dex" code out
   local -a get=(curl -sS --max-time 10 --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
   [[ "$BRZL_PORTAL_PORT" == 443 ]] || url+=":$BRZL_PORTAL_PORT"
   [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]] && get+=(--cacert "$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt")
@@ -248,15 +248,32 @@ portal_check() {
       "${ip:-none}" "$BRZL_PORTAL_CLUSTER_IP" >&2
     return 1
   fi
-  if [[ "$(kubectl auth can-i '*' '*' --as=oidc:probe --as-group="oidc:$org:brzl-admins" 2>/dev/null)" != yes ]]; then
-    printf 'fix: the group oidc:%s:brzl-admins is not cluster-admin; see: kubectl get clusterrolebinding brzl-tier-admins; kubectl -n argocd get application access\n' "$org" >&2
+  # Break-glass (ADR-0037): the admins are cluster-admin only in a hold, through
+  # the binding brzl-break-glass, and the hold's record is on the cluster
+  # Secret. Both or neither: one without the other is a hold or a release
+  # that did not finish.
+  local held record teams=(brzl-admins brzl-operators brzl-auditors)
+  held="$(kubectl get clusterrolebinding brzl-break-glass -o name 2>/dev/null)"
+  record="$(kubectl -n argocd get secret "brzl-$env-in-cluster" -o json 2>/dev/null \
+    | jq -r '.metadata.annotations["brzl.dev/break-glass"] // empty')"
+  if [[ -n "$held" && -z "$record" ]] || [[ -z "$held" && -n "$record" ]]; then
+    printf 'fix: the binding brzl-break-glass (%s) and the hold'"'"'s record on the cluster Secret (%s) disagree: run the driver'"'"'s hold or release again (docs/BREAK-GLASS.md)\n' \
+      "${held:-absent}" "${record:-absent}" >&2
     return 1
   fi
-  for team in brzl-operators brzl-auditors; do
+  if [[ -n "$held" ]]; then
+    printf 'WARNING: a break-glass hold is on (%s): the admins are cluster-admin, and Argo CD holds\n' "$record" >&2
+    if [[ "$(kubectl auth can-i '*' '*' --as=oidc:probe --as-group="oidc:$org:brzl-admins" 2>/dev/null)" != yes ]]; then
+      printf 'fix: in a hold the group oidc:%s:brzl-admins is cluster-admin, and it is not; see: kubectl get clusterrolebinding brzl-break-glass -o yaml\n' "$org" >&2
+      return 1
+    fi
+    teams=(brzl-operators brzl-auditors)
+  fi
+  for team in "${teams[@]}"; do
     if [[ "$(kubectl auth can-i list pods --all-namespaces --as=oidc:probe --as-group="oidc:$org:$team" 2>/dev/null)" != yes \
         || "$(kubectl auth can-i create pods --as=oidc:probe --as-group="oidc:$org:$team" 2>/dev/null)" != no ]]; then
-      printf 'fix: the group oidc:%s:%s does not have exactly the view role; see: kubectl get clusterrolebinding brzl-tier-%s\n' \
-        "$org" "$team" "${team#brzl-}" >&2
+      printf 'fix: the group oidc:%s:%s does not have exactly the view role; see: kubectl get clusterrolebindings -o wide | grep %s; kubectl -n argocd get application access\n' \
+        "$org" "$team" "$team" >&2
       return 1
     fi
   done
@@ -264,7 +281,11 @@ portal_check() {
     printf 'fix: the admin log store has no NetworkPolicy (logs/loki-admin.yaml, extraObjects); see: kubectl -n argocd get application log-store-admin\n' >&2
     return 1
   fi
-  printf 'the admin portal at %s/ sends a request without a session to sign in at %s; Argo CD names that issuer; Grafana is healthy; /apps/%s/ is open; the portal is %s; the tiers have their kubectl rights; the admin log store admits only its writers\n' \
+  if ! kubectl -n sign-on get networkpolicy oauth2-proxy >/dev/null 2>&1; then
+    printf 'fix: oauth2-proxy has no NetworkPolicy (sign-on/oauth2-proxy.yaml, networkPolicy); see: kubectl -n argocd get application oauth2-proxy\n' >&2
+    return 1
+  fi
+  printf 'the admin portal at %s/ sends a request without a session to sign in at %s; Argo CD names that issuer; Grafana is healthy; /apps/%s/ is open; the portal is %s; the tiers have their kubectl rights; the admin log store admits only its writers; only the portal reaches oauth2-proxy\n' \
     "$url" "$issuer" "$BRZL_EXAMPLE_APP_NAME" "$ip"
 }
 

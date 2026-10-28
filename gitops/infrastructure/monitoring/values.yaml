@@ -73,6 +73,45 @@ prometheus:
 kube-state-metrics:
   image:
     repository: kube-state-metrics/kube-state-metrics
+  # The chart's default collectors (kube-state-metrics 7.4.0), and the
+  # built-in collector for ClusterRoleBindings, for the alert on a
+  # break-glass hold (ADR-0037): kube_clusterrolebinding_created
+  # {clusterrolebinding}; the alert reads brzl-break-glass, which exists only
+  # during a hold. The chart adds the RBAC rule for each collector in this
+  # list. The list replaces the chart's list, so a chart upgrade must compare
+  # it with the new defaults. A custom-resource entry cannot do this:
+  # kube-state-metrics finds those kinds only from CustomResourceDefinitions,
+  # and it skips a built-in kind without an error (seen 2026-10-28).
+  collectors:
+    - certificatesigningrequests
+    - configmaps
+    - cronjobs
+    - daemonsets
+    - deployments
+    - endpointslices
+    - horizontalpodautoscalers
+    - ingresses
+    - jobs
+    - leases
+    - limitranges
+    - mutatingwebhookconfigurations
+    - namespaces
+    - networkpolicies
+    - nodes
+    - persistentvolumeclaims
+    - persistentvolumes
+    - poddisruptionbudgets
+    - pods
+    - replicasets
+    - replicationcontrollers
+    - resourcequotas
+    - secrets
+    - services
+    - statefulsets
+    - storageclasses
+    - validatingwebhookconfigurations
+    - volumeattachments
+    - clusterrolebindings
   # Each Argo CD Application's sync retries, for the alert below (Q168,
   # BACKLOG 20): brzl_argocd_app_sync_retries{name, phase, sync}. The count
   # and the phase stay on the Application after the operation ends, even
@@ -242,4 +281,15 @@ additionalPrometheusRulesMap:
             annotations:
               summary: "Argo CD failed to sync {{ $labels.name }} {{ $value }} times"
               description: "Read the error: kubectl -n argocd get application {{ $labels.name }} -o jsonpath='{.status.operationState.message}'"
+      # Break-glass (ADR-0037, Q199): a hold has no automatic end, so a hold
+      # older than 4 hours warns. The binding exists only during a hold.
+      - name: brzl-break-glass
+        rules:
+          - alert: BrzlBreakGlassHeld
+            expr: time() - kube_clusterrolebinding_created{clusterrolebinding="brzl-break-glass"} > 4 * 3600
+            labels:
+              severity: warning
+            annotations:
+              summary: "A break-glass hold is older than 4 hours: Argo CD holds, and the admins are cluster-admin"
+              description: "End it with: bash driver/driver.sh <env> release | bash driver/kiesei.sh (docs/BREAK-GLASS.md). The record: kubectl -n argocd get secret brzl-<env>-in-cluster -o jsonpath='{.metadata.annotations.brzl\\.dev/break-glass}'"
 

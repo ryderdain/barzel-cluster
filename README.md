@@ -320,6 +320,10 @@ and detailed in the documents below.
 - [`ACCESS.md`](docs/ACCESS.md) — role/SSO onboarding, assume-role, offboarding.
 - [`UPGRADE.md`](docs/UPGRADE.md) — PostgreSQL / k3s / chart / app upgrades (GitOps).
 - [`RECOVERY.md`](docs/RECOVERY.md) — backups, restore/PITR, failover, state recovery.
+- [`BREAK-GLASS.md`](docs/BREAK-GLASS.md) — break-glass mode: the recorded
+  emergency exception to GitOps (`hold` / `release`), the path when Dex is
+  down, the reader of the admin log store (`reader_on` / `reader_off`).
+  Built in pass 6b.
 - [`TEARDOWN.md`](docs/TEARDOWN.md) — decommission + the mandatory cost-leak sweep.
 - [`INSTALL.md`](docs/INSTALL.md) — from a clean machine to the running local environment, in order: tools, repositories, the deploy key, the workload's access, `up`.
 - [`LOCAL.md`](docs/LOCAL.md) — the reference for the local environment on **k3d**, no AWS; `--with-sso` adds the legacy operator SSO gateway.

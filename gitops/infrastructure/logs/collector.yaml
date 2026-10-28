@@ -184,6 +184,11 @@ config:
         - set(resource.attributes["brzl.source"], "pod")
         - set(resource.attributes["brzl.env"], "${env:BRZL_ENV}")
         - set(resource.attributes["brzl.routes"], "diagnostic") where resource.attributes["brzl.routes"] == nil
+        # The gate's session and CSRF cookies are credentials. oauth2-proxy
+        # logs every cookie of a callback without its CSRF cookie (upstream
+        # debug output), so the values go before any store sees the line
+        # (seen 2026-10-28). The name stays, for the diagnosis.
+        - 'replace_pattern(log.body, "(_brzl_sign_on[A-Za-z0-9_]*=)[^;\\] ]+", "$$1<redacted>")'
     filter/admin-log-store:
       error_mode: propagate
       logs:

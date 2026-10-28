@@ -620,3 +620,101 @@ the gate, and the auth flows as six diagrams in SECURITY.md. Merged to
   its hour (Q191), as designed. One open point: that page is Dex's
   approval page, and Dex's `skipApprovalScreen` is on, so the page was
   not expected. Which client asked, and why, is BACKLOG 33.
+
+## 2026-10-27 — pass 6b start: the gate's two faults, and item 27
+
+User-verified on sleipnir. **This entry corrects the second addendum
+above:** the re-login at 14:59 CET was not Argo CD's 1-hour token. It was
+a fault of the gate, and the "Grant Access" page was a second fault.
+
+- **The gate lost its session about every hour.** The logs of oauth2-proxy
+  and of Dex showed it. oauth2-proxy refreshed the session in its answer to
+  nginx's subrequest, and nginx dropped the new cookie. The browser kept
+  the old cookie, Dex refused its refresh token as "claimed twice", and
+  the person signed in again. nginx now passes the cookie
+  (`auth_request_set`, `add_header Set-Cookie`). The browser has one
+  cookie, `_brzl_sign_on`. The gate's log shows a refresh at a session
+  age of 1 h 5 min, with no failure. After the hour, the portal, Grafana
+  and Argo CD asked for no sign-in.
+- **The "Grant Access" page** came from oauth2-proxy's default
+  `approval_prompt=force`, which Dex obeys although `skipApprovalScreen`
+  is on. The gate sends `auto` now, and the page is gone (BACKLOG 33).
+- **Item 27: only the portal reaches oauth2-proxy** (a NetworkPolicy from
+  the chart). Phase 40 passed with its new check. A probe from a pod in
+  another namespace was refused at once, because k3s rejects with
+  `icmp-port-unreachable`, not by a timeout. The portal still reaches
+  `/ping`.
+- **Still not seen cleanly:** Argo CD's own request for a click after its
+  1-hour token (Q191). The gate's fault hid it before. The user watches
+  a private window for it.
+
+## 2026-10-28 — pass 6b, step 1: break-glass hold and release
+
+User-verified on sleipnir, on a new cluster (`down`, then `up`), at
+`58d2d7c` and the fixes in `d8a5023`. Design: Q195 to Q204 (ADR-0037,
+docs/BREAK-GLASS.md).
+
+- **Outside a hold, the admins have `view`.** In the kiesei shell,
+  `kubectl auth whoami` named the user through Dex, and
+  `kubectl auth can-i create pods` said `no`. Phases 10 and 40 passed.
+- **`hold` with a reason** wrote the record with the person from
+  sign-on, turned auto-sync off and bound the admins to `cluster-admin`.
+  `can-i` then said `yes`. A live change (`portal` at 2 replicas) stayed.
+  Fast mode refused during the hold.
+- **The audit rule** recorded the change at level `Request`, with
+  `replicas: 2`, in the admin log store.
+- **`release`** stopped with exit 3 and listed the differences.
+  `release confirm` deleted the binding, turned auto-sync on, and printed
+  the review queries. The portal went back to 1 replica, and `can-i` said
+  `no` again. `as_admin` and `as_me` switched the shell's kubeconfig and
+  prompt.
+- **A second hold and a `release` with no differences** finished without
+  `confirm`. During that hold, Prometheus had the series
+  `kube_clusterrolebinding_created{clusterrolebinding="brzl-break-glass"}`,
+  which the alert `BrzlBreakGlassHeld` reads.
+- **Three faults found in the test, fixed in `d8a5023`.**
+  - The first metric did not exist. kube-state-metrics finds
+    custom-resource kinds only from CustomResourceDefinitions, and it
+    skipped ClusterRoleBinding without an error. The chart's built-in
+    collector replaces it.
+  - Two sign-ins at once in one browser gave a 500 at the gate ("Invalid
+    code_verifier"). The gate now keeps one CSRF cookie per sign-in. The
+    user's test with two tabs passed. Grafana's own sign-in has the same
+    fault and no setting for it: BACKLOG 34.
+  - oauth2-proxy logs all cookies of a callback without its CSRF cookie.
+    The log collector now redacts the values of the gate's cookies.
+- **Docs.** The user did not know `as_admin` and `as_me` (Q201). They
+  were only in the break-glass docs. The kiesei guide now names them, and
+  it no longer tells the reader to export the cluster-admin kubeconfig.
+
+## 2026-10-28 — pass 6b, step 2 and round 4: the reader, the person
+
+User-verified on sleipnir, with the cluster up, at `78797ad`. Design:
+Q205 to Q209, all (a) except Q205 (b) (ADR-0037, docs/BREAK-GLASS.md).
+This closes pass 6b (BACKLOG item 6) and item 28.
+
+- **The reader of the admin log store** (`reader_on`, `reader_off`,
+  `driver/modes/reader.sh`). It starts a Loki and a Grafana in containers
+  on the operator's machine, on `127.0.0.1:3300`, with no sign-on. Its
+  Loki has the store's directory read-only and runs as a querier alone,
+  so it cannot change the store. It needs no cluster and no current run,
+  and it writes into its own run directory, `reader-<UTC>Z`.
+- **The agent's test** (the user was away and allowed it once):
+  `reader_on` printed its note about the running cluster, and Grafana
+  returned the break-glass run outputs and the scale record at level
+  `Request`. A second `reader_on` replaced the first reader. `reader_off`
+  removed both containers.
+- **The user's test** (`reader-20261028T1537Z`, `reader-20261028T1544Z`)
+  gave the same results, both with rc 0. The test with the cluster
+  removed (`down`) was not run.
+- **Q206:** the reader runs beside a running cluster and sees records up
+  to about 15 minutes late. This replaces the first design, a refusal
+  while the cluster's Loki uses the directory.
+- **Q207 and Q209:** on local, the cluster-admin kubeconfig and the store
+  token `driver` stay. On a laptop, they give no power beyond the
+  container engine's socket and the recovery key. Pass 8 decides the
+  public-cloud shape (BACKLOG 23 and 29).
+- **Q208:** each run output's header line names the account on the
+  operator's machine, `person=<account> person_verified=false`. Both of
+  the user's reader outputs show `person=rdain`. The driver's 27 test
+  cases pass.

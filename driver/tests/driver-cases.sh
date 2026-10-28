@@ -94,11 +94,11 @@ report 'next runs only that phase' 'no' "$([[ -e "$dir/20-images.sh" ]] && print
 report 'the run sheet records the resolved environment' '# BRZL_SUBSTRATE=fake' "$(sed -n 2p "$dir/10-substrate.sh")"
 
 # 3a. UTC everywhere (ADR-0027): the run directory is cluster-<UTC>Z, and each
-# run output starts with its header line.
+# run output starts with its header line, which names the person (Q208).
 report 'the run directory is named cluster-<UTC>Z' 'yes' \
   "$([[ "$(run_dir)" =~ ^cluster-[0-9]{8}T[0-9]{4}Z(-[0-9]+)?$ ]] && printf yes || printf no)"
 report 'the run output starts with its header line' 'yes' \
-  "$([[ "$(head -n 1 "$dir/10-substrate.out")" =~ ^'# brzl run-output env=test run='"$(run_dir)"' phase=10-substrate start='[0-9-]{10}T[0-9:]{8}Z$ ]] && printf yes || printf no)"
+  "$([[ "$(head -n 1 "$dir/10-substrate.out")" =~ ^'# brzl run-output env=test run='"$(run_dir)"' phase=10-substrate start='[0-9-]{10}T[0-9:]{8}Z' person='"$(id -un)"' person_verified=false'$ ]] && printf yes || printf no)"
 
 # 4. Resume: `up` continues at the first phase without .ok, in the same run.
 before="$(run_dir)"
@@ -129,6 +129,35 @@ report 'fast_on refuses before 30-gitops has passed' '2' "$rc"
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)
 report 'fast_on emits one group after 30-gitops' '1' "$(drive fast_on | grep -c '^{ # fast mode on')"
 report 'apply emits one conductor group' '1' "$(drive apply | grep -c 'bash driver/conductor.sh')"
+
+# 7a. Break-glass mode (ADR-0037): hold needs a reason; hold and release emit
+# one group each; the reason reaches the emitter quoted; an emit step that
+# refuses stops the stream with exit 3 before any run sheet runs, and its
+# output is kept (the record of a refusal). Here the emitter refuses because
+# the fake environment has no BRZL_SIGN_ON_ORG.
+drive hold >/dev/null; rc=$?
+report 'hold without a reason refuses' '2' "$rc"
+report 'hold emits one group' '1' "$(drive hold 'portal down' | grep -c '^{ # break-glass hold')"
+report 'hold passes the reason to its emitter, quoted' '1' \
+  "$(drive hold "it's down" | grep -c "break-glass.sh hold test [^ ]* 'it'\\\\''s down' >")"
+report 'release emits one group' '1' "$(drive release | grep -c '^{ # break-glass release')"
+drive hold 'portal down' | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
+dir="$scratch/var/run/test/$(run_dir)"
+emit_out=("$dir"/break-glass-hold-*-emit.out); sheet_rc=("$dir"/break-glass-hold-*Z.rc)
+report 'a refused hold stops with exit 3, keeps its emit output, runs no sheet' '3 kept none' \
+  "$rc $([[ -s "${emit_out[0]}" ]] && printf kept || printf none) $([[ -e "${sheet_rc[0]}" ]] && printf ran || printf none)"
+
+# 7b. The reader of the admin log store (ADR-0037): reader_on and reader_off
+# emit one group each, in a new run directory reader-<UTC>Z, not in the
+# current run. Here reader_on refuses because the fake environment has no
+# local admin log store: exit 3, and the current run stays.
+report 'reader_on emits one group' '1' "$(drive reader_on | grep -c '^{ # the reader of the admin log store: on')"
+report 'reader_off emits one group' '1' "$(drive reader_off | grep -c '^{ # the reader of the admin log store: off')"
+report 'the reader writes into var/run/<env>/reader-<UTC>Z' '1' \
+  "$(drive reader_on | grep -cE '^  mkdir -p var/run/test/reader-[0-9]{8}T[0-9]{4}Z(-[0-9]+)?$')"
+before="$(run_dir)"
+drive reader_on | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
+report 'reader_on without a local store stops with exit 3; the current run stays' "3 $before" "$rc $(run_dir)"
 
 # 8. `down` removes the cluster, passes its check, and drops the current run.
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)

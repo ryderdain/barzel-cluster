@@ -22,6 +22,11 @@
 #                             machine: BRZL_HOST_OS when set (driver/kiesei.sh
 #                             sets it, because inside the container uname says
 #                             Linux), else uname
+#   auto_sync_wait <none|all> wait up to 90 s until the ApplicationSet renders
+#                             no (none) or every (all) Application with
+#                             automated sync (the switch of fast mode and
+#                             break-glass mode, ADR-0025); print
+#                             "<automated> of <total>"; return 1 on timeout
 #
 # Each phase script also defines phase_locus, which prints `driver` or
 # `conductor`; the driver reads it to choose how to run the phase.
@@ -87,6 +92,24 @@ squote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 
 host_os() {
   if [[ -n "${BRZL_HOST_OS:-}" ]]; then printf '%s' "$BRZL_HOST_OS"; else uname; fi
+}
+
+auto_sync_wait() {
+  local want="$1" waited=0 apps automated='?' total='?'
+  while (( waited <= 90 )); do
+    if apps="$(kubectl -n argocd get applications -o json)"; then
+      automated="$(jq '[.items[] | select(.spec.syncPolicy.automated != null)] | length' <<< "$apps")"
+      total="$(jq '.items | length' <<< "$apps")"
+      if [[ "$want" == none && "$automated" == 0 ]] || [[ "$want" == all && "$automated" == "$total" ]]; then
+        printf '%s of %s' "$automated" "$total"
+        return 0
+      fi
+    fi
+    sleep 5
+    waited=$(( waited + 5 ))
+  done
+  printf '%s of %s' "$automated" "$total"
+  return 1
 }
 
 gitops_repo_url() {

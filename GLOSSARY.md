@@ -92,8 +92,9 @@ _Avoid_: dev mode, inner loop, direct mode
 
 **Break-glass mode**:
 A mode of any environment for an emergency. Argo CD holds and does not sync,
-and an operator or an agent makes changes through the conductor. Each use is
-recorded and reviewed afterwards. It is not for usual work.
+and the admins get full rights for the time of the hold, each under their
+own name. Each use is recorded and reviewed afterwards. It is not for usual
+work.
 _Avoid_: fast mode, intervention mode, emergency mode
 
 **Run sheet**:
@@ -147,6 +148,12 @@ The log store for operation and audit. It keeps the bootstrap, control-plane
 and access records of an environment. It is external to the cluster and
 outlives it.
 _Avoid_: external log store, audit store, central logging
+
+**Reader of the admin log store**:
+A Grafana and a Loki on the operator's machine that only read the admin log
+store, when the cluster's own Grafana cannot. It needs no cluster, and it has
+no sign-on: only the operator's machine can reach it.
+_Avoid_: emergency Grafana, offline Grafana, log viewer
 
 **Diagnostic log store**:
 The log store for detailed logs, from workloads and from the platform

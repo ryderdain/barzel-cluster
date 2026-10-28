@@ -12,6 +12,16 @@
 #   bash driver/driver.sh local fast_on | bash  # fast mode: Argo CD holds
 #   bash driver/driver.sh local apply | bash    # ...apply the working tree
 #   bash driver/driver.sh local fast_off | bash # ...back to the pushed branch
+#   bash driver/driver.sh <env> hold '<reason>' | bash driver/kiesei.sh
+#                                               # break-glass mode: Argo CD holds,
+#                                               #    the admins are cluster-admin
+#   bash driver/driver.sh <env> release [confirm] | bash driver/kiesei.sh
+#                                               # ...back to git (docs/BREAK-GLASS.md)
+#   bash driver/driver.sh <env> reader_on | bash driver/kiesei.sh
+#                                               # the reader of the admin log
+#                                               #    store, on 127.0.0.1, also
+#                                               #    without a cluster
+#   bash driver/driver.sh <env> reader_off | bash driver/kiesei.sh   # ...stop it
 #   bash driver/driver.sh <env> status          # GENERATOR: the current run
 #   bash driver/driver.sh <env> check <phase> <run_dir> [down]   # GENERATOR;
 #                                               #    the emitted groups call this
@@ -34,6 +44,18 @@
 # Fast mode (GLOSSARY; local only; ADR-0025): fast_on / fast_off / apply write
 # their run sheets into the current run (fast-on-<HHMMSS>Z.sh, ..., in UTC) with
 # driver/fast-mode.sh and need a run that has passed 30-gitops.
+#
+# Break-glass mode (GLOSSARY; any environment; ADR-0037): hold / release
+# write their run sheets the same way (break-glass-hold-<HHMMSS>Z.sh, ...) with
+# driver/modes/break-glass.sh. Its emit step reads only; what it prints (the
+# person, the reason, the differences from git) goes to <name>-emit.out, so a
+# refused release is on record too. hold takes the reason, and a declared
+# name only when Dex is down; release takes `confirm` to accept the undo.
+#
+# The reader of the admin log store (GLOSSARY; ADR-0037): reader_on /
+# reader_off need no cluster and no current run. Each writes its run sheet
+# in a new run directory, var/run/<env>/reader-<UTC>Z, with
+# driver/modes/reader.sh.
 #
 # Inputs: <env> selects env/<env>.env. Needs the tools of each phase (k3d,
 # docker, kubectl, helm, jq, yq, git for local). Credentials for local: phase
@@ -86,9 +108,12 @@ new_run_dir() {
 # run output with its header line (logfmt; ADR-0027). The start time is taken
 # when the line runs, not when it is emitted. The collector tells files apart
 # by their first bytes, so two outputs with the same text need this line.
+# The person is the account on the operator's machine (Q208): BRZL_HOST_USER
+# from driver/kiesei.sh, else the account that runs the line. It is declared,
+# not verified: every phase still acts as system:admin.
 run_output_header() {
   # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
-  printf 'printf '\''# brzl run-output env=%s run=%s phase=%s start=%%s\\n'\'' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)"' \
+  printf 'printf '\''# brzl run-output env=%s run=%s phase=%s start=%%s person=%%s person_verified=false\\n'\'' "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" "${BRZL_HOST_USER:-$(id -un)}"' \
     "$1" "${2##*/}" "$3"
 }
 
@@ -200,6 +225,66 @@ emit_fast() {
   end_function 0 "emitted $env fast $what for $run_dir"
 }
 
+# emit_break_glass <env> <hold|release> [args] — one group for a break-glass
+# action, in the current run, at the driver locus. Three steps, each recorded:
+# the emitter (it reads the cluster and stops, with error 3, when the action
+# must not run), the run sheet, the check.
+emit_break_glass() {
+  local env="$1" what="$2" link="$repo_root/var/run/$1/current" run_dir name arg args=''
+  shift 2
+  if [[ ! -L "$link" ]]; then
+    printf 'error: %s has no current run; bring it up first\n' "$env" >&2
+    return 2
+  fi
+  run_dir="var/run/$env/$(readlink "$link")"
+  if [[ ! -e "$repo_root/$run_dir/30-gitops.ok" ]]; then
+    printf 'error: break-glass mode needs Argo CD: phase 30-gitops has not passed in %s\n' "$run_dir" >&2
+    return 2
+  fi
+  if [[ "$what" == hold && -z "${1:-}" ]]; then
+    printf "usage: bash driver/driver.sh %s hold '<reason>' ['<your name>', only when Dex is down] | bash driver/kiesei.sh\n" "$env" >&2
+    return 2
+  fi
+  for arg in "$@"; do args+=" $(squote "$arg")"; done
+  name="break-glass-$what-$(utc '%H%M%S')Z"
+  printf 'cd %q || exit 1\n' "$repo_root"
+  awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+  printf '{ # break-glass %s (%s, locus: driver; docs/BREAK-GLASS.md)\n' "$what" "$env"
+  printf '  { %s; bash driver/modes/break-glass.sh %s %q %q%s > %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+    "$(run_output_header "$env" "$run_dir" "$name-emit")" "$what" "$env" "$run_dir" "$args" \
+    "$run_dir/$name.sh" "$run_dir/$name-emit.rc" "$run_dir/$name-emit.out"
+  # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
+  printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name-emit.rc"
+  printf '    || error 3 %s\n' "$(squote "break-glass $what stopped before any change: read the lines above (kept in $run_dir/$name-emit.out)")"
+  printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+    "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+  printf '  bash driver/modes/break-glass.sh %s_check %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
+  printf '    || error 3 %s\n' "$(squote "break-glass $what did not take effect; read $run_dir/$name.out, then run $what again")"
+  printf '}\n'
+  end_function 0 "emitted $env break-glass $what for $run_dir"
+}
+
+# emit_reader <env> <on|off> — one group for the reader of the admin log
+# store, in a new run directory (the cluster can be gone), at the driver
+# locus.
+emit_reader() {
+  local env="$1" what="$2" run_dir name
+  run_dir="$(new_run_dir "$env" reader)"
+  name="reader-$what"
+  printf 'cd %q || exit 1\n' "$repo_root"
+  awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+  printf '{ # the reader of the admin log store: %s (%s, locus: driver; docs/BREAK-GLASS.md)\n' "$what" "$env"
+  printf '  mkdir -p %q\n' "$run_dir"
+  printf '  bash driver/modes/reader.sh reader_%s %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
+  printf '    || error 3 %s\n' "$(squote "reader $what could not be emitted (the message above says why); nothing ran")"
+  printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
+    "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+  printf '  bash driver/modes/reader.sh reader_%s_check %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
+  printf '    || error 3 %s\n' "$(squote "reader $what did not take effect; read $run_dir/$name.out")"
+  printf '}\n'
+  end_function 0 "emitted $env reader $what for $run_dir"
+}
+
 # check <env> <phase> <run_dir> [down] — GENERATOR. Runs the phase's check in a
 # subshell (so the phase script's globals stay out of this one) and writes .ok.
 check() {
@@ -240,7 +325,7 @@ status() {
 main() {
   local env="${1:-}" action="${2:-}"
   if [[ -z "$env" || -z "$action" ]]; then
-    sed -n '2,31p' "${BASH_SOURCE[0]}" >&2
+    sed -n '2,63p' "${BASH_SOURCE[0]}" >&2
     return 2
   fi
   if [[ ! -r "$repo_root/env/$env.env" ]]; then
@@ -257,7 +342,11 @@ main() {
     fast_on)  emit_fast "$env" on ;;
     fast_off) emit_fast "$env" off ;;
     apply)    emit_fast "$env" apply ;;
-    *) printf 'error: unknown action %q (up, next, down, status, check, fast_on, fast_off, apply)\n' "$action" >&2; return 2 ;;
+    hold)     emit_break_glass "$env" hold "$@" ;;
+    release)  emit_break_glass "$env" release "$@" ;;
+    reader_on)  emit_reader "$env" on ;;
+    reader_off) emit_reader "$env" off ;;
+    *) printf 'error: unknown action %q (up, next, down, status, check, fast_on, fast_off, apply, hold, release, reader_on, reader_off)\n' "$action" >&2; return 2 ;;
   esac
 }
 
