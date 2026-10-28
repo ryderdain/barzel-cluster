@@ -50,7 +50,11 @@ run output's header line (Q208). Not run: the reader with the cluster
 removed. Argo CD's own hourly click is still not seen cleanly. The user
 watches a private window.
 
-**▶ NEXT: pass 6c, cold storage and backups** (BACKLOG item 7): the
-`cold` route, each workload's backups, and the reader extended to the
-cold records. Start with a design round. Then item 13 (the Argo CD
-upgrade).
+**▶ IN FLIGHT: pass 6c, cold storage and backups** (BACKLOG item 7),
+branch `pass-6c-cold-storage` from `main` at `0b753d1`. Design round 1
+asked (Q210 to Q213): the cold store on local, the CNPG backup method,
+the life of cold data, and the restore scope. Facts found: the collector
+routes platform records to `admin,cold`, and `cold` has no exporter yet.
+chofesh's aws overlay uses the in-tree `barmanObjectStore`, which CNPG
+1.29 deprecates (removal planned for 1.31). The local overlay has no
+backup. Then item 13 (the Argo CD upgrade).
