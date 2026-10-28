@@ -291,11 +291,16 @@ the reason, as an input of `hold`, and it writes the record with the mark
 "declared, not verified". The hold is recorded, but the platform did
 not verify who you are.
 
-In the kiesei shell, two planned commands switch the kubeconfig:
+In the kiesei shell (`bash driver/kiesei.sh shell`), two commands switch
+the kubeconfig:
 
-- `as_admin`: `kubectl` uses the cluster-admin kubeconfig. The shell shows
-  a warning banner until you switch back.
+- `as_admin`: `kubectl` uses the cluster-admin kubeconfig. The prompt
+  starts with a red `[cluster-admin]`, and the shell shows a warning,
+  until you switch back.
 - `as_me`: `kubectl` uses `kubeconfig-sign-on` again.
+
+These commands do not check for a hold. Start the hold first, then
+switch.
 
 The API audit log then names `system:admin`, at Metadata level only, with
 no request body. The declared record and your shell's own history are the

@@ -130,6 +130,8 @@ Order of work (Q120):
    (Q195–Q201, [ADR-0037](docs/adr/0037-break-glass-mode.md), the working
    model in [docs/BREAK-GLASS.md](docs/BREAK-GLASS.md)). The person acts
    with their own `kubectl`, not through the conductor (Q196).
+   **Step 1 (hold, release, audit rule, alert) DONE 2026-10-28,
+   user-verified** (RETROSPECTIVE). Step 2, the reader, is next.
    **Refresher for the design round (user, 2026-10-27).** After step 2 of
    pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
    `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same

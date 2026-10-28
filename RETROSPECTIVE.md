@@ -647,3 +647,42 @@ a fault of the gate, and the "Grant Access" page was a second fault.
 - **Still not seen cleanly:** Argo CD's own request for a click after its
   1-hour token (Q191). The gate's fault hid it before. The user watches
   a private window for it.
+
+## 2026-10-28 — pass 6b, step 1: break-glass hold and release
+
+User-verified on sleipnir, on a new cluster (`down`, then `up`), at
+`58d2d7c` and the fixes in `d8a5023`. Design: Q195 to Q204 (ADR-0037,
+docs/BREAK-GLASS.md).
+
+- **Outside a hold, the admins have `view`.** In the kiesei shell,
+  `kubectl auth whoami` named the user through Dex, and
+  `kubectl auth can-i create pods` said `no`. Phases 10 and 40 passed.
+- **`hold` with a reason** wrote the record with the person from
+  sign-on, turned auto-sync off and bound the admins to `cluster-admin`.
+  `can-i` then said `yes`. A live change (`portal` at 2 replicas) stayed.
+  Fast mode refused during the hold.
+- **The audit rule** recorded the change at level `Request`, with
+  `replicas: 2`, in the admin log store.
+- **`release`** stopped with exit 3 and listed the differences.
+  `release confirm` deleted the binding, turned auto-sync on, and printed
+  the review queries. The portal went back to 1 replica, and `can-i` said
+  `no` again. `as_admin` and `as_me` switched the shell's kubeconfig and
+  prompt.
+- **A second hold and a `release` with no differences** finished without
+  `confirm`. During that hold, Prometheus had the series
+  `kube_clusterrolebinding_created{clusterrolebinding="brzl-break-glass"}`,
+  which the alert `BrzlBreakGlassHeld` reads.
+- **Three faults found in the test, fixed in `d8a5023`.**
+  - The first metric did not exist. kube-state-metrics finds
+    custom-resource kinds only from CustomResourceDefinitions, and it
+    skipped ClusterRoleBinding without an error. The chart's built-in
+    collector replaces it.
+  - Two sign-ins at once in one browser gave a 500 at the gate ("Invalid
+    code_verifier"). The gate now keeps one CSRF cookie per sign-in. The
+    user's test with two tabs passed. Grafana's own sign-in has the same
+    fault and no setting for it: BACKLOG 34.
+  - oauth2-proxy logs all cookies of a callback without its CSRF cookie.
+    The log collector now redacts the values of the gate's cookies.
+- **Docs.** The user did not know `as_admin` and `as_me` (Q201). They
+  were only in the break-glass docs. The kiesei guide now names them, and
+  it no longer tells the reader to export the cluster-admin kubeconfig.
