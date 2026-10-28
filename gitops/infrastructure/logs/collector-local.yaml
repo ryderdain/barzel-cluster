@@ -1,0 +1,76 @@
+# The cold log store on local (pass 6c, Q214 to Q216): the records routed to
+# `cold` go to /var/lib/brzl/cold-log-store, which is the host directory
+# var/log-store/<env>/cold, mounted into every node (driver/substrates/k3d.sh).
+# Like the admin log store's data, it outlives the cluster; nothing removes it
+# (Q212), also not `down`. A cloud gets its own cold store in pass 8.
+#
+# The files are OTLP as JSON lines, one line for each batch, read with jq
+# (docs/RECOVERY.md). One directory for each node, so two collectors never
+# write the same file, then one file for each source:
+#   <node>/platform/<brzl.source>.jsonl   k3s-server, api-audit, k8s-event,
+#                                         run-output, openbao-audit
+#   <node>/namespaces/<namespace>.jsonl   a namespace whose routes name cold
+# A file that reaches 100 MB gets the UTC time in its name, and a new file
+# starts. With rotation set, a restarted collector appends to its files; all
+# old files stay (max_backups: 0).
+#
+# Helm replaces a list, it does not merge it: so the two lists below repeat
+# the base file's (collector.yaml) and add the cold directory.
+extraVolumes:
+  - name: intake-tls
+    secret:
+      secretName: log-intake-tls
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: positions
+    hostPath:
+      path: /var/lib/brzl/collector
+      type: DirectoryOrCreate
+  - name: cold-log-store
+    hostPath:
+      path: /var/lib/brzl/cold-log-store
+      type: Directory                       # the mount must exist; never the node's own disk
+extraVolumeMounts:
+  - name: intake-tls
+    mountPath: /tls
+    readOnly: true
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+  - name: positions
+    mountPath: /var/lib/brzl/collector
+  - name: cold-log-store
+    mountPath: /var/lib/brzl/cold-log-store
+
+config:
+  processors:
+    filter/cold-log-store:
+      error_mode: propagate
+      logs:
+        log_record:
+          - 'not IsMatch(resource.attributes["brzl.routes"], "(^|,)cold(,|$)")'
+    # Q99: each record names the store it is in. brzl.cold.file is the
+    # file's path under the node's directory, without .jsonl.
+    transform/cold-log-store:
+      log_statements:
+        - set(resource.attributes["brzl.store"], "cold-log-store")
+        - set(resource.attributes["brzl.cold.file"], Concat(["namespaces", resource.attributes["k8s.namespace.name"]], "/")) where resource.attributes["brzl.source"] == "pod"
+        - set(resource.attributes["brzl.cold.file"], Concat(["platform", resource.attributes["brzl.source"]], "/")) where resource.attributes["brzl.source"] != "pod"
+        - set(resource.attributes["brzl.cold.file"], "platform/unknown") where resource.attributes["brzl.cold.file"] == nil
+  exporters:
+    file/cold-log-store:
+      path: /var/lib/brzl/cold-log-store/${env:OTEL_K8S_NODE_NAME}/*.jsonl
+      format: json
+      group_by:
+        enabled: true
+        resource_attribute: brzl.cold.file
+      rotation:
+        max_megabytes: 100
+        max_backups: 0                      # keep every old file (Q212)
+  service:
+    pipelines:
+      logs/cold-log-store:
+        receivers: [forward/routed]
+        processors: [filter/cold-log-store, transform/cold-log-store, batch]
+        exporters: [file/cold-log-store]

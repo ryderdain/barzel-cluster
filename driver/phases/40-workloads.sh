@@ -21,7 +21,9 @@
 # log store, and the example app's pod logs in the diagnostic log store. It
 # asks with a query, not Loki's /ready. The run outputs of the earlier phases
 # waited in the queue of the collector beside the cluster, so the check waits
-# up to three minutes for them.
+# up to three minutes for them. Where the cold log store is a host directory
+# (local, BRZL_LOG_STORE_DIR), every admin source also has a cold file there
+# that is not empty (pass 6c).
 #
 # Sign-on (ADR-0035): a check cannot sign in to GitHub, so it checks what
 # sign-on is made of. The portal refuses a request without a session and
@@ -137,6 +139,19 @@ logs_check() {
     return 1
   fi
   printf 'the admin log store has records from every source: %s\n' "${want[*]}"
+  if [[ -n "${BRZL_LOG_STORE_DIR:-}" ]]; then
+    missing=''
+    for source in "${want[@]}"; do
+      [[ -n "$(find "$BRZL_LOG_STORE_DIR/cold" -path "*/platform/$source.jsonl" -size +0 2>/dev/null)" ]] \
+        || missing+=" $source"
+    done
+    if [[ -n "$missing" ]]; then
+      printf 'fix: the cold log store (%s) has no records from:%s; see: kubectl -n logs logs ds/log-collector-agent; logs/collector-local.yaml\n' \
+        "$BRZL_LOG_STORE_DIR/cold" "$missing" >&2
+      return 1
+    fi
+    printf 'the cold log store has records from every admin source (%s)\n' "$BRZL_LOG_STORE_DIR/cold"
+  fi
   if [[ "$(loki_query admin 'sum(count_over_time({brzl_source="k8s-event"} | brzl_collector_node != "" [24h]))' \
         | jq -r '.data.result[0].value[1] // 0' 2>/dev/null)" == 0 ]]; then
     printf 'fix: the events in the admin log store do not name the node of their collector (brzl_collector_node); see: gitops/infrastructure/logs/collector.yaml\n' >&2

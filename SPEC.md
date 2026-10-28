@@ -136,7 +136,9 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   ISO 8601 with `Z`, everywhere; each run output starts with a logfmt
   header. Grafana is kube-prometheus-stack's, on every substrate. Loki and
   the collector come from their Helm charts. The collector beside a local
-  cluster sends to the one in it, with a queue on disk (Q158–Q162).
+  cluster sends to the one in it, with a queue on disk (Q158–Q162). On
+  local, the **cold log store** is a host directory of JSON lines, which
+  `jq` reads, and nothing removes it (pass 6c, Q210–Q217).
 - **The admin portal (2026-10-14, ADR-0028).** One nginx in the cluster
   serves a static page and passes each path to its service (`/argocd/`,
   `/grafana/`, `/apps/<workload>/`): one host name, one certificate, the

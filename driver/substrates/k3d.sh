@@ -45,6 +45,9 @@
 # Logs (ADR-0027). The admin log store's data is a host directory,
 # BRZL_LOG_STORE_DIR/admin, mounted into the server node; the admin Loki in
 # the cluster keeps it there, so it outlives the cluster as a bucket would.
+# The cold log store is BRZL_LOG_STORE_DIR/cold, mounted into every node: the
+# collector on each node writes its cold records there as JSON lines, under
+# the node's name (pass 6c). Nothing removes them, also not `down`.
 # The API server writes an audit log (k3s-audit-policy.yaml, metadata level;
 # the request body of the admins' writes, for break-glass mode, ADR-0037)
 # and k3s writes its own log to a file, both on the server node, where the
@@ -153,7 +156,7 @@ substrate_up() {
   [[ "$run_abs" == /* ]] || run_abs="$repo_root/$run_abs"
   printf '{ # k3d cluster %s (no Traefik, no servicelb; the portal NodePort on host port %s;\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_PORTAL_PORT"
-  printf '  # the admin log store'"'"'s data, the API audit policy, the API authentication config\n'
+  printf '  # the admin and cold log stores'"'"' data, the API audit policy, the API authentication config\n'
   printf '  # and the node'"'"'s hosts script mounted in), and its kubeconfig\n'
   printf '  k3d cluster create %q --image %q --servers %q --agents %q \\\n' \
     "$BRZL_K3D_CLUSTER" "$BRZL_K3S_IMAGE" "$BRZL_K3D_SERVERS" "$BRZL_K3D_AGENTS"
@@ -161,6 +164,7 @@ substrate_up() {
     "127.0.0.1:$BRZL_K3D_API_PORT" "$BRZL_DOCKER_NETWORK" "$run_dir/registries.yaml"
   printf '    --volume %q \\\n' \
     "$repo_root/$BRZL_LOG_STORE_DIR/admin:/var/lib/brzl/admin-log-store@server:0" \
+    "$repo_root/$BRZL_LOG_STORE_DIR/cold:/var/lib/brzl/cold-log-store@all" \
     "$run_abs/apiserver:/etc/brzl/apiserver@server:*" \
     "$run_abs/node-hosts.sh:/bin/k3d-entrypoint-brzl-hosts.sh@server:*"
   for arg in --disable=traefik,servicelb \
@@ -305,8 +309,8 @@ log_collector_up() {
   config="$repo_root/driver/substrates/k3d-otelcol.yaml"
   sha="$(cat "$config" <(printf '%s %s %s %s' "$env" "$endpoint" "$intake" "$BRZL_LOG_COLLECTOR_IMAGE") | sha256sum)"; sha="${sha%% *}"
   state="$(container_state "$name" dev.brzl.log-collector-config-sha256 "$sha")"
-  printf '{ # the log store'"'"'s directories beside the cluster: the admin log store'"'"'s data, the collector'"'"'s queue\n'
-  printf '  mkdir -p %q %q\n' "$dir/admin" "$dir/queue"
+  printf '{ # the log store'"'"'s directories beside the cluster: the admin and cold log stores'"'"' data, the collector'"'"'s queue\n'
+  printf '  mkdir -p %q %q %q\n' "$dir/admin" "$dir/cold" "$dir/queue"
   printf '}\n'
   if [[ "$state" == current ]]; then
     printf '{ # collector beside the cluster: its config is current; make sure it runs\n'

@@ -15,8 +15,9 @@
 #   - Every platform record names the node of the collector that read it
 #     (brzl.collector.node, structured metadata). A pod's record names its
 #     own node (k8s.node.name).
-#   - `cold` has no destination until pass 6c; a record routed only to cold
-#     is dropped until then.
+#   - `cold` goes to the cold log store. On local, collector-local.yaml adds
+#     it: JSON lines in a host directory (pass 6c). On a cloud it has no
+#     destination until pass 8, and a record routed only to cold is dropped.
 #
 # The OTLP receiver (BACKLOG 4a): HTTP only, on the node's host port 4318,
 # with mutual TLS. Its server certificate is log-intake.<portal host>, from
