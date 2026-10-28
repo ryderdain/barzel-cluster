@@ -161,6 +161,12 @@ applications, that operators read to find a fault. It is lost with the
 cluster unless its logs are also sent to another store.
 _Avoid_: cluster log store, workload log store, debug store
 
+**Cold log store**:
+The log store for records that must outlive the other stores. It keeps a
+copy of each admin record, and the logs of each namespace that asks for it.
+It is external to the cluster, and nothing removes its records.
+_Avoid_: archive, backup, cold storage (for the store)
+
 ### Secrets
 
 **Bootstrap secret source**:

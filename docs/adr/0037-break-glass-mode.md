@@ -60,7 +60,8 @@ model for an operator is `docs/BREAK-GLASS.md`.
   on the admin store's data directory, Grafana on `127.0.0.1` with no
   sign-on. It only reads, so it also runs beside a running cluster
   (Q206, which replaces the first design: a refusal while the cluster's
-  admin Loki uses the directory). Pass 6c adds the cold records.
+  admin Loki uses the directory). The cold records are read with `jq`
+  (pass 6c, Q216).
 - **The cluster-admin kubeconfig** stays in the run directory on local:
   the driver's credential and the Dex-down path. On a laptop it adds no
   power beyond the container engine's socket and the seal key. On a

@@ -125,8 +125,8 @@ Order of work (Q120):
    shell makes the person the default (Q193). **DONE 2026-10-27,
    user-verified, merged to `main`** (RETROSPECTIVE, three entries).
 6. **6b. Break-glass mode** — `hold` / `release`; a record of each use; a
-   reader of the admin store outside the cluster, which pass 6c extends to
-   the newest cold records (Q62–Q65, Q94, Q107). **Designed 2026-10-27**
+   reader of the admin store outside the cluster (Q62–Q65, Q94, Q107);
+   pass 6c reads the cold records with `jq` instead (Q216). **Designed 2026-10-27**
    (Q195–Q201, [ADR-0037](docs/adr/0037-break-glass-mode.md), the working
    model in [docs/BREAK-GLASS.md](docs/BREAK-GLASS.md)). The person acts
    with their own `kubectl`, not through the conductor (Q196).
@@ -157,12 +157,25 @@ Order of work (Q120):
    **In this pass (user, 2026-10-27):** item 28 (the reader of the admin
    store), and the local shape of items 23 and 29. Item 27 was built at
    the start of the pass. Design round 1 was Q194 to Q197.
-7. **6c. Cold storage + backups** — the `cold` route; each workload's
-   database backups (Q92).
+7. **6c. Cold storage** — the `cold` route; each workload's database
+   backups (Q92). **Designed 2026-10-28** (Q210–Q217, ADR-0027
+   amendment). On local, the cold log store is the host directory
+   `var/log-store/<env>/cold/`: the collector's file exporter writes OTLP
+   JSON lines, one directory for each node, and `jq` reads them. Nothing
+   removes them, also not `down`. The database backups and a restore drill
+   moved to item 9 (Q217).
 8. **7. `promote platform`** — roll a platform revision one environment at a
    time (Q118).
 9. **7h. Remote harness** — a second host (huginn, VMs on sleipnir, or
    OpenStack) to model a shared remote environment (Q116, deferred).
+   **From pass 6c (Q217, 2026-10-28):** practise backup and restore here,
+   because staging is closest to the case where they matter. The cold
+   store becomes S3-compatible: the Versity S3 Gateway with its POSIX
+   backend (Q210 (a)), or the substrate's own store. Then each workload's
+   database backups through the Barman Cloud Plugin (Q211 (a)), and a
+   restore drill that the user runs, with a runbook step (Q213 (a)). The
+   collector's `awss3` exporter can write the cold records to the same
+   store.
 10. **8. Substrate adapters** — one pass for each: first the shared interface
     and AWS, then others. Open items for AWS: the secret-store adapter
     (Secrets Manager) and `gitops/clusters/{dev,prod}/secret-store/`; the
@@ -197,6 +210,11 @@ Order of work (Q120):
     account ID, which would break the derive-at-runtime rule). SSO login:
     an expired session stops the phase with a fix line (`aws sso login
     --profile …`) instead of a credential error in the middle of a run.
+   From pass 6c (Q217): chofesh's AWS overlay uses the in-tree
+   `barmanObjectStore`, which CNPG 1.29 deprecates and 1.31 removes. Move
+   it to the Barman Cloud Plugin (an `ObjectStore` and the plugin
+   reference) before the operator reaches 1.31. The cold log store on AWS:
+   the bucket, its lifecycle rule (Q212), and the collector's exporter.
 11. **9. `promote workloads`** and **`promote all`** (a platform and workload
     change that depend on each other) (Q118). Revisit the Flow diagram in
     ARCHITECTURE §1 then, for the workload repo's branches (user). The
@@ -315,7 +333,7 @@ Order of work (Q120):
     2026-10-19). That state keeps growing, as Q66 intends. It holds the Zot
     cache, the OpenBao volume with its seal key and tokens, the local CA,
     the access files and the run directories. From pass 6 it also holds the
-    admin log data, the collector's queue and later the cold copy. Nothing
+    admin log data, the collector's queue and the cold copy. Nothing
     lists all of it in one place. The command is a read-only generator: each item with its
     location, size and age, and the CA trust in the keychain as a reminder.
     The removal of each item stays a documented command in LOCAL.md.
@@ -413,7 +431,7 @@ Order of work (Q120):
     the backed-up logs (local: `var/log-store/<env>/admin/`).
     **Built 2026-10-28** in pass 6b, step 2 (ADR-0037): `reader_on` and
     `reader_off`, a read-only Loki and a Grafana on `127.0.0.1`. Pass 6c
-    adds the cold records.
+    reads the cold records with `jq` (Q216).
 29. **The driver is a machine identity in every scenario** (found
     2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
     `system:admin` (the kubeconfig) and as the store token `driver`. The

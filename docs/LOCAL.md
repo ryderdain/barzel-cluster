@@ -232,12 +232,16 @@ namespace `logs`:
 - **The diagnostic log store** (`log-store-diagnostic`) keeps the pod logs
   of the workloads and the platform applications. Its data is lost with
   the cluster.
+- **The cold log store** keeps a copy of the admin records, and the pod
+  logs of each namespace whose routes name `cold`. It is the host
+  directory `var/log-store/local/cold/`, as JSON lines. Nothing removes
+  it, also not `down`. Read it with `jq` (RECOVERY.md, "The cold
+  records").
 
 A namespace chooses where its pod logs go with the annotation
 `brzl.dev/log-routes` (`drop`, `admin`, `diagnostic`, `cold`), and how long
 they stay with `brzl.dev/log-retention` (`7d`, `30d`, `90d`). With no
-annotation, its logs go to the diagnostic log store for 7 days. `cold` has
-no destination before pass 6c.
+annotation, its logs go to the diagnostic log store for 7 days.
 
 Two collectors send the records. A collector in the cluster, on each node,
 reads the pod logs, the k3s server log, the API audit log and the events. A
@@ -278,8 +282,8 @@ bash driver/driver.sh local reader_off | bash driver/kiesei.sh
 ```
 
 To remove the collector beside the cluster and all log data that is kept
-outside the cluster (the admin log store's data, the queue and the store's
-audit log):
+outside the cluster (the admin and cold log stores' data, the queue and
+the store's audit log):
 
 ```sh
 docker rm -f brzl-log-collector

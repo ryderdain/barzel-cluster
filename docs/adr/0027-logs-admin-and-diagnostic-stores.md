@@ -188,3 +188,36 @@ tested the design in two rounds before the build.
   these certificates (the user, 2026-10-22). A token only if it brings a
   clear gain.
 
+## Amendment (pass 6c, Q210–Q217, 2026-10-28): the cold log store on local
+
+- **On local, the cold log store is a host directory** (Q210),
+  `var/log-store/<env>/cold/`, mounted into every k3d node at
+  `/var/lib/brzl/cold-log-store` (Q214). The alternative was an
+  S3-compatible store beside the cluster (the Versity S3 Gateway). That is
+  about as much work as pass 6b, and a laptop does not need database
+  backups. So the S3 store moves to the remote staging environment, with
+  the backups (BACKLOG item 9).
+- **The collector writes the cold records as JSON lines** (Q215), with its
+  file exporter: OTLP JSON, one line for each batch, no compression. The
+  path is `<node>/platform/<source>.jsonl` or
+  `<node>/namespaces/<namespace>.jsonl`. Each node has its own directory,
+  so two collectors never write to the same file. At 100 MB, a file gets
+  the UTC time in its name, and a new file starts. With rotation set, a
+  restarted collector appends to its files. Without rotation, the exporter
+  empties a file when it starts.
+- **Nothing removes cold records on local** (Q212), also not `down`.
+  `max_backups: 0` keeps every old file. A cloud uses a lifecycle rule on
+  its bucket (pass 8).
+- **`jq` reads the cold records** (Q216). The reader stays for the admin
+  log store. RECOVERY.md has the command.
+- The cold copy is on the host's disk within seconds. So on local it
+  closes the admin store's loss window, as the Consequences above expect.
+- The settings are in `collector-local.yaml`, for local only. On a cloud,
+  `cold` has no destination until pass 8.
+- Phase 40 checks that each admin source has a cold file that is not
+  empty.
+- Moved out of this pass (Q217): the database backups (CNPG with the
+  Barman Cloud Plugin, Q211) and a restore drill (Q213) go to the remote
+  staging environment (BACKLOG item 9). chofesh's AWS overlay uses the
+  in-tree `barmanObjectStore`, which CNPG 1.29 deprecates. It moves to the
+  plugin in pass 8, before CNPG 1.31 removes the in-tree support.

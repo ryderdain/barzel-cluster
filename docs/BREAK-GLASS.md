@@ -350,7 +350,8 @@ in a new run directory, `var/run/<env>/reader-<UTC>Z/`.
   beside the cluster keeps the run outputs in its queue. The next `up`
   sends them. So the reader does not show a `down` or later actions.
 - You stop it after use. It does not stop by itself.
-- Pass 6c adds the cold records to it. A store in a bucket (a public
+- It does not show the cold records. Read them with `jq` (RECOVERY.md,
+  "The cold records"). A store in a bucket (a public
   cloud, pass 8) needs its own settings: the reader reads only a local
   store now.
 

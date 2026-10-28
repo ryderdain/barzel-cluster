@@ -50,11 +50,14 @@ run output's header line (Q208). Not run: the reader with the cluster
 removed. Argo CD's own hourly click is still not seen cleanly. The user
 watches a private window.
 
-**▶ IN FLIGHT: pass 6c, cold storage and backups** (BACKLOG item 7),
-branch `pass-6c-cold-storage` from `main` at `0b753d1`. Design round 1
-asked (Q210 to Q213): the cold store on local, the CNPG backup method,
-the life of cold data, and the restore scope. Facts found: the collector
-routes platform records to `admin,cold`, and `cold` has no exporter yet.
-chofesh's aws overlay uses the in-tree `barmanObjectStore`, which CNPG
-1.29 deprecates (removal planned for 1.31). The local overlay has no
-backup. Then item 13 (the Argo CD upgrade).
+**▶ IN FLIGHT: pass 6c, cold storage** (BACKLOG item 7), branch
+`pass-6c-cold-storage`. Designed (Q210 to Q217) and built. On local the
+cold log store is `var/log-store/<env>/cold/`, mounted into every node.
+The collector's file exporter writes OTLP JSON lines to
+`<node>/platform/<source>.jsonl` and `<node>/namespaces/<ns>.jsonl`
+(`collector-local.yaml`). Tested before the live test: the collector's
+`validate`, and a throwaway collector (the file path, the append after a
+restart, the runbook's `jq` command). **Next: the user's live test**,
+`down` and `up` (the new mount), then phase 40's new check and the `jq`
+command. Backups and a restore drill moved to item 9 (Q217). Then item
+13 (the Argo CD upgrade).

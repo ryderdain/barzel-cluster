@@ -259,8 +259,35 @@ bash driver/driver.sh <env> reader_off | bash driver/kiesei.sh   # stop it after
 The reader only reads: its Loki has the directory read-only. It can run
 beside a cluster that runs, and then it sees records up to about 15
 minutes late. Use it for root-cause analysis after a lost cluster, and to
-read the break-glass records of a cluster that is gone. Pass 6c adds the
-cold records to it. The details are in BREAK-GLASS.md.
+read the break-glass records of a cluster that is gone. The details are
+in BREAK-GLASS.md.
+
+**The cold records.** On local, the cold log store is the host directory
+`var/log-store/<env>/cold/` (pass 6c). It keeps a copy of each admin
+record. It also keeps the pod logs of each namespace whose
+`brzl.dev/log-routes` names `cold`. Nothing removes these records, also
+not `down`. The files are OTLP JSON lines, in one directory for each
+node: `<node>/platform/<source>.jsonl` and
+`<node>/namespaces/<namespace>.jsonl`. A full file gets the UTC time in
+its name. This command shows the records of one source in a time range
+(UTC), with the time, the source and the text of each record:
+
+```sh
+jq -r --arg from 2026-10-28T16:00:00Z --arg to 2026-10-28T17:00:00Z '
+  .resourceLogs[]
+  | (.resource.attributes | map({(.key): .value.stringValue}) | add) as $r
+  | .scopeLogs[].logRecords[]
+  | ((if (.timeUnixNano // "0") == "0" then .observedTimeUnixNano else .timeUnixNano end)
+     | tonumber / 1e9 | floor | todate) as $t
+  | select($t >= $from and $t < $to)
+  | [$t, $r["brzl.source"], (.body.stringValue // (.body | tojson))] | @tsv' \
+  var/log-store/<env>/cold/*/platform/api-audit*.jsonl
+```
+
+For a different source, change `api-audit` to `k3s-server`, `k8s-event`,
+`run-output` or `openbao-audit`, or use `namespaces/<namespace>`. The
+lines come in the sequence of each file, not in time sequence across the
+files. To sort them by time, add `| sort`.
 
 ## Disaster recovery (region/account) 🔜
 1. Re-run [BOOTSTRAP.md](BOOTSTRAP.md) phases 0–2 in the target region/account.

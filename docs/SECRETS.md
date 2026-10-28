@@ -213,7 +213,8 @@ From [`.gitignore`](../.gitignore):
     issues it on every run, valid for 30 days. With it, anything can
     write into the admin log store, so it is a credential.
   - `var/log-store/<env>/` — the log data kept outside the cluster
-    (ADR-0027). `admin/` is the admin log store's data. `queue/` holds the
+    (ADR-0027). `admin/` is the admin log store's data, and `cold/` is the
+    cold log store's (pass 6c). `queue/` holds the
     queue and read positions of the collector beside the cluster.
     `openbao-audit/` holds the secret store's audit log. They hold no secret
     values. The API audit log has metadata only, and OpenBao writes a hash

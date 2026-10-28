@@ -264,6 +264,8 @@ spec:
                   chart: opentelemetry-collector
                   chartVersion: "0.176.0"
                   valueFile: gitops/infrastructure/logs/collector.yaml
+                  moreValueFilesLocal:
+                    - gitops/infrastructure/logs/collector-local.yaml
                   imageParams:
                     - name: image.repository
                       upstream: docker-hub
