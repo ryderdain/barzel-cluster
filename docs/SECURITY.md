@@ -561,7 +561,7 @@ a person who left them. So the worst case is one hour.
 | Session | Lasts | Checked again | Ends within |
 | --- | --- | --- | --- |
 | The gate's cookie | 7 days | every hour, with Dex (`cookie_refresh`) | 1 hour |
-| Argo CD's UI | 1 hour (the ID token; no refresh) | at each sign-in | 1 hour |
+| Argo CD's UI | 1 hour (the ID token). After the hour, a reload signs in again through Dex with no step (seen 2026-10-28) | at each sign-in | 1 hour |
 | Grafana | its own session; the token 1 hour | every hour (the refresh token) | 1 hour |
 | The `argocd` CLI | 1 hour, refreshed without a step | at each refresh | 1 hour |
 | `kubectl` (kubelogin) | 1 hour, refreshed without a step; the refresh token 7 days, or 24 hours unused | at each refresh | 1 hour |

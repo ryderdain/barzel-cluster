@@ -267,27 +267,114 @@ in BREAK-GLASS.md.
 record. It also keeps the pod logs of each namespace whose
 `brzl.dev/log-routes` names `cold`. Nothing removes these records, also
 not `down`. The files are OTLP JSON lines, in one directory for each
-node: `<node>/platform/<source>.jsonl` and
-`<node>/namespaces/<namespace>.jsonl`. A full file gets the UTC time in
-its name. This command shows the records of one source in a time range
-(UTC), with the time, the source and the text of each record:
+node. A full file gets the UTC time in its name. Each file has one
+purpose:
+
+| File | What it holds | Use it to find |
+| --- | --- | --- |
+| `platform/run-output.jsonl` | Every run output of the driver and the conductor: each phase of `up` and `down`, `hold`, `release` and fast mode. The header line of each output names the run, the phase, the start and the person. | What the platform did, when, and who ran it. |
+| `platform/api-audit.jsonl` | The Kubernetes API audit log: each request, with the user, the verb, the object and the result. During a hold, also the request body of the admins' writes. | Who changed which object, and when. |
+| `platform/k8s-event.jsonl` | The Kubernetes events: what the cluster did with its objects, for example a failed probe, an image pull or a scheduling decision. | What happened to a workload, as the cluster saw it. |
+| `platform/openbao-audit.jsonl` | The secret store's audit log: each request, with the token's name, the operation and the path. A hash stands for each secret value. | Who read or wrote which secret, and when. |
+| `platform/k3s-server.jsonl` | The k3s server log: the API server, the scheduler, the controllers and the kubelet. | Why the control plane failed. |
+| `namespaces/<namespace>.jsonl` | The pod logs of a namespace whose routes name `cold`. | What a workload wrote, when its diagnostic store is gone. |
+
+`driver/lib/cold-records.jq` reads these files and prints one plain JSON
+object for each record: `t` (UTC, when the collector read it), `source`,
+`node`, `run` and `phase` (run outputs), `namespace` (events and pod
+logs), and `body`. The body is an object when the record's text is JSON
+(the API audit log, the secret store's audit log), the event's object for
+an event, and the text otherwise. The times `from` and `to` are optional.
+Define one command for the time window, then filter its output with `jq`:
 
 ```sh
-jq -r --arg from 2026-10-28T16:00:00Z --arg to 2026-10-28T17:00:00Z '
-  .resourceLogs[]
-  | (.resource.attributes | map({(.key): .value.stringValue}) | add) as $r
-  | .scopeLogs[].logRecords[]
-  | ((if (.timeUnixNano // "0") == "0" then .observedTimeUnixNano else .timeUnixNano end)
-     | tonumber / 1e9 | floor | todate) as $t
-  | select($t >= $from and $t < $to)
-  | [$t, $r["brzl.source"], (.body.stringValue // (.body | tojson))] | @tsv' \
-  var/log-store/<env>/cold/*/platform/api-audit*.jsonl
+cold() {
+  jq -c -f driver/lib/cold-records.jq --arg from "$1" --arg to "$2" \
+    var/log-store/local/cold/*/platform/*.jsonl
+}
+from=2026-10-28T17:00:00Z
+to=2026-10-28T19:00:00Z
 ```
 
-For a different source, change `api-audit` to `k3s-server`, `k8s-event`,
-`run-output` or `openbao-audit`, or use `namespaces/<namespace>`. The
-lines come in the sequence of each file, not in time sequence across the
-files. To sort them by time, add `| sort`.
+**An example: the app is down, and the cluster is gone.** The example app
+stopped answering at about 17:30 UTC. Before anyone looked, someone ran
+`down`, and the cluster's Grafana went with the cluster. The cold records
+are on the disk. Work through the sources in this sequence.
+
+Step 1 — What the platform did, and who did it. Each run output starts
+with a header line. A hold shows as the phase `break-glass-hold-<UTC>Z`,
+a release as `break-glass-release-<UTC>Z`, and a `down` as
+`10-substrate-down` in a run `teardown-<UTC>Z`:
+
+```sh
+cold "$from" "$to" | jq -r 'select(.source == "run-output"
+  and (.body | type == "string" and startswith("# brzl run-output"))) | .body' | sort
+```
+
+In the live test of 2026-10-28 this gave one line for each phase of the
+run `cluster-20261028T1729Z`, each with `person=rdain`. The output of a
+`down` arrives after the next `up`: the collector beside the cluster
+holds it in its queue while the cluster is absent.
+
+Step 2 — What the cluster saw in the app's namespace. The events name
+the object, the reason and a note:
+
+```sh
+cold "$from" "$to" | jq -r 'select(.source == "k8s-event" and .namespace == "chofesh")
+  | [.t, .body.object.type, .body.object.reason, .body.object.regarding.kind,
+     .body.object.regarding.name, .body.object.note] | @tsv'
+```
+
+A line such as `Warning Unhealthy Pod chofesh-… Readiness probe failed:
+HTTP probe failed with statuscode: 503` tells you when the app stopped
+answering, and which pod.
+
+Step 3 — Who changed what in the namespace. The API audit log has each
+write, with the user. The platform's own writers are `system:…` users and
+Argo CD's service account. A person is `oidc:<org>:<login>`:
+
+```sh
+cold "$from" "$to" | jq -r 'select(.source == "api-audit") | .body
+  | select(.stage == "ResponseComplete" and (.verb | IN("create","update","patch","delete"))
+    and .objectRef.namespace == "chofesh")
+  | [.requestReceivedTimestamp[0:19], .user.username, .verb, .objectRef.resource,
+     .objectRef.name, .responseStatus.code] | @tsv' | sort
+```
+
+To see only the writes of people, in every namespace, replace the
+namespace test with `(.user.username | startswith("oidc:"))`. During a
+hold, each such record also has the request body in `.requestObject`.
+
+Step 4 — The secret store. Each request names the token, the operation
+and the path. A hash stands for each value, so the log shows no secret:
+
+```sh
+cold "$from" "$to" | jq -r 'select(.source == "openbao-audit") | .body
+  | select(.type == "request")
+  | [.auth.display_name, .request.operation, .request.path] | @tsv' | sort | uniq -c | sort -rn
+```
+
+On local, `token` is the driver's token, and
+`kubernetes-external-secrets-brzl-secrets-reader` is ESO's. A read of
+`secret/data/<name>` by another token is what you look for.
+
+Step 5 — The control plane. The k3s log is text. Its warnings and errors
+tell you whether the cluster itself was sick:
+
+```sh
+cold "$from" "$to" | jq -r 'select(.source == "k3s-server") | .body
+  | select(type == "string" and test("level=(error|warning)"))'
+```
+
+Step 6 — The app's own logs. On local, chofesh's pod logs are in the
+diagnostic log store only, which is gone with the cluster. To keep a
+workload's pod logs in the cold store too, add `cold` to its namespace's
+`brzl.dev/log-routes`. They then appear in `namespaces/<namespace>.jsonl`,
+with `.body` as the line.
+
+The cold copy is on the disk within seconds of each record. The admin
+log store, which the reader shows, can lose the last five minutes before
+a lost cluster. For everything older, the reader is the easier view.
 
 ## Disaster recovery (region/account) 🔜
 1. Re-run [BOOTSTRAP.md](BOOTSTRAP.md) phases 0–2 in the target region/account.

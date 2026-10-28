@@ -50,14 +50,14 @@ run output's header line (Q208). Not run: the reader with the cluster
 removed. Argo CD's own hourly click is still not seen cleanly. The user
 watches a private window.
 
-**▶ IN FLIGHT: pass 6c, cold storage** (BACKLOG item 7), branch
-`pass-6c-cold-storage`. Designed (Q210 to Q217) and built. On local the
-cold log store is `var/log-store/<env>/cold/`, mounted into every node.
-The collector's file exporter writes OTLP JSON lines to
-`<node>/platform/<source>.jsonl` and `<node>/namespaces/<ns>.jsonl`
-(`collector-local.yaml`). Tested before the live test: the collector's
-`validate`, and a throwaway collector (the file path, the append after a
-restart, the runbook's `jq` command). **Next: the user's live test**,
-`down` and `up` (the new mount), then phase 40's new check and the `jq`
-command. Backups and a restore drill moved to item 9 (Q217). Then item
-13 (the Argo CD upgrade).
+**Pass 6c, cold storage (BACKLOG item 7) DONE and user-verified
+2026-10-28** (RETROSPECTIVE), on branch `pass-6c-cold-storage`, not yet
+merged. On local the cold log store is `var/log-store/<env>/cold/`, OTLP
+JSON lines, one directory for each node, read with
+`driver/lib/cold-records.jq` (RECOVERY.md, "The cold records": the files'
+purposes and an incident example). Backups and a restore drill went to
+item 9 (Q217). Argo CD after the hour: a reload in a private window
+asked for no step (the user, 2026-10-28). That open item is closed.
+
+**▶ NEXT:** the user reads RECOVERY.md "The cold records". Then merge to
+`main`. Then item 13 (the Argo CD upgrade).

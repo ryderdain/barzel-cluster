@@ -718,3 +718,45 @@ This closes pass 6b (BACKLOG item 6) and item 28.
   operator's machine, `person=<account> person_verified=false`. Both of
   the user's reader outputs show `person=rdain`. The driver's 27 test
   cases pass.
+
+## 2026-10-28 — pass 6c: the cold log store on local
+
+User-verified on sleipnir. Branch `pass-6c-cold-storage`.
+
+- **The design** (Q210 to Q217). The user chose an S3-compatible store
+  beside the cluster (the Versity S3 Gateway) only if the work was
+  small, and said that backup and restore belong on a remote staging
+  environment. The agent's estimate was the size of pass 6b. So the
+  user's own rule selected files in a host directory: no S3 on local,
+  and no database backups on local. The backups and a restore drill went
+  to BACKLOG item 9, and the move of chofesh's AWS overlay to the Barman
+  Cloud Plugin to item 10 (CNPG 1.29 deprecates the in-tree support).
+- **Built.** `var/log-store/<env>/cold/` is mounted into every k3d node.
+  On local, the collector's file exporter writes the records routed to
+  `cold` as OTLP JSON lines, `<node>/platform/<source>.jsonl` and
+  `<node>/namespaces/<namespace>.jsonl`, with every old file kept
+  (`collector-local.yaml`, through `moreValueFilesLocal`). Phase 40
+  checks that each admin source has a cold file that is not empty.
+- **Found in the exporter's source:** without `rotation`, it empties its
+  file each time the collector starts. With `rotation` set, it appends.
+- **The agent's tests, without the cluster:** `otelcol-contrib validate`
+  on the chart output; a throwaway collector with the same processors
+  and exporter, one record, a restart, a second record, both in the file.
+- **The user's live test:** `down`, `up`. Phase 40 printed the new
+  check's line. The five files were under `k3d-brzl-local-server-0/platform/`.
+  The `jq` command showed the API audit records of the hour.
+- **The user asked for two things in RECOVERY.md:** what each cold file
+  is for, and how to read them in an example incident. The agent wrote
+  `driver/lib/cold-records.jq`, which prints one plain object for each
+  record, and ran each example on the live records. Two faults in its
+  first `jq` showed only on live data: `try fromjson catch .` returned
+  the error text, not the input, and an empty event time came out as
+  `{}`. Both fixed before the runbook took the examples.
+- **Seen, not a fault:** the cold copy of the `down` that preceded this
+  `up` starts at its fourth line. The old cluster had no cold route, so
+  the first lines reached its collector and were dropped from `cold`.
+  The rest waited in the queue and arrived at the new cluster. A one-time
+  effect of the transition. Not verified against the admin store.
+- **Argo CD after the hour.** The user reloaded Argo CD's page in a
+  private window after an hour and was not asked to sign in again. The
+  open item from pass 6b is closed. SECURITY.md's session table says so.

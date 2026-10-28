@@ -58,7 +58,9 @@ configuration. A pod's logs take the route of their namespace's
 `brzl.dev/log-routes` annotation, and `diagnostic` when it has none. On
 local, `cold` goes to the cold log store: JSON lines in
 `var/log-store/<env>/cold/`, which `jq` reads (RECOVERY.md). On a cloud,
-`cold` has no destination until pass 8.
+`cold` has no destination until pass 8. RECOVERY.md ("The cold records")
+says what each cold file is for, and shows how to read them in an
+incident.
 
 **Labels.** Every record has these index labels:
 

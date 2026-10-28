@@ -163,7 +163,10 @@ Order of work (Q120):
    `var/log-store/<env>/cold/`: the collector's file exporter writes OTLP
    JSON lines, one directory for each node, and `jq` reads them. Nothing
    removes them, also not `down`. The database backups and a restore drill
-   moved to item 9 (Q217).
+   moved to item 9 (Q217). **DONE 2026-10-28, user-verified**
+   (RETROSPECTIVE): `down`, `up`, phase 40's check and the `jq` command.
+   RECOVERY.md names each cold file's purpose and shows an incident
+   example (the user's request), with `driver/lib/cold-records.jq`.
 8. **7. `promote platform`** — roll a platform revision one environment at a
    time (Q118).
 9. **7h. Remote harness** — a second host (huginn, VMs on sleipnir, or
