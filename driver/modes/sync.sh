@@ -19,10 +19,15 @@
 # without its record.
 #
 # sync on: lists each Application that differs from git, with Argo CD's diff
-# (the CLI in core mode), and stops while any differ (Q225): commit and push
-# the change to the branch Argo CD follows, or accept the undo with
-# `confirm`. `release` runs the same check (differences_from_git,
-# driver/lib/phase-common.sh).
+# (the CLI in core mode, against the git revision), and stops while any
+# differ (Q225): commit and push the change to the branch Argo CD follows,
+# or accept the undo with `confirm`. `release` runs the same check
+# (differences_from_git, driver/lib/phase-common.sh). Then the run sheet
+# syncs each kustomize Application from git (`argocd app sync`, no
+# --local): after a local sync, Argo CD compares against the manifests it
+# last synced until a sync from git, so without this step it would see no
+# difference and heal nothing. When git and the cluster agree, that sync
+# changes nothing. Last, the switch.
 #
 # apply: at emit time, Argo CD's own diff of the working tree against the
 # cluster for each kustomize Application (`argocd app diff --local`, Q224);
@@ -120,10 +125,27 @@ sync_switch() {
   phase_header "$run_dir"
   if [[ "$state" == off ]]; then
     printf '{ # sync OFF: no automated sync for any Application; the working tree can be applied\n'
-  else
-    printf '{ # sync ON: Argo CD syncs again, back to the pushed branch (an unpushed change goes away)\n'
-    printf '  printf '\''%%s\\n'\'' %s\n' "$(squote "sync on: $summary confirm=${confirm:-no}")"
+    printf '  kubectl -n argocd annotate --overwrite secret %q %q\n' "$secret" "brzl.dev/auto-sync=$value"
+    printf '}\n'
+    end_function 0 "emitted sync $state"
+    return 0
   fi
+  phase_error_definition
+  printf '{ # the record of this sync on, in this run output (the admin log store keeps it)\n'
+  printf '  printf '\''%%s\\n'\'' %s\n' "$(squote "sync on: $summary confirm=${confirm:-no}")"
+  printf '}\n'
+  printf '{ # a kubeconfig for argocd --core: its context names the namespace argocd (a copy in /tmp)\n'
+  printf '  kc="$(mktemp)"; kubectl config view --raw > "$kc"; KUBECONFIG="$kc" kubectl config set-context --current --namespace argocd >/dev/null\n'
+  printf '}\n'
+  while IFS= read -r app; do
+    [[ -n "$app" ]] || continue
+    printf '{ # %s from git again (after a local sync Argo CD compares against what it last synced; no change when git and the cluster agree)\n' "$app"
+    printf '  KUBECONFIG="$kc" argocd app sync %q --core < /dev/null \\\n' "$app"
+    printf '    || error 3 %s\n' "$(squote "$app did not sync from git (sync stays off); read above, then run sync on again")"
+    printf '}\n'
+  done < <(yq '.. | select(type == "!!map" and .kind == "kustomize" and has("appName")) | .appName' "$repo_root/$appset_file")
+  printf '{ # the copy goes; sync ON: Argo CD syncs again, back to the pushed branch\n'
+  printf '  rm -f "$kc"\n'
   printf '  kubectl -n argocd annotate --overwrite secret %q %q\n' "$secret" "brzl.dev/auto-sync=$value"
   printf '}\n'
   end_function 0 "emitted sync $state"

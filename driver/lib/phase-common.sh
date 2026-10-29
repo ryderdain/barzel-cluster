@@ -31,9 +31,10 @@
 #                             whose context names the namespace argocd, which
 #                             `argocd --core` needs; the caller removes it
 #   differences_from_git      Argo CD's diff, in core mode, of every Application
-#                             after a refresh (after a local sync, the status
-#                             says Synced until the next compare), on stderr
-#                             (the record); print
+#                             against its git revision (after a local sync, Argo
+#                             CD compares against the manifests it last synced,
+#                             not git, until a sync from git), on stderr (the
+#                             record); print
 #                             "differing=<names|none> no_diff=<names|none>";
 #                             return 0 when every Application agrees with git,
 #                             1 when any differs or gave no diff, 2 on a failure
@@ -137,11 +138,18 @@ argocd_core_kubeconfig() {
 # while an Application differs from git, and show what Argo CD would put
 # back.
 differences_from_git() {
-  local kc app diff rc differing=() unknown=()
+  local kc app rev diff rc differing=() unknown=()
   kc="$(argocd_core_kubeconfig)" || return 2
-  while IFS= read -r app; do
+  # An Application with one source takes --revision, so the diff is against
+  # git whatever Argo CD last synced. One with a list of sources (helm) is
+  # never synced locally, and the CLI refuses --revision for it.
+  while IFS=$'\t' read -r app rev; do
     [[ -n "$app" ]] || continue
-    diff="$(KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core --refresh < /dev/null 2>&1)"
+    if [[ -n "$rev" ]]; then
+      diff="$(KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core --revision "$rev" < /dev/null 2>&1)"
+    else
+      diff="$(KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core --refresh < /dev/null 2>&1)"
+    fi
     rc=$?
     case "$rc" in
       0) ;;
@@ -150,7 +158,7 @@ differences_from_git() {
       *) unknown+=("$app")
          printf '\n=== %s: no diff (argocd exit %s):\n%s\n' "$app" "$rc" "$diff" >&2 ;;
     esac
-  done < <(kubectl -n argocd get applications -o json | jq -r '.items[].metadata.name')
+  done < <(kubectl -n argocd get applications -o json | jq -r '.items[] | [.metadata.name, (.spec.source.targetRevision // "")] | @tsv')
   rm -f "$kc"
   printf 'differing=%s no_diff=%s' "${differing[*]:-none}" "${unknown[*]:-none}"
   (( ${#differing[@]} + ${#unknown[@]} == 0 ))
