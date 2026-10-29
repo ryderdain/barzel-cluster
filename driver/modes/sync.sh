@@ -28,8 +28,11 @@
 # cluster for each kustomize Application (`argocd app diff --local`, Q224);
 # the run sheet then syncs each Application that differs (`argocd app sync
 # --local`): Argo CD renders the tree with the Application's own images and
-# patches, and writes its own tracking marks. The example app renders from
-# its checkout beside this repo (BRZL_EXAMPLE_APP_SRC, ADR-0034). The helm
+# patches, and writes its own tracking marks. That render edits the
+# kustomization it is given (kustomize edit, for the images and patches),
+# so both steps work on a copy of the source tree, never on the working
+# tree. The example app renders from its checkout beside this repo
+# (BRZL_EXAMPLE_APP_SRC, ADR-0034). The helm
 # Applications change only through a pushed branch (Q58). While sync is on,
 # apply prints the diff and stops (Q226): Argo CD refuses a local sync then,
 # and self-heal would undo it. No prune: an object removed from the working
@@ -143,7 +146,9 @@ sync_check() {
 
 # local_source <application-json> — GENERATOR: prints "<path> <root>", where
 # the working tree of the Application's source is <root>/<path>: this repo
-# for the platform repo, the example app's checkout for any other.
+# for the platform repo, the example app's checkout for any other. The copy
+# that Argo CD renders is <root>'s first directory of <path> (gitops/,
+# deploy/): every kustomize reference stays inside it.
 local_source() {
   local app_json="$1" path repo root=.
   path="$(jq -r '.spec.source.path' <<< "$app_json")" || return 1
@@ -160,27 +165,31 @@ local_source() {
 }
 
 apply() {
-  local env="$1" run_dir="$2" auto kc app app_json path root diff rc differing=()
+  local env="$1" run_dir="$2" auto kc tmp app app_json path root diff rc differing=()
   sync_init "$env" "$run_dir" || end_function "$?" 'apply'
   not_in_hold "$env" || end_function "$?" 'break-glass hold'
   auto="$(annotation brzl.dev/auto-sync)" || end_function "$?" "cluster Secret $secret"
   kc="$(argocd_core_kubeconfig)" || end_function "$?" 'could not prepare the kubeconfig for argocd --core'
+  tmp="$(mktemp -d)" || { rm -f "$kc"; end_function 1 'temporary directory'; }
   while IFS= read -r app; do
     [[ -n "$app" ]] || continue
-    app_json="$(kubectl -n argocd get application "$app" -o json)" || { rm -f "$kc"; end_function "$?" "Application $app"; }
-    read -r path root <<< "$(local_source "$app_json")" || { rm -f "$kc"; end_function 1 "the working tree of $app"; }
-    diff="$(cd "$repo_root/$root" && KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core \
-      --local "$path" --local-repo-root . < /dev/null 2>&1 | grep -v '^Warning: local diff')"
-    rc="${PIPESTATUS[0]}"
+    app_json="$(kubectl -n argocd get application "$app" -o json)" || { rm -rf "$kc" "$tmp"; end_function "$?" "Application $app"; }
+    read -r path root <<< "$(local_source "$app_json")" || { rm -rf "$kc" "$tmp"; end_function 1 "the working tree of $app"; }
+    mkdir -p "$tmp/$app" && cp -R "$repo_root/$root/${path%%/*}" "$tmp/$app/" \
+      || { rm -rf "$kc" "$tmp"; end_function 1 "could not copy the source tree of $app"; }
+    diff="$(cd "$tmp/$app" && KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core \
+      --local "$path" --local-repo-root . < /dev/null 2>&1)"
+    rc=$?
+    diff="$(grep -v '^Warning: local diff' <<< "$diff")"
     case "$rc" in
       0) ;;
       1) differing+=("$app"); printf '\n=== %s: the working tree differs from the cluster:\n%s\n' "$app" "$diff" >&2 ;;
-      *) rm -f "$kc"
+      *) rm -rf "$kc" "$tmp"
          printf '\n=== %s: no diff (argocd exit %s):\n%s\n' "$app" "$rc" "$diff" >&2
          end_function 1 "could not diff $app"; return 1 ;;
     esac
   done < <(yq '.. | select(type == "!!map" and .kind == "kustomize" and has("appName")) | .appName' "$repo_root/$appset_file")
-  rm -f "$kc"
+  rm -rf "$kc" "$tmp"
   printf '\napply: differing=%s sync=%s\n' "${differing[*]:-none}" "$([[ "$auto" == false ]] && printf off || printf on)" >&2
   if [[ "$auto" != false ]]; then
     printf 'error: sync is on, so Argo CD would refuse the local sync and self-heal would undo it; nothing changed. Run first: bash driver/driver.sh %s sync off, then apply again\n' "$env" >&2
@@ -188,6 +197,7 @@ apply() {
     return 3
   fi
   phase_header "$run_dir"
+  phase_error_definition
   if (( ${#differing[@]} == 0 )); then
     printf '{ # nothing to apply: the working tree and the cluster agree\n  printf '\''apply: nothing differs\\n'\''\n}\n'
     end_function 0 'emitted apply (nothing differs)'
@@ -199,9 +209,12 @@ apply() {
   for app in "${differing[@]}"; do
     app_json="$(kubectl -n argocd get application "$app" -o json)" || end_function "$?" "Application $app"
     read -r path root <<< "$(local_source "$app_json")" || end_function 1 "the working tree of $app"
-    printf '{ # %s from the working tree (Argo CD renders it with the Application'"'"'s images and patches)\n' "$app"
-    printf '  ( cd %q && KUBECONFIG="$kc" argocd app sync %q --core --local %q --local-repo-root . < /dev/null )\n' \
-      "$root" "$app" "$path"
+    printf '{ # %s from the working tree: a copy of %s (Argo CD edits the kustomization it renders), with the Application'"'"'s images and patches\n' \
+      "$app" "$root/${path%%/*}"
+    printf '  d="$(mktemp -d)"; cp -R %q "$d/"\n' "$root/${path%%/*}"
+    printf '  ( cd "$d" && KUBECONFIG="$kc" argocd app sync %q --core --local %q --local-repo-root . < /dev/null ) \\\n' "$app" "$path"
+    printf '    || error 3 %s\n' "$(squote "$app did not sync (sync stays off); read above, fix, then apply again")"
+    printf '  rm -rf "$d"\n'
     printf '}\n'
   done
   printf '{ # the copy goes\n  rm -f "$kc"\n}\n'
