@@ -495,6 +495,11 @@ Order of work (Q120):
     setting. The option: Grafana reads the person from the gate's
     headers (`auth.proxy`) and has no sign-in of its own. That also
     helps item 26. A polish item: close old tabs after a new cluster.
+35. **Rename `hold` / `release`** (user, 2026-10-29). `release` is a term of art
+    for a version of software made public. It collides with the break-glass
+    action that gives the cluster back to git. Decide a new pair later, with the
+    sync verbs of item 13 (`sync off` / `sync on`) in view, and rename the
+    actions, the docs and GLOSSARY together.
 
 Standing concerns (check in every pass):
 
@@ -529,7 +534,6 @@ Standing concerns (check in every pass):
 - **Markdown lint debt**: about 600 older errors (mostly MD013) in SPEC,
   SCRATCHPAD and the runbooks. Clean a file when a pass edits it. Do not
   change RETROSPECTIVE entries without asking.
-
 ## Earlier plans (before the local-first refactor; kept as written, review later)
 
 ## Active — the major refactor (next barzel session) + aroni assists

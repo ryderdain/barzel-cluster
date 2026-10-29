@@ -59,14 +59,16 @@ in a private window asked for no step (the user, 2026-10-28). That open
 item is closed.
 
 **▶ IN FLIGHT: item 13, the Argo CD upgrade**, branch
-`item-13-argocd-upgrade` from `main` at `c5182ea`. Design round 1 asked
-(Q218 to Q221). Facts found: the newest chart is 10.11.6 = Argo CD
-v3.5.6 (2026-10-26); 7.7.23 = v2.13.4 now. The jump crosses the chart's
-notes 8.0 (Argo CD 3.0), 9.0 (`configs.params` defaults removed; the
-interface stays) and 10.0 (NetworkPolicies on: `argocd-server` stays
-open, repo-server and Redis accept only Argo CD's pods). Argo CD 3.0
-makes annotation tracking the default; fast mode needs label tracking.
-The built-in roles cover the tiers (readonly has `logs, get`; admin has
-`update/*`, `delete/*`). The repository credential is a Secret already.
-The kiesei CLI is 3.4.3. The running local cluster follows
-`pass-6c-cold-storage`.
+`item-13-argocd-upgrade`. Round 1: Q218 (a) chart 10.11.6 = v3.5.6, CLI
+3.5.6; Q219 (c) annotation+label, to be revisited; Q220 (b) `down` and
+`up` only; Q221 open (the user wants the NetworkPolicies explained). The
+user's interrupt (2026-10-29): rename fast mode to "sync off / sync on"
+everywhere, maybe replace it with `argocd app sync --local` or remove
+it; a kept change must survive `sync on` (commit and push first, as
+`release` already checks); sync off becomes part of break-glass (it
+already is: the same annotation). `hold`/`release` naming parked as
+BACKLOG 35. Round 2 (Q222 to Q225) asked. Facts: `argocd app sync
+--local` refuses an Application with a `sources:` list; the six
+kustomize apps use the list form. `fast_apply` reads an empty
+`resourceTrackingMethod` as label; in v3, empty means annotation. The
+running local cluster follows `pass-6c-cold-storage`.
