@@ -59,17 +59,19 @@ in a private window asked for no step (the user, 2026-10-28). That open
 item is closed.
 
 **▶ IN FLIGHT: item 13, the Argo CD upgrade**, branch
-`item-13-argocd-upgrade`. Round 1: Q218 (a) chart 10.11.6 = v3.5.6, CLI
-3.5.6; Q219 (c) annotation+label, to be revisited; Q220 (b) `down` and
-`up` only; Q221 open (the user wants the NetworkPolicies explained). The
-user's interrupt (2026-10-29): rename fast mode to "sync off / sync on"
-everywhere, maybe replace it with `argocd app sync --local` or remove
-it; a kept change must survive `sync on` (commit and push first, as
-`release` already checks); sync off becomes part of break-glass (it
-already is: the same annotation). `hold`/`release` naming parked as
-BACKLOG 35. Round 2: Q222 (a), Q223 (a), Q224 (a) with the verb `apply`
-(not `sync apply`), Q225 (a). Round 3 (Q226 to Q229) asked. Facts:
-`argocd app sync --local` refuses an Application with a `sources:` list;
-the six kustomize apps use the list form. `fast_apply` reads an empty
-`resourceTrackingMethod` as label; in v3, empty means annotation. The
-running local cluster follows `pass-6c-cold-storage`.
+`item-13-argocd-upgrade`. Decided: Q218 (a) chart 10.11.6 = v3.5.6, CLI
+3.5.6; Q220 (b) `down`/`up` only; Q221 (a) NetworkPolicies on; Q222 (a)
+the item also replaces fast mode; Q223 (a) `sync off`/`sync on` are
+driver verbs, `hold`/`release` build on them; Q224 (a) `apply` = `argocd
+app diff --local` then `sync --local` in core mode, the six kustomize
+apps go to a single `source:`; Q225 (a) `sync on` refuses while live
+differs from git (`sync on confirm`); Q226 (a) `apply` with sync on
+prints the diff and stops (code 2); Q227 (a) annotation tracking
+(replaces Q219); Q228 (a) GLOSSARY: "Sync switch", no mode; Q229 (a)
+spike, step 1 upgrade, step 2 verbs. The user (AFK): the agent runs this
+item's `down`/`up` cycles and raises issues for confirmation. SPIKE DONE
+2026-10-29: `argocd app diff --local` in core mode (CLI 3.4.3, kiesei)
+rendered a working-tree change and showed it; client-side render
+(kustomize in kiesei); `--server-side-generate` failed on the path and
+is not needed. `sync --local` refuses `sources:` even with one element
+(`HasMultipleSources` = len > 0). NEXT: step 1 build, then `down`/`up`.

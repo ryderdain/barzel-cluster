@@ -103,7 +103,7 @@ EOF
 }
 
 phase_up() {
-  local env="$1" run_dir="$2" revision chart_version argocd_image secret app_names name
+  local env="$1" run_dir="$2" revision chart_version argocd_image redis_image secret app_names name
   phase_init "$env" || end_function "$?" 'environment definition'
   require_tools git yq || end_function "$?" 'git and yq (run the stream in kiesei)'
   revision="$(gitops_revision)" || end_function "$?" 'git revision'
@@ -111,6 +111,9 @@ phase_up() {
     "$repo_root/$appset_file")" || end_function "$?" 'argo-cd chart version'
   argocd_image="$(substrate_registry_host)/$(substrate_upstream_prefix quay)/argoproj/argocd" \
     || end_function "$?" 'Argo CD image'
+  # The same two images the ApplicationSet injects (its imageParams for argocd).
+  redis_image="$(substrate_registry_host)/$(substrate_upstream_prefix docker-hub)/library/redis" \
+    || end_function "$?" 'Redis image'
   secret="$(cluster_secret "$env" "$revision")" || end_function "$?" 'cluster Secret'
   app_names="$(yq '.. | select(type == "!!map" and has("appName")) | .appName' "$repo_root/$appset_file")" \
     || end_function "$?" 'Application names'
@@ -130,6 +133,7 @@ phase_up() {
   printf '  helm repo update argo\n'
   printf '  helm upgrade --install argocd argo/argo-cd --version %q \\\n' "$chart_version"
   printf '    --namespace argocd --create-namespace --set global.image.repository=%q \\\n' "$argocd_image"
+  printf '    --set redis.image.repository=%q \\\n' "$redis_image"
   printf '    --set configs.cm.url=%q \\\n' "https://$BRZL_PORTAL_HOST/argocd"
   printf "    --wait -f - <<'EOF'\n"
   cat "$repo_root/gitops/infrastructure/argocd/values.yaml"

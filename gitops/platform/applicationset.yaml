@@ -97,14 +97,20 @@ spec:
                   serverSideApply: "true"
                   chartRepo: https://argoproj.github.io/argo-helm
                   chart: argo-cd
-                  # 7.7.23 = Argo CD v2.13.4: its UI strips the base href from
-                  # the login return_url (v2.13.0 doubled it under /argocd/).
-                  chartVersion: "7.7.23"
+                  # 10.11.6 = Argo CD v3.5.6 (item 13, 2026-10-29). Before:
+                  # 7.7.23 = v2.13.4, the first with the login return_url fix
+                  # under a base href (pass 5c).
+                  chartVersion: "10.11.6"
                   valueFile: gitops/infrastructure/argocd/values.yaml
                   imageParams:
                     - name: global.image.repository
                       upstream: quay
                       path: argoproj/argocd
+                    # Chart 10 takes Redis from ecr-public.aws.com, which no
+                    # node mirrors; the same image is on Docker Hub.
+                    - name: redis.image.repository
+                      upstream: docker-hub
+                      path: library/redis
                   portalHostParams:
                     - name: configs.cm.url
                       prefix: https://
