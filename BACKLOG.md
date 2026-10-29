@@ -534,6 +534,7 @@ Standing concerns (check in every pass):
 - **Markdown lint debt**: about 600 older errors (mostly MD013) in SPEC,
   SCRATCHPAD and the runbooks. Clean a file when a pass edits it. Do not
   change RETROSPECTIVE entries without asking.
+
 ## Earlier plans (before the local-first refactor; kept as written, review later)
 
 ## Active — the major refactor (next barzel session) + aroni assists
