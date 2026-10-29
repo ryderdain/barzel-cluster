@@ -67,8 +67,9 @@ everywhere, maybe replace it with `argocd app sync --local` or remove
 it; a kept change must survive `sync on` (commit and push first, as
 `release` already checks); sync off becomes part of break-glass (it
 already is: the same annotation). `hold`/`release` naming parked as
-BACKLOG 35. Round 2 (Q222 to Q225) asked. Facts: `argocd app sync
---local` refuses an Application with a `sources:` list; the six
-kustomize apps use the list form. `fast_apply` reads an empty
+BACKLOG 35. Round 2: Q222 (a), Q223 (a), Q224 (a) with the verb `apply`
+(not `sync apply`), Q225 (a). Round 3 (Q226 to Q229) asked. Facts:
+`argocd app sync --local` refuses an Application with a `sources:` list;
+the six kustomize apps use the list form. `fast_apply` reads an empty
 `resourceTrackingMethod` as label; in v3, empty means annotation. The
 running local cluster follows `pass-6c-cold-storage`.

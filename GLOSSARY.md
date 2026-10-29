@@ -32,7 +32,8 @@ _Avoid_: bastion, jump host, conductor instance
 
 **Substrate**:
 The thing that a cluster operates on. Examples: k3d on a laptop, AWS, GCP, or
-DigitalOcean. Each cloud provider is a separate substrate.
+DigitalOcean. Each cloud provider is a separate substrate. Accurate name:
+hatzer.
 _Avoid_: platform, provider, cloud (for this meaning)
 
 **Substrate adapter**:
