@@ -30,8 +30,10 @@
 #   argocd_core_kubeconfig    print the path of a copy of the current kubeconfig
 #                             whose context names the namespace argocd, which
 #                             `argocd --core` needs; the caller removes it
-#   differences_from_git      Argo CD's diff, in core mode, of each Application
-#                             that is not Synced, on stderr (the record); print
+#   differences_from_git      Argo CD's diff, in core mode, of every Application
+#                             after a refresh (after a local sync, the status
+#                             says Synced until the next compare), on stderr
+#                             (the record); print
 #                             "differing=<names|none> no_diff=<names|none>";
 #                             return 0 when every Application agrees with git,
 #                             1 when any differs or gave no diff, 2 on a failure
@@ -139,7 +141,7 @@ differences_from_git() {
   kc="$(argocd_core_kubeconfig)" || return 2
   while IFS= read -r app; do
     [[ -n "$app" ]] || continue
-    diff="$(KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core < /dev/null 2>&1)"
+    diff="$(KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core --refresh < /dev/null 2>&1)"
     rc=$?
     case "$rc" in
       0) ;;
@@ -148,7 +150,7 @@ differences_from_git() {
       *) unknown+=("$app")
          printf '\n=== %s: no diff (argocd exit %s):\n%s\n' "$app" "$rc" "$diff" >&2 ;;
     esac
-  done < <(kubectl -n argocd get applications -o json | jq -r '.items[] | select(.status.sync.status != "Synced") | .metadata.name')
+  done < <(kubectl -n argocd get applications -o json | jq -r '.items[].metadata.name')
   rm -f "$kc"
   printf 'differing=%s no_diff=%s' "${differing[*]:-none}" "${unknown[*]:-none}"
   (( ${#differing[@]} + ${#unknown[@]} == 0 ))
