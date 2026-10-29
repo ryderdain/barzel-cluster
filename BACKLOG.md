@@ -237,7 +237,13 @@ Order of work (Q120):
 13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.23 (v2.13.4; the
     patch that fixed the login `return_url` under a base href, taken in
     pass 5c) to the current chart (10.x, v3.5). Aligns the server with the
-    `argocd` CLI in kiesei (3.4.3).
+    `argocd` CLI in kiesei (3.4.3). **Designed 2026-10-29** (Q218–Q229,
+    with the user's interrupt): chart 10.11.6 = v3.5.6, the CLI 3.5.6,
+    annotation tracking, the NetworkPolicies on; and the item replaces
+    fast mode with the sync switch (`sync off` / `sync on` / `apply` on
+    `argocd app sync --local`; GLOSSARY "Sync switch"). **Step 1 (the
+    upgrade) built and tested 2026-10-29** by the agent (`down`, `up`,
+    all phases, the checks in UPGRADE.md). Step 2 (the sync switch) next.
 14. **The `*.localhost` default test** — done 2026-10-15 (RETROSPECTIVE);
     sleipnir is back on `local.barzel.sh`, the reference chosen-name case.
 15. **The ApplicationSet itself is not in GitOps** (found 2026-10-15): phase

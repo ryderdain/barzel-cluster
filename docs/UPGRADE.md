@@ -69,6 +69,34 @@ Upgrade **servers one at a time** to keep the embedded-etcd quorum (need 2 of 3)
 - **demo-app:** build the new **arm64** image → push to ECR → bump the tag in
   `gitops/applications/demo-app/`. PR → sync. (Immutable tags: never reuse a tag.)
 
+## Argo CD (chart 7.7.23, v2.13.4 → chart 10.11.6, v3.5.6) ✅ (local, 2026-10-29)
+
+Item 13. The chart version is one line in
+`gitops/platform/applicationset.yaml` (the `argocd` element), and phase 30
+reads it for the first install. The `argocd` CLI in kiesei has the same
+version (`containers/kiesei/Dockerfile`). Done on local with `down` and
+`up`, not in place (Q220): local is disposable, and no cloud is built.
+
+What the jump changed for this repo:
+
+- Argo CD 3.0 tracks resources by annotation (`argocd.argoproj.io/tracking-id`),
+  no longer by the label `argocd.argoproj.io/instance`. Nothing of ours
+  writes tracking marks, so the default stands (Q227). Fast mode did, and
+  item 13 replaces it with the sync switch.
+- Chart 10 turns its NetworkPolicies on. `argocd-server` stays open to
+  all; repo-server and Redis accept only Argo CD's own pods (Q221). The CLI
+  in core mode reaches them through `kubectl port-forward`, which the
+  policies do not filter: tested with `argocd app diff --local --core`.
+- Chart 10 takes Redis from `ecr-public.aws.com`, which no node mirrors.
+  The ApplicationSet and phase 30 point `redis.image.repository` at
+  `library/redis` through the registry (Docker Hub upstream).
+- The built-in roles already have v3's finer rights (`update/*`,
+  `delete/*`, `logs`). The repository credential was a Secret already.
+
+Checks after `up`: every image under the registry host and at the new
+version, five NetworkPolicies in `argocd`, each object with a
+`tracking-id` and no instance label, every Application Synced.
+
 ## OS / node patching 🔜
 Rolling, one node at a time: drain → patch (Ansible `base`) or replace the
 instance (immutable: bump the AMI in `50-compute`, `tofu apply`, let the node

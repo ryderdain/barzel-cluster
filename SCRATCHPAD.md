@@ -74,4 +74,11 @@ item's `down`/`up` cycles and raises issues for confirmation. SPIKE DONE
 rendered a working-tree change and showed it; client-side render
 (kustomize in kiesei); `--server-side-generate` failed on the path and
 is not needed. `sync --local` refuses `sources:` even with one element
-(`HasMultipleSources` = len > 0). NEXT: step 1 build, then `down`/`up`.
+(`HasMultipleSources` = len > 0). STEP 1 DONE 2026-10-29 (agent-run
+`down`/`up`, rc 0: v3.5.6 everywhere, Redis through Zot, five
+NetworkPolicies, annotation tracking, 16 apps Synced, core-mode diff ok;
+UPGRADE.md has the record; the user still runs 10-host.sh). NEXT: step
+2, the sync switch: ApplicationSet single `source:`,
+`driver/modes/sync.sh` replaces `fast-mode.sh`, `hold`/`release` share
+its diff check, tests, GLOSSARY/LOCAL/BREAK-GLASS/ADR-0025 amendment,
+then `down`/`up` and an `apply` test.

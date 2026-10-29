@@ -105,7 +105,8 @@ model for an operator is `docs/BREAK-GLASS.md`.
   record is JSON on the cluster Secret: `person`, `verified`, `start`,
   `reason`.
 - `release` makes Argo CD's diff with its CLI in core mode, with the
-  cluster-admin kubeconfig. That works against the v2.13 server.
+  cluster-admin kubeconfig. That works against the v2.13 server, and
+  against the v3.5 server through the chart's NetworkPolicies (item 13).
 - The admins' standing binding is `brzl-tier-admins-view` (`view`). The
   old `brzl-tier-admins` had `cluster-admin`, and Argo CD prunes it.
 - The audit policy is a template that phase 10 writes into the run
