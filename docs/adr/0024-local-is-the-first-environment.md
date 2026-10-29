@@ -26,7 +26,8 @@ it. It has two modes:
 - **Fast mode** is for changes to the cluster structure. `fast_on` stops the
   Argo CD auto-sync, and the driver applies the working tree directly.
   `fast_off` starts the auto-sync again, and Argo CD makes the cluster agree
-  with the branch.
+  with the branch. (Renamed and rebuilt as the sync switch in item 13,
+  2026-10-29: `sync off`, `apply`, `sync on`; ADR-0025 amendment.)
 
 The local cluster is disposable: each `up` starts from zero. k3s stays the
 Kubernetes distribution on each substrate.

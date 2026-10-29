@@ -89,7 +89,7 @@ into GLOSSARY first.
   - `conductor.sh` sends a conductor phase to the in-cluster pod. The driver
     calls it. Do not run it by hand.
   - Adapters: `substrates/k3d.sh`, `secret-stores/openbao.sh`. Modes:
-    `modes/break-glass.sh`, `modes/reader.sh`, `fast-mode.sh`. GitHub access
+    `modes/break-glass.sh`, `modes/reader.sh`, `modes/sync.sh`. GitHub access
     setup: `access/github.sh`.
   - `lib/runlib.sh` and `lib/error.sh` are vendored from `ryderdain/bash`
     and pinned in `lib/UPSTREAM`. Change them upstream first, then re-vendor.
@@ -122,9 +122,9 @@ into GLOSSARY first.
 ## Commands
 
 The driver prints. The pipe runs. A pipe into `kiesei.sh` or `bash` is the
-approval. Thus a piped `up`, `next`, `down`, `apply`, `fast_on`, `hold`, or
+approval. Thus a piped `up`, `next`, `down`, `apply`, `sync off`, `hold`, or
 `reader_on` changes the cluster. Ask the user before each one, per the
-"always ask" rule below. For the full set (fast mode, reader, GitHub access
+"always ask" rule below. For the full set (the sync switch, reader, GitHub access
 setup), read [`docs/LOCAL.md`](docs/LOCAL.md).
 
 ```bash

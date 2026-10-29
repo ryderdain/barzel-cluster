@@ -24,10 +24,10 @@ model for an operator is `docs/BREAK-GLASS.md`.
 ## Decision
 
 - **`hold` stops automated sync for the whole environment** (Q195), with
-  fast mode's switch, `brzl.dev/auto-sync: "false"` on the cluster
+  the sync switch, `brzl.dev/auto-sync: "false"` on the cluster
   Secret. A second annotation, `brzl.dev/break-glass`, holds the record:
   the person, whether the name is verified, the start (UTC, ISO 8601 with
-  `Z`) and the reason. Fast mode refuses while it is set. One hold per
+  `Z`) and the reason. The sync switch refuses while it is set. One hold per
   environment.
 - **The admins are elevated only during a hold** (Q198, replaces Q194).
   Outside a hold the `brzl-admins` tier has `view`, like the other tiers.
@@ -117,7 +117,8 @@ model for an operator is `docs/BREAK-GLASS.md`.
   entry, but kube-state-metrics finds those kinds only from
   CustomResourceDefinitions. It skipped the built-in kind, and it did not
   show an error (found in the live test, 2026-10-28).
-- Fast mode refuses `fast_on`, `fast_off` and `apply` during a hold.
+- The sync switch (`sync off`, `sync on`, `apply`; item 13, earlier fast
+  mode) refuses during a hold.
 - Phase 40 checks that the binding and the record agree, and the admins'
   rights in and outside a hold.
 - Q202 (a): an agent does not hold, for now. Q203 (a): the review is a

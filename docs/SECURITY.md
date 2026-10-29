@@ -187,7 +187,7 @@ The same flows, by what a person does. The numbers are the flows above.
 | A person in the web UIs | 10 to 13, 15 | Argo CD, Grafana and the gate name the person. |
 | A person with the CLIs | 14 (Argo CD), 16 and 17 (`kubectl`) | The API audit log names `oidc:<login>`. |
 | A change through git, to the platform or to a workload | 6, 7, 8, 9 | The git history names the person. The platform holds only read-only credentials. Who may push is GitHub's control (branch protection), assumed here, not provided. |
-| Fast mode (local) | 2 | The run output, under the driver. |
+| `sync off` and `apply` (local) | 2 | The run output, under the driver. |
 | Break-glass mode (any environment; pass 6b) | 16 and 17, elevated to `cluster-admin` for the hold. `hold` and `release` are driver actions (flow 2). | The API audit log names `oidc:<login>`, with the request body of each write. The annotation and the run outputs name the person and the reason ([BREAK-GLASS.md](BREAK-GLASS.md)). |
 | An emergency (Dex, GitHub or the portal is down) | 2, and `driver.token` for the store. Grafana in the cluster has no path. The reader of the admin log store (`reader_on`) runs outside the cluster, on `127.0.0.1` with no sign-on, and only reads ([BREAK-GLASS.md](BREAK-GLASS.md)). | `system:admin`. A `hold` in this path records a declared name, not a verified one. |
 | The machines, on their own | 3, 4, 5, 6, 7, 8, and 15 when Dex refreshes a session | Each machine's own identity. |
@@ -506,51 +506,50 @@ the GitHub dependency as a whole.
 
 ## Access control
 
-- **Argo CD is the only writer to the cluster in GitOps mode.** People change
-  git, not live objects. Two modes are exceptions. In fast mode (local
-  only), the driver applies the working tree. In break-glass mode (any
-  environment, pass 6b), `hold` stops automated
-  sync for the whole environment and elevates the admins to
+- **Argo CD is the only writer to the cluster in GitOps mode.** People
+  change git, not live objects. Two exceptions exist. With sync off
+  (local only), `apply` puts the working tree in through Argo CD's own
+  render. In break-glass mode (any environment, pass 6b), `hold` stops
+  automated sync for the whole environment and elevates the admins to
   `cluster-admin` for the hold. Each admin writes with their own name,
   and `release` gives the cluster back to git. Each use is recorded in
   the admin log store and reviewed afterwards
-  ([BREAK-GLASS.md](BREAK-GLASS.md), ADR-0037).
-- **Operations run from kiesei** (ADR-0021). The driver runs outside the
-  cluster. The conductor is a pod in the cluster with `cluster-admin`, and
-  runs the run sheets that the driver sends. A locus never removes or
-  replaces its own cluster. The run sheets and their outputs are kept and
-  go to the admin log store.
-- **AWS: federated and least-privilege, split by verb.** GitHub OIDC gives
-  two roles: `brzl-tofu-plan` (read-only, for plan review) and
-  `brzl-tofu-apply` (ADR-0005).
-- **AWS: node access is SSH over SSM, never inbound port 22** (ADR-0004).
-  The security group opens no SSH. The Kubernetes API is open only to the
-  operator's `/32`. SSM records each session.
-- **Saved plans, one step at a time.** Each billable or mutating change is
-  `tofu plan -out=FILE`, then a review, then `tofu apply FILE`. Never
-  `-auto-approve`. Approval for one step does not carry to the next.
-- **People reach the web services only through the admin portal**
-  (ADR-0028). Sign-on (pass 6a) gates the portal in every environment,
-  with three access tiers: `admins`, `operators` and `auditors`, from
-  GitHub teams (Q169, Q170, Q173).
-- **`kubectl` uses the same identity** (ADR-0035, step 2). The kube-API
+  ([BREAK-GLASS.md](BREAK-GLASS.md), ADR-0037). - **Operations run from
+  kiesei** (ADR-0021). The driver runs outside the cluster. The
+  conductor is a pod in the cluster with `cluster-admin`, and runs the
+  run sheets that the driver sends. A locus never removes or replaces
+  its own cluster. The run sheets and their outputs are kept and go to
+  the admin log store. - **AWS: federated and least-privilege, split by
+  verb.** GitHub OIDC gives two roles: `brzl-tofu-plan` (read-only, for
+  plan review) and `brzl-tofu-apply` (ADR-0005). - **AWS: node access is
+  SSH over SSM, never inbound port 22** (ADR-0004). The security group
+  opens no SSH. The Kubernetes API is open only to the operator's `/32`.
+  SSM records each session. - **Saved plans, one step at a time.** Each
+  billable or mutating change is `tofu plan -out=FILE`, then a review,
+  then `tofu apply FILE`. Never `-auto-approve`. Approval for one step
+  does not carry to the next. - **People reach the web services only
+  through the admin portal** (ADR-0028). Sign-on (pass 6a) gates the
+  portal in every environment, with three access tiers: `admins`,
+  `operators` and `auditors`, from GitHub teams (Q169, Q170, Q173). -
+  **`kubectl` uses the same identity** (ADR-0035, step 2). The kube-API
   trusts Dex and names a person `oidc:<login>`. The bindings in
   `gitops/clusters/<env>/access/` give the tiers their rights. Every
   tier has the built-in `view` role. Admins get `cluster-admin` only
   during a break-glass hold (pass 6b): `hold` creates a second binding,
   `brzl-break-glass`, and `release` deletes it
-  ([BREAK-GLASS.md](BREAK-GLASS.md)). Admins keep `role:admin` in Argo CD
-  at all times. `view` reads the pods' logs and the ConfigMaps of every
-  namespace, which is wider than an audit needs (BACKLOG 30).
-- **The driver is a machine identity.** Every phase acts as `system:admin`
-  and as the store token `driver`. Two records show who ran a phase: the
-  operator's shell, and the header line of the run output. That line
-  names the account on the operator's machine (Q208). The name is
-  declared, not verified. On local, the kubeconfig and the token stay
-  (Q207, Q209). On a cloud, pass 8 decides (BACKLOG 23 and 29).
-- **Branch protection is assumed, not provided.** A push to the workload's
-  development branch deploys it (ADR-0034). A push to this repository's
-  branch changes the platform. Who may push is GitHub's control.
+  ([BREAK-GLASS.md](BREAK-GLASS.md)). Admins keep `role:admin` in Argo
+  CD at all times. `view` reads the pods' logs and the ConfigMaps of
+  every namespace, which is wider than an audit needs (BACKLOG 30). -
+  **The driver is a machine identity.** Every phase acts as
+  `system:admin` and as the store token `driver`. Two records show who
+  ran a phase: the operator's shell, and the header line of the run
+  output. That line names the account on the operator's machine (Q208).
+  The name is declared, not verified. On local, the kubeconfig and the
+  token stay (Q207, Q209). On a cloud, pass 8 decides (BACKLOG 23 and
+  29). - **Branch protection is assumed, not provided.** A push to the
+  workload's development branch deploys it (ADR-0034). A push to this
+  repository's branch changes the platform. Who may push is GitHub's
+  control.
 
 ### Sessions and revocation
 

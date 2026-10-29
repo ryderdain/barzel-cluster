@@ -17,7 +17,7 @@ its manifests from that repo, and the platform's own manifests get a thin
 - No AWS account, profile, or credentials.
 - For a private workload: `gh`, the GitHub CLI, logged in to your account.
   The access script (below, "The workload's access") uses it.
-- For fast mode only: the example app's checkout beside this repo,
+- For `apply` only: the example app's checkout beside this repo,
   `git clone git@github.com:tzvat/chofesh.git ../chofesh`
   (`BRZL_EXAMPLE_APP_SRC` in `env/local.env`). Argo CD reads the pushed
   repo, not the checkout.
@@ -473,50 +473,65 @@ A manifest change arrives the same way. The other environments follow a
 release instead (`release`): the tag the ApplicationSet element names,
 made in the app's repo with `make release`.
 
-For a change you have not pushed, use fast mode (below) with
+For a change you have not pushed, use `sync off` and `apply` (below) with
 `make dev-image` in the checkout. It builds for this machine, pushes to
 Zot's push namespace, and points `deploy/local` at the build.
 
-## Fast mode
+## Sync off and on
 
-Fast mode is for changes to the structure of the cluster: you apply your
-working tree directly and do not push first. Argo CD holds while fast mode is
-on. Fast mode is only for the local environment. For an emergency in any
-environment, use break-glass mode ([BREAK-GLASS.md](BREAK-GLASS.md)).
-Fast mode refuses to run during a hold.
+Argo CD's automated sync has one switch for the whole environment: the
+sync switch (ADR-0025). With sync off, you apply your working tree
+directly and do not push first: a change to the structure of the cluster,
+or the example app from its checkout. The switch is only for the local
+environment. For an emergency in any environment, use break-glass mode
+([BREAK-GLASS.md](BREAK-GLASS.md)): `hold` moves the same switch, with a
+record. `sync off`, `apply` and `sync on` refuse during a hold.
 
 ```sh
-bash driver/driver.sh local fast_on  | bash driver/kiesei.sh  # Argo CD holds
+bash driver/driver.sh local sync off | bash driver/kiesei.sh  # Argo CD stops
 bash driver/driver.sh local apply    | bash driver/kiesei.sh  # working tree
-bash driver/driver.sh local fast_off | bash driver/kiesei.sh  # pushed branch
+bash driver/driver.sh local sync on  | bash driver/kiesei.sh  # pushed branch
 ```
 
-- `fast_on` sets the annotation `brzl.dev/auto-sync: "false"` on the cluster
-  Secret. The ApplicationSet then removes automated sync from each
+- `sync off` sets the annotation `brzl.dev/auto-sync: "false"` on the
+  cluster Secret. The ApplicationSet then removes automated sync from each
   Application. No commit is necessary.
-- `apply` renders the kustomize apps from your working tree, with the same
-  images and patches that Argo CD injects. The example app renders from its
-  checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`). The conductor applies
-  the result. So the loop for the app is: edit `../chofesh`, then, when the
-  code changed, `make dev-image` there, then `apply`, look. `make dev-image`
-  points `deploy/local` at the build. `git checkout deploy/local` undoes
-  that before a commit.
+- `apply` asks Argo CD for the difference between your working tree and
+  the cluster, for each kustomize Application (`argocd app diff --local`),
+  and shows it. Then it syncs each Application that differs (`argocd app
+  sync --local`): Argo CD renders the tree with the Application's own
+  images and patches, and tracks the objects as usual. The example app
+  renders from its checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`). So
+  the loop for the app is: edit `../chofesh`, then, when the code changed,
+  `make dev-image` there, then `apply`, look. `make dev-image` points
+  `deploy/local` at the build. `git checkout deploy/local` undoes that
+  before a commit.
 
-  The helm apps (Argo CD, CloudNativePG, External Secrets, cert-manager)
-  are not included: to change one, push a branch and let Argo CD sync it.
-- While fast mode is on, Argo CD shows each changed Application as OutOfSync.
+  The helm apps (Argo CD, CloudNativePG, External Secrets, cert-manager,
+  the log stack, monitoring, sign-on) are not included: to change one,
+  push a branch and let Argo CD sync it.
+- While sync is off, Argo CD shows each changed Application as OutOfSync.
   The difference is your change compared with the pushed branch.
+- `sync on` lists each Application that differs from the pushed branch,
+  with Argo CD's diff, and stops. Commit and push the change, then `sync
+  on` again: when the branch and the cluster agree, Argo CD changes
+  nothing. For a local image, push the app's commit and let its CI build
+  it; Argo CD then rolls the pods to the CI image, once. To accept the
+  undo instead: `sync on confirm`.
 
 **Caution:**
 
-- `fast_off` makes the cluster agree with the pushed branch again. Argo CD
-  prunes and heals. **A change that you did not commit and push is removed
-  from the cluster.** Push it before `fast_off`.
-- `apply` refuses to operate when fast mode is off. Otherwise Argo CD would
-  revert the change at once.
-- Phase `40-workloads` fails while fast mode is on, because Argo CD does not
-  sync. Operate `fast_off` before you operate `up` again.
-- Do not use **Sync** in the Argo CD UI while fast mode is on. A manual sync
+- `sync on confirm` makes the cluster agree with the pushed branch again.
+  Argo CD prunes and heals. **A change that you did not commit and push
+  is removed from the cluster.**
+- `apply` with sync on shows the difference and stops. Nothing changes:
+  Argo CD refuses a local sync while automated sync is on, and self-heal
+  would undo it within minutes.
+- `apply` does not prune. An object that you removed from the working
+  tree stays in the cluster until `sync on`.
+- Phase `40-workloads` fails while sync is off, because Argo CD does not
+  sync. Operate `sync on` before you operate `up` again.
+- Do not use **Sync** in the Argo CD UI while sync is off. A manual sync
   replaces your working-tree change in that Application with the pushed
   branch. Use **Refresh** to see the current difference: Argo CD compares
   only every 3 minutes by itself.
@@ -638,7 +653,7 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 | Backups | CNPG → S3 (Barman) | **off** | no object store locally |
 | Monitoring | kube-prometheus-stack | the same; the node exporter has no root file-system metrics | the k3d node is a container (`values-local.yaml`) |
 | Logs | admin log store data in S3 (pass 8) | admin log store data in a host directory; a collector beside the cluster sends the run outputs | no object store locally; the driver's machine holds the run outputs |
-| GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; **fast mode** applies the working tree directly | one file for every environment |
+| GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; with **sync off**, `apply` puts the working tree in | one file for every environment |
 | Sign-on | the same Dex and oauth2-proxy behind the portal (pass 8) | Dex and oauth2-proxy behind the portal; on the nodes and in the cluster, a host alias makes the portal's host name the portal's fixed Service address | one sign-on on every substrate; only the entry point differs (ADR-0035) |
 | Certificates | `letsencrypt` mode (ACME DNS-01) | `local-ca` mode: OpenBao is the CA | a laptop needs nothing public (ADR-0036) |
 

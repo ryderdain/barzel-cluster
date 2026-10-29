@@ -86,10 +86,12 @@ The usual mode of an environment. Argo CD makes the cluster agree with a
 pushed git branch.
 _Avoid_: normal mode, sync mode
 
-**Fast mode**:
-A mode of the local environment for changes to the structure of the cluster.
-The driver applies the working tree directly, and Argo CD does not sync.
-_Avoid_: dev mode, inner loop, direct mode
+**Sync switch**:
+The one switch of an environment that stops or starts Argo CD's automated
+sync for every Application. With sync off, the local environment takes the
+working tree directly (`apply`). Break-glass mode moves the same switch,
+with a record.
+_Avoid_: fast mode, dev mode, auto-sync flag, hold switch
 
 **Break-glass mode**:
 A mode of any environment for an emergency. Argo CD holds and does not sync,

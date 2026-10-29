@@ -272,7 +272,7 @@ purpose:
 
 | File | What it holds | Use it to find |
 | --- | --- | --- |
-| `platform/run-output.jsonl` | Every run output of the driver and the conductor: each phase of `up` and `down`, `hold`, `release` and fast mode. The header line of each output names the run, the phase, the start and the person. | What the platform did, when, and who ran it. |
+| `platform/run-output.jsonl` | Every run output of the driver and the conductor: each phase of `up` and `down`, `hold`, `release`, `sync off`, `sync on` and `apply`. The header line of each output names the run, the phase, the start and the person. | What the platform did, when, and who ran it. |
 | `platform/api-audit.jsonl` | The Kubernetes API audit log: each request, with the user, the verb, the object and the result. During a hold, also the request body of the admins' writes. | Who changed which object, and when. |
 | `platform/k8s-event.jsonl` | The Kubernetes events: what the cluster did with its objects, for example a failed probe, an image pull or a scheduling decision. | What happened to a workload, as the cluster saw it. |
 | `platform/openbao-audit.jsonl` | The secret store's audit log: each request, with the token's name, the operation and the path. A hash stands for each secret value. | Who read or wrote which secret, and when. |
