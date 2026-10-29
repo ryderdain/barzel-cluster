@@ -121,7 +121,11 @@ The workload's element sits in a nested matrix with an SCM generator.
   tree with the Application's images and patches and writes its own
   tracking marks. So the copy of its injection in `fast-mode.sh` is gone.
   This needs one `source:` on each kustomize Application, not a list:
-  the CLI refuses `--local` on a list, also a list of one.
+  the CLI refuses `--local` on a list, also a list of one. The local
+  render edits the kustomization it is given in place (`kustomize edit`
+  for the images and patches; the first live test rewrote two files), so
+  `apply` copies the source tree (`gitops/`, `deploy/`) and renders the
+  copy.
 - **`sync on` has `release`'s check** (Q225): it stops while an
   Application differs from git and shows the diff. Commit and push, or
   `sync on confirm`. One function, `differences_from_git`, serves both.

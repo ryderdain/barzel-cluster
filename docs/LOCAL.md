@@ -500,8 +500,11 @@ bash driver/driver.sh local sync on  | bash driver/kiesei.sh  # pushed branch
   the cluster, for each kustomize Application (`argocd app diff --local`),
   and shows it. Then it syncs each Application that differs (`argocd app
   sync --local`): Argo CD renders the tree with the Application's own
-  images and patches, and tracks the objects as usual. The example app
-  renders from its checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`). So
+  images and patches, and tracks the objects as usual. That render edits
+  the kustomization it is given, so both steps work on a copy of the
+  source tree (`gitops/`, or the app's `deploy/`), never on your files.
+  The example app renders from its checkout beside this repo
+  (`BRZL_EXAMPLE_APP_SRC`). So
   the loop for the app is: edit `../chofesh`, then, when the code changed,
   `make dev-image` there, then `apply`, look. `make dev-image` points
   `deploy/local` at the build. `git checkout deploy/local` undoes that
