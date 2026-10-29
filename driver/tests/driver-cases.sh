@@ -123,12 +123,17 @@ report 'no .ok for the failed phase, and the next phase never ran' 'none none' \
   "$([[ -e "$dir/10-substrate.ok" ]] && printf ok || printf none) $([[ -e "$dir/20-images.sh" ]] && printf ran || printf none)"
 rm -f "$scratch/BREAK"
 
-# 7. Fast mode needs a run that passed 30-gitops; then it emits one group.
-drive fast_on >/dev/null; rc=$?
-report 'fast_on refuses before 30-gitops has passed' '2' "$rc"
+# 7. The sync switch needs a run that passed 30-gitops; then each action emits
+# one group, at the driver locus, with its emit step first.
+drive sync off >/dev/null; rc=$?
+report 'sync off refuses before 30-gitops has passed' '2' "$rc"
 drive up | (cd "$scratch" && bash >/dev/null 2>&1)
-report 'fast_on emits one group after 30-gitops' '1' "$(drive fast_on | grep -c '^{ # fast mode on')"
-report 'apply emits one conductor group' '1' "$(drive apply | grep -c 'bash driver/conductor.sh')"
+report 'sync off emits one group after 30-gitops' '1' "$(drive sync off | grep -c '^{ # sync off')"
+report 'sync on confirm passes confirm to its emitter' '1' "$(drive sync on confirm | grep -c "sync_switch on test [^ ]* 'confirm' >")"
+drive sync >/dev/null; rc=$?
+report 'sync without off or on refuses' '2' "$rc"
+report 'apply emits one group with its emit step' '1 1' \
+  "$(drive apply | grep -c '^{ # apply the working tree') $(drive apply | grep -c 'sync.sh apply test')"
 
 # 7a. Break-glass mode (ADR-0037): hold needs a reason; hold and release emit
 # one group each; the reason reaches the emitter quoted; an emit step that

@@ -16,14 +16,15 @@
 # brzl-admins. When sign-on does not answer (Dex down, Q201), [name] is the
 # person's declared name, and the record says "verified": false. The run
 # sheet writes the record on the cluster Secret (brzl.dev/break-glass), sets
-# the switch that fast mode also uses (brzl.dev/auto-sync=false, ADR-0025),
+# the sync switch (brzl.dev/auto-sync=false, ADR-0025, driver/modes/sync.sh),
 # and creates the ClusterRoleBinding brzl-break-glass. A binding's roleRef
 # cannot change, so this is a second binding beside the standing one (view).
 # One hold for each environment: a hold by another person stops the sheet.
 #
 # release: lists each Application that differs from git, with Argo CD's diff
-# (the CLI in core mode, with the cluster-admin kubeconfig), and stops while
-# any differ (Q200). Commit the change to the branch Argo CD follows, or
+# (the CLI in core mode, with the cluster-admin kubeconfig; the check that
+# `sync on` also runs, differences_from_git), and stops while any differ
+# (Q200). Commit the change to the branch Argo CD follows, or
 # accept the undo with `confirm`. Then the sheet deletes the binding, turns
 # automated sync on and removes the record, in that order.
 #
@@ -93,8 +94,8 @@ hold() {
   current="$(annotation brzl.dev/break-glass)" || end_function "$?" "cluster Secret $secret"
   auto="$(annotation brzl.dev/auto-sync)" || end_function "$?" "cluster Secret $secret"
   if [[ -z "$current" && "$auto" == false ]]; then
-    printf 'error: fast mode is on, and a hold would take over its switch. Commit what fast mode applied, then: bash driver/driver.sh %s fast_off (unpushed fast-mode changes go away), then hold\n' "$env" >&2
-    end_function 3 'fast mode is on'
+    printf 'error: sync is off with no hold, and a hold would take over the switch. Commit what you applied, then: bash driver/driver.sh %s sync on (an unpushed change goes away), then hold\n' "$env" >&2
+    end_function 3 'sync is off'
     return 3
   fi
   person="$(whoami_admin "$run_dir")"
@@ -182,7 +183,7 @@ hold_check() {
 }
 
 release() {
-  local env="$1" run_dir="$2" confirm="${3:-}" current releaser kc app diff rc differing=() unknown=()
+  local env="$1" run_dir="$2" confirm="${3:-}" current releaser summary rc
   if [[ -n "$confirm" && "$confirm" != confirm ]]; then
     printf 'usage: break-glass.sh release <env> <run_dir> [confirm]\n' >&2
     return 2
@@ -199,38 +200,20 @@ release() {
   releaser="$(timeout 30 kubectl --kubeconfig "$run_dir/kubeconfig-sign-on" auth whoami \
     -o jsonpath='{.status.userInfo.username}' < /dev/null 2>/dev/null)" || releaser=''
   [[ -n "$releaser" ]] || releaser='not-verified(no-sign-on)'
-  # The differences from git: Argo CD's own diff, from its CLI in core mode
-  # (no server login; it needs the namespace argocd in the kubeconfig's
-  # context). The copy of the kubeconfig stays in kiesei's /tmp.
-  kc="$(mktemp)" || end_function "$?" 'temporary kubeconfig'
-  if ! kubectl config view --raw > "$kc" || ! KUBECONFIG="$kc" kubectl config set-context --current --namespace argocd >/dev/null; then
-    rm -f "$kc"
-    end_function 1 'could not prepare the kubeconfig for argocd --core'
-    return 1
-  fi
-  while IFS= read -r app; do
-    [[ -n "$app" ]] || continue
-    diff="$(KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core < /dev/null 2>&1)"
-    rc=$?
-    case "$rc" in
-      0) ;;
-      1) differing+=("$app")
-         printf '\n=== %s differs from git (Argo CD would put git back):\n%s\n' "$app" "$diff" >&2 ;;
-      *) unknown+=("$app")
-         printf '\n=== %s: no diff (argocd exit %s):\n%s\n' "$app" "$rc" "$diff" >&2 ;;
-    esac
-  done < <(kubectl -n argocd get applications -o json | jq -r '.items[] | select(.status.sync.status != "Synced") | .metadata.name')
-  rm -f "$kc"
-  printf '\nbreak-glass release: by=%s hold=%s differing=%s no_diff=%s confirm=%s\n' \
-    "$releaser" "$current" "${differing[*]:-none}" "${unknown[*]:-none}" "${confirm:-no}" >&2
-  if (( ${#differing[@]} + ${#unknown[@]} )) && [[ -z "$confirm" ]]; then
+  # The differences from git (Q200): the shared check, with Argo CD's own
+  # diff in core mode on stderr (the record).
+  summary="$(differences_from_git)"; rc=$?
+  (( rc == 2 )) && end_function 2 'could not prepare the kubeconfig for argocd --core'
+  printf '\nbreak-glass release: by=%s hold=%s %s confirm=%s\n' \
+    "$releaser" "$current" "$summary" "${confirm:-no}" >&2
+  if (( rc )) && [[ -z "$confirm" ]]; then
     printf 'error: release stops while an Application differs from git (above). Commit each change to the branch Argo CD follows and run release again, or accept the undo: bash driver/driver.sh %s release confirm\n' "$env" >&2
     end_function 3 'differences from git'
     return 3
   fi
   phase_header "$run_dir"
   printf '{ # the record of this release, in this run output (the admin log store keeps it)\n'
-  printf '  printf '\''%%s\\n'\'' %s\n' "$(squote "break-glass release: by=$releaser undone=${differing[*]:-none}${unknown[*]:+ unknown=${unknown[*]}} hold=$current")"
+  printf '  printf '\''%%s\\n'\'' %s\n' "$(squote "break-glass release: by=$releaser $summary confirm=${confirm:-no} hold=$current")"
   printf '}\n'
   printf '{ # the elevation ends: the team brzl-admins is back to view\n'
   printf '  kubectl delete clusterrolebinding %q --ignore-not-found\n' "$binding"

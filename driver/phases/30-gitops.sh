@@ -18,8 +18,8 @@
 # The git revision Argo CD follows: an exported BRZL_GITOPS_REVISION, else the
 # branch checked out when the phase is emitted (Q56). Argo CD reads only what
 # is pushed; a warning on stderr says when the branch is ahead of its remote.
-# The auto-sync annotation is never written here: fast_on/fast_off own it, so
-# running this phase again keeps fast mode as it is.
+# The auto-sync annotation is never written here: the sync switch owns it, so
+# running this phase again keeps the switch as it is.
 #
 # Emit + generator, one function each:
 #   bash driver/phases/30-gitops.sh phase_up <env> <run_dir>     # EMIT

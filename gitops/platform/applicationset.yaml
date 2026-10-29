@@ -559,58 +559,60 @@ spec:
       {{- $rev := $revision }}
       {{- if .repo }}{{ $repo = .repo }}{{ $rev = .revision }}{{ end }}
       {{- if and .repo (eq $follow "branch") }}{{ $rev = .sha }}{{ end }}
-      sources:
-        - repoURL: {{ $repo }}
-          targetRevision: {{ $rev }}
-          path: {{ $path }}
-          kustomize:
-            {{- if eq .appName "chofesh" }}
-            {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
-            images:
-              - "ghcr.io/tzvat/chofesh={{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/tzvat/chofesh{{ if eq $follow "branch" }}:{{ .short_sha }}{{ end }}"
-            patches:
-              - target:
-                  group: postgresql.cnpg.io
-                  version: v1
-                  kind: Cluster
-                  name: pg
-                patch: |-
-                  - op: replace
-                    path: /spec/imageName
-                    value: {{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/cloudnative-pg/postgresql:17.2
-                  {{- if $bucket }}
-                  - op: replace
-                    path: /spec/backup/barmanObjectStore/destinationPath
-                    value: s3://{{ $bucket }}/
-                  {{- end }}
-            {{- if eq $env "prod" }}
-              - target:
-                  version: v1
-                  kind: Service
-                  name: chofesh
-                patch: |-
-                  - op: replace
-                    path: /spec/type
-                    value: NodePort
-                  - op: add
-                    path: /spec/ports/0/nodePort
-                    value: 30080
-            {{- end }}
-            {{- else if eq .appName "portal" }}
-            images:
-              - "nginxinc/nginx-unprivileged={{ $host }}/{{ index $ann "brzl.dev/prefix-docker-hub" }}/nginxinc/nginx-unprivileged"
-            patches:
-              - target:
-                  group: cert-manager.io
-                  version: v1
-                  kind: Certificate
-                  name: portal
-                patch: |-
-                  - op: replace
-                    path: /spec/commonName
-                    value: {{ index $ann "brzl.dev/portal-host" }}
-                  - op: replace
-                    path: /spec/dnsNames/0
-                    value: {{ index $ann "brzl.dev/portal-host" }}
+      # One source, not a list (item 13): `argocd app sync --local` refuses an
+      # Application with a sources list, even of one.
+      source:
+        repoURL: {{ $repo }}
+        targetRevision: {{ $rev }}
+        path: {{ $path }}
+        kustomize:
+          {{- if eq .appName "chofesh" }}
+          {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
+          images:
+            - "ghcr.io/tzvat/chofesh={{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/tzvat/chofesh{{ if eq $follow "branch" }}:{{ .short_sha }}{{ end }}"
+          patches:
+            - target:
+                group: postgresql.cnpg.io
+                version: v1
+                kind: Cluster
+                name: pg
+              patch: |-
+                - op: replace
+                  path: /spec/imageName
+                  value: {{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/cloudnative-pg/postgresql:17.2
+                {{- if $bucket }}
+                - op: replace
+                  path: /spec/backup/barmanObjectStore/destinationPath
+                  value: s3://{{ $bucket }}/
+                {{- end }}
+          {{- if eq $env "prod" }}
+            - target:
+                version: v1
+                kind: Service
+                name: chofesh
+              patch: |-
+                - op: replace
+                  path: /spec/type
+                  value: NodePort
+                - op: add
+                  path: /spec/ports/0/nodePort
+                  value: 30080
+          {{- end }}
+          {{- else if eq .appName "portal" }}
+          images:
+            - "nginxinc/nginx-unprivileged={{ $host }}/{{ index $ann "brzl.dev/prefix-docker-hub" }}/nginxinc/nginx-unprivileged"
+          patches:
+            - target:
+                group: cert-manager.io
+                version: v1
+                kind: Certificate
+                name: portal
+              patch: |-
+                - op: replace
+                  path: /spec/commonName
+                  value: {{ index $ann "brzl.dev/portal-host" }}
+                - op: replace
+                  path: /spec/dnsNames/0
+                  value: {{ index $ann "brzl.dev/portal-host" }}
             {{- end }}
       {{- end }}

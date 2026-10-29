@@ -24,9 +24,18 @@
 #                             Linux), else uname
 #   auto_sync_wait <none|all> wait up to 90 s until the ApplicationSet renders
 #                             no (none) or every (all) Application with
-#                             automated sync (the switch of fast mode and
-#                             break-glass mode, ADR-0025); print
+#                             automated sync (the sync switch, ADR-0025;
+#                             driver/modes/sync.sh and break-glass.sh); print
 #                             "<automated> of <total>"; return 1 on timeout
+#   argocd_core_kubeconfig    print the path of a copy of the current kubeconfig
+#                             whose context names the namespace argocd, which
+#                             `argocd --core` needs; the caller removes it
+#   differences_from_git      Argo CD's diff, in core mode, of each Application
+#                             that is not Synced, on stderr (the record); print
+#                             "differing=<names|none> no_diff=<names|none>";
+#                             return 0 when every Application agrees with git,
+#                             1 when any differs or gave no diff, 2 on a failure
+#                             to prepare the kubeconfig
 #
 # Each phase script also defines phase_locus, which prints `driver` or
 # `conductor`; the driver reads it to choose how to run the phase.
@@ -110,6 +119,39 @@ auto_sync_wait() {
   done
   printf '%s of %s' "$automated" "$total"
   return 1
+}
+
+argocd_core_kubeconfig() {
+  local kc
+  kc="$(mktemp)" || return 1
+  if ! kubectl config view --raw > "$kc" || ! KUBECONFIG="$kc" kubectl config set-context --current --namespace argocd >/dev/null; then
+    rm -f "$kc"
+    return 1
+  fi
+  printf '%s' "$kc"
+}
+
+# The safety for a kept change (Q200, Q225): `release` and `sync on` stop
+# while an Application differs from git, and show what Argo CD would put
+# back.
+differences_from_git() {
+  local kc app diff rc differing=() unknown=()
+  kc="$(argocd_core_kubeconfig)" || return 2
+  while IFS= read -r app; do
+    [[ -n "$app" ]] || continue
+    diff="$(KUBECONFIG="$kc" timeout 120 argocd app diff "$app" --core < /dev/null 2>&1)"
+    rc=$?
+    case "$rc" in
+      0) ;;
+      1) differing+=("$app")
+         printf '\n=== %s differs from git (Argo CD would put git back):\n%s\n' "$app" "$diff" >&2 ;;
+      *) unknown+=("$app")
+         printf '\n=== %s: no diff (argocd exit %s):\n%s\n' "$app" "$rc" "$diff" >&2 ;;
+    esac
+  done < <(kubectl -n argocd get applications -o json | jq -r '.items[] | select(.status.sync.status != "Synced") | .metadata.name')
+  rm -f "$kc"
+  printf 'differing=%s no_diff=%s' "${differing[*]:-none}" "${unknown[*]:-none}"
+  (( ${#differing[@]} + ${#unknown[@]} == 0 ))
 }
 
 gitops_repo_url() {
