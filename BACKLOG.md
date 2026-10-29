@@ -243,7 +243,11 @@ Order of work (Q120):
     fast mode with the sync switch (`sync off` / `sync on` / `apply` on
     `argocd app sync --local`; GLOSSARY "Sync switch"). **Step 1 (the
     upgrade) built and tested 2026-10-29** by the agent (`down`, `up`,
-    all phases, the checks in UPGRADE.md). Step 2 (the sync switch) next.
+    all phases, the checks in UPGRADE.md). **Step 2 (the sync switch) built
+    and tested 2026-10-29** by the agent: `sync off`, `apply` (a changed
+    field, then "nothing differs"), `sync on` refused with the diff, `sync
+    on confirm` healed. Three findings fixed on the way (ADR-0025
+    amendment). The user's verification is pending.
 14. **The `*.localhost` default test** — done 2026-10-15 (RETROSPECTIVE);
     sleipnir is back on `local.barzel.sh`, the reference chosen-name case.
 15. **The ApplicationSet itself is not in GitOps** (found 2026-10-15): phase

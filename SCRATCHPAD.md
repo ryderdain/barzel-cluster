@@ -58,27 +58,22 @@ a restore drill went to item 9 (Q217). Argo CD after the hour: a reload
 in a private window asked for no step (the user, 2026-10-28). That open
 item is closed.
 
-**▶ IN FLIGHT: item 13, the Argo CD upgrade**, branch
-`item-13-argocd-upgrade`. Decided: Q218 (a) chart 10.11.6 = v3.5.6, CLI
-3.5.6; Q220 (b) `down`/`up` only; Q221 (a) NetworkPolicies on; Q222 (a)
-the item also replaces fast mode; Q223 (a) `sync off`/`sync on` are
-driver verbs, `hold`/`release` build on them; Q224 (a) `apply` = `argocd
-app diff --local` then `sync --local` in core mode, the six kustomize
-apps go to a single `source:`; Q225 (a) `sync on` refuses while live
-differs from git (`sync on confirm`); Q226 (a) `apply` with sync on
-prints the diff and stops (code 2); Q227 (a) annotation tracking
-(replaces Q219); Q228 (a) GLOSSARY: "Sync switch", no mode; Q229 (a)
-spike, step 1 upgrade, step 2 verbs. The user (AFK): the agent runs this
-item's `down`/`up` cycles and raises issues for confirmation. SPIKE DONE
-2026-10-29: `argocd app diff --local` in core mode (CLI 3.4.3, kiesei)
-rendered a working-tree change and showed it; client-side render
-(kustomize in kiesei); `--server-side-generate` failed on the path and
-is not needed. `sync --local` refuses `sources:` even with one element
-(`HasMultipleSources` = len > 0). STEP 1 DONE 2026-10-29 (agent-run
-`down`/`up`, rc 0: v3.5.6 everywhere, Redis through Zot, five
-NetworkPolicies, annotation tracking, 16 apps Synced, core-mode diff ok;
-UPGRADE.md has the record; the user still runs 10-host.sh). NEXT: step
-2, the sync switch: ApplicationSet single `source:`,
-`driver/modes/sync.sh` replaces `fast-mode.sh`, `hold`/`release` share
-its diff check, tests, GLOSSARY/LOCAL/BREAK-GLASS/ADR-0025 amendment,
-then `down`/`up` and an `apply` test.
+**▶ IN FLIGHT: item 13, the Argo CD upgrade and the sync switch**,
+branch `item-13-argocd-upgrade`, both steps BUILT AND AGENT-TESTED
+2026-10-29, the user's verification pending, not merged. Step 1: chart
+10.11.6 = v3.5.6, CLI 3.5.6, Redis through Zot, NetworkPolicies on,
+annotation tracking (UPGRADE.md). Step 2: `sync off` / `sync on
+[confirm]` / `apply` (`driver/modes/sync.sh`, on `argocd app sync
+--local` in core mode), `fast-mode.sh` gone, the kustomize Applications
+have one `source:`, `release` and `sync on` share
+`differences_from_git`; GLOSSARY "Sync switch", LOCAL.md "Sync off and
+on", ADR-0025 amendment. Three findings from the live tests, all fixed:
+Argo CD's local render edits the kustomization in place (apply works on
+a copy); after a local sync Argo CD compares against what it last
+synced, not git, so `sync on` diffs with --revision and syncs each
+kustomize app from git; a field that only the working tree added (an
+annotation) is no difference for Argo CD and stays (the auditors CRB
+still has `brzl.dev/spike=item-13b`; harmless; a `down`/`up` clears it).
+The user still runs `10-host.sh`. NEXT: the user reads LOCAL.md "Sync
+off and on" and verifies; then RETROSPECTIVE, the merge to `main`, and
+BACKLOG 35 (rename `hold`/`release`) or the next item.
