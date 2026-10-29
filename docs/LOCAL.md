@@ -515,16 +515,19 @@ bash driver/driver.sh local sync on  | bash driver/kiesei.sh  # pushed branch
   push a branch and let Argo CD sync it.
 - While sync is off, Argo CD shows each changed Application as OutOfSync.
   The difference is your change compared with the pushed branch.
-- `sync on` asks Argo CD to compare each Application with the pushed
-  branch again, lists each one that differs, with the diff, and stops.
-  Commit and push the change, then `sync on` again: when the branch and
-  the cluster agree, Argo CD changes nothing. A difference is a field
-  that git sets with a different value, or an object that git has and
-  the cluster does not. A field that only your working tree added, for
-  example a new annotation, is no difference for Argo CD: it stays after
-  `sync on`, and nothing heals it. For a local image, push the app's
-  commit and let its CI build it; Argo CD then rolls the pods to the CI
-  image, once. To accept the undo instead: `sync on confirm`.
+- `sync on` asks Argo CD for the difference between each Application and
+  its git revision, lists each one that differs, with the diff, and
+  stops. Commit and push the change, then `sync on` again. Then it syncs
+  each kustomize Application from git once more: after a local sync,
+  Argo CD compares against the manifests it last synced, not against
+  git, until a sync from git. When the branch and the cluster agree,
+  that sync changes nothing. For a local image, push the app's commit
+  and let its CI build it; Argo CD then rolls the pods to the CI image,
+  once. To accept the undo instead: `sync on confirm`. A difference is a
+  field that git sets with a different value, or an object that git has
+  and the cluster does not. A field that only your working tree added,
+  for example a new annotation, is no difference for Argo CD: it stays,
+  and nothing heals it.
 
 **Caution:**
 

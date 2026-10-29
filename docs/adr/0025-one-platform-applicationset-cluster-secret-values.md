@@ -129,11 +129,15 @@ The workload's element sits in a nested matrix with an SCM generator.
 - **`sync on` has `release`'s check** (Q225): it stops while an
   Application differs from git and shows the diff. Commit and push, or
   `sync on confirm`. One function, `differences_from_git`, serves both.
-  It diffs every Application after a refresh: after a local sync, the
-  status says Synced until Argo CD's next compare (the first live test
-  showed it). What Argo CD counts as a difference is its own rule: a
-  field that only the working tree added, such as a new annotation, is
-  none, so it stays after `sync on`.
+  It diffs each single-source Application against its git revision
+  (`--revision`): after a local sync, Argo CD compares against the
+  manifests it last synced, not git, and a refresh does not change that
+  (the live tests showed it: a changed subject in a ClusterRoleBinding
+  was "Synced" and not healed). So `sync on` also syncs each kustomize
+  Application from git before it moves the switch. When git and the
+  cluster agree, that changes nothing. What Argo CD counts as a
+  difference is its own rule: a field that only the working tree added,
+  such as a new annotation, is none, so it stays after `sync on`.
 - **`apply` with sync on shows the diff and stops** (Q226). Argo CD refuses
   a local sync while automated sync is on, and self-heal would undo it.
 - **The tracking method is Argo CD's default** (annotation, v3; Q227).
