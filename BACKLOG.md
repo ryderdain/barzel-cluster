@@ -510,6 +510,13 @@ Order of work (Q120):
     action that gives the cluster back to git. Decide a new pair later, with the
     sync verbs of item 13 (`sync off` / `sync on`) in view, and rename the
     actions, the docs and GLOSSARY together.
+36. **Emitted run sheets: one command per line** (user, 2026-11-01). The new
+    sheets of item 13 chain commands with semicolons inside a group (the
+    kubeconfig copy for core mode, the copy of the source tree, the `{ …; } 2>&1
+    | tee` lines, which came from the break-glass emitter). A group already
+    gives the reader the block, so a newline between commands costs nothing. The
+    rule lands in `ryderdain/bash` first (the user), then the emitters here
+    (driver.sh, modes/sync.sh, modes/break-glass.sh, modes/reader.sh).
 
 Standing concerns (check in every pass):
 
