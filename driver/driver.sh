@@ -221,14 +221,17 @@ emit_sync() {
   printf 'cd %q || exit 1\n' "$repo_root"
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
   printf '{ # %s\n' "$title"
-  printf '  { %s; bash driver/modes/sync.sh %s > %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-    "$(run_output_header "$env" "$run_dir" "$name-emit")" "$fn" \
-    "$run_dir/$name.sh" "$run_dir/$name-emit.rc" "$run_dir/$name-emit.out"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name-emit")"
+  printf '    bash driver/modes/sync.sh %s > %q < /dev/null\n' "$fn" "$run_dir/$name.sh"
+  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name-emit.rc"
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name-emit.out"
   # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
   printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name-emit.rc"
   printf '    || error 3 %s\n' "$(squote "$name stopped before any change: read the lines above (kept in $run_dir/$name-emit.out)")"
-  printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-    "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name")"
+  printf '    bash %q < /dev/null\n' "$run_dir/$name.sh"
+  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name.rc"
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name.out"
   if [[ "$what" == apply ]]; then
     printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name.rc"
     printf '    || error 3 %s\n' "$(squote "apply failed (sync stays off); read $run_dir/$name.out, fix, then apply again")"

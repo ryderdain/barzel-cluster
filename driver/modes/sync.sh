@@ -135,7 +135,9 @@ sync_switch() {
   printf '  printf '\''%%s\\n'\'' %s\n' "$(squote "sync on: $summary confirm=${confirm:-no}")"
   printf '}\n'
   printf '{ # a kubeconfig for argocd --core: its context names the namespace argocd (a copy in /tmp)\n'
-  printf '  kc="$(mktemp)"; kubectl config view --raw > "$kc"; KUBECONFIG="$kc" kubectl config set-context --current --namespace argocd >/dev/null\n'
+  printf '  kc="$(mktemp)"\n'
+  printf '  kubectl config view --raw > "$kc"\n'
+  printf '  KUBECONFIG="$kc" kubectl config set-context --current --namespace argocd >/dev/null\n'
   printf '}\n'
   while IFS= read -r app; do
     [[ -n "$app" ]] || continue
@@ -221,21 +223,28 @@ apply() {
   phase_header "$run_dir"
   phase_error_definition
   if (( ${#differing[@]} == 0 )); then
-    printf '{ # nothing to apply: the working tree and the cluster agree\n  printf '\''apply: nothing differs\\n'\''\n}\n'
+    printf '{ # nothing to apply: the working tree and the cluster agree\n'
+    printf '  printf '\''apply: nothing differs\\n'\''\n'
+    printf '}\n'
     end_function 0 'emitted apply (nothing differs)'
     return 0
   fi
   printf '{ # a kubeconfig for argocd --core: its context names the namespace argocd (a copy in /tmp)\n'
-  printf '  kc="$(mktemp)"; kubectl config view --raw > "$kc"; KUBECONFIG="$kc" kubectl config set-context --current --namespace argocd >/dev/null\n'
+  printf '  kc="$(mktemp)"\n'
+  printf '  kubectl config view --raw > "$kc"\n'
+  printf '  KUBECONFIG="$kc" kubectl config set-context --current --namespace argocd >/dev/null\n'
   printf '}\n'
   for app in "${differing[@]}"; do
     app_json="$(kubectl -n argocd get application "$app" -o json)" || end_function "$?" "Application $app"
     read -r path root <<< "$(local_source "$app_json")" || end_function 1 "the working tree of $app"
     printf '{ # %s from the working tree: a copy of %s (Argo CD edits the kustomization it renders), with the Application'"'"'s images and patches\n' \
       "$app" "$root/${path%%/*}"
-    printf '  d="$(mktemp -d)"; cp -R %q "$d/"\n' "$root/${path%%/*}"
-    printf '  ( cd "$d" && KUBECONFIG="$kc" argocd app sync %q --core --local %q --local-repo-root . < /dev/null ) \\\n' "$app" "$path"
-    printf '    || error 3 %s\n' "$(squote "$app did not sync (sync stays off); read above, fix, then apply again")"
+    printf '  d="$(mktemp -d)"\n'
+    printf '  cp -R %q "$d/"\n' "$root/${path%%/*}"
+    printf '  (\n'
+    printf '    cd "$d" || exit 1\n'
+    printf '    KUBECONFIG="$kc" argocd app sync %q --core --local %q --local-repo-root . < /dev/null\n' "$app" "$path"
+    printf '  ) || error 3 %s\n' "$(squote "$app did not sync (sync stays off); read above, fix, then apply again")"
     printf '  rm -rf "$d"\n'
     printf '}\n'
   done
