@@ -512,7 +512,10 @@ Order of work (Q120):
     for a version of software made public. It collides with the break-glass
     action that gives the cluster back to git. Decide a new pair later, with the
     sync verbs of item 13 (`sync off` / `sync on`) in view, and rename the
-    actions, the docs and GLOSSARY together.
+    actions, the docs and GLOSSARY together. Built as `pause` / `resume`
+    2026-11-04 (branch `item-35-rename-hold-release`, not merged), then
+    dropped by the user 2026-11-05 (Q234 b): the trial showed that the pair
+    and the sync verbs are one thing. Superseded by item 37.
 36. **Emitted run sheets: one command per line** (user, 2026-11-01). The new
     sheets of item 13 chain commands with semicolons inside a group (the
     kubeconfig copy for core mode, the copy of the source tree, the `{ …; } 2>&1
@@ -520,6 +523,17 @@ Order of work (Q120):
     gives the reader the block, so a newline between commands costs nothing. The
     rule lands in `ryderdain/bash` first (the user), then the emitters here
     (driver.sh, modes/sync.sh, modes/break-glass.sh, modes/reader.sh).
+37. **The driver grammar** (user, 2026-11-05; Q234–Q237 and on). The driver's
+    arguments mixed nouns for modes and verbs for actions, and the sync verbs
+    and the break-glass actions moved one switch. One convention:
+    `BRZL_ENV=<env> driver/driver.sh <mode> <verb>`, verbs preferred over
+    target states. Modes: `cluster` (`bootstrap`, `teardown`, `status`, `check`;
+    `next` goes, `up` already resumes), `break-glass` (`open '<reason>'`,
+    `close [confirm]`, `apply [<dir>]`, which refuses unless open; `sync
+    off`/`on` and `pause`/`resume` go), `readonly` (`view` for the reader;
+    the rest in design). The names in the records follow (run sheets, the
+    alert). Every document that shows a driver command changes with it.
+    Supersedes item 35.
 
 Standing concerns (check in every pass):
 

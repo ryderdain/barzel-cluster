@@ -19,9 +19,22 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-27, fable. Pruned to the current state. The history is in git,
+*(2026-11-05, fable. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
+
+**▶ IN FLIGHT: BACKLOG 37, the driver grammar** (branch
+`item-37-driver-grammar` from `main`). Item 35 (`pause`/`resume`) was
+built, then dropped by the user (Q234 b): the sync verbs and the
+break-glass pair move one switch. Decided (Q234–Q237, DECISIONS):
+`BRZL_ENV=<env> driver/driver.sh <mode> <verb>`; modes `cluster`
+(`bootstrap`, `teardown`, `status`, `check`; no `next`), `break-glass`
+(`open '<reason>'`, `close [confirm]`, `apply [<dir>]` only when open;
+no `sync`), `readonly` (`view` starts the reader; `on`/`off` open).
+Round 2 next (Q238–Q241): readonly's verbs, the mode word and `cluster`,
+`BRZL_ENV` with no default, the person for `open` on local. The user's
+GLOSSARY edits (loci, TLS type) are committed with the documents that
+follow them (`7222ba9`).
 
 **Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
 (RETROSPECTIVE 2026-10-23 and 2026-10-27, three entries), merged to
