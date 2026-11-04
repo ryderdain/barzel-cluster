@@ -58,4 +58,17 @@ a restore drill went to item 9 (Q217). Argo CD after the hour: a reload
 in a private window asked for no step (the user, 2026-10-28). That open
 item is closed.
 
-**▶ NEXT: item 13, the Argo CD upgrade.** Start with a design round.
+**Item 13, Argo CD v3.5 and the sync switch, DONE 2026-11-04,
+user-accepted** (RETROSPECTIVE), merged to `main`. The user looks at it
+again after the next pass(es). Facts to keep: `apply` = `argocd app
+diff/sync --local` in core mode on a copy of the source tree (the local
+render edits kustomizations in place); after a local sync Argo CD
+compares against what it last synced, so `sync on` diffs with
+`--revision` and syncs the kustomize apps from git; a field that only
+the tree added is no difference for Argo CD. The auditors binding still
+has `brzl.dev/spike=item-13b` until the next `down`/`up`. Docker was not
+running on 2026-11-04.
+
+**▶ NEXT:** the user chooses: BACKLOG 35 (rename `hold`/`release`), 36
+(one command per line, the rule in `ryderdain/bash` first, by the user),
+or item 8 (`promote platform`).

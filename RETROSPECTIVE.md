@@ -760,3 +760,51 @@ User-verified on sleipnir. Branch `pass-6c-cold-storage`.
 - **Argo CD after the hour.** The user reloaded Argo CD's page in a
   private window after an hour and was not asked to sign in again. The
   open item from pass 6b is closed. SECURITY.md's session table says so.
+
+## 2026-11-04 — item 13: Argo CD v3.5, and the sync switch in place of fast mode
+
+User-accepted ("fine for now"), with a second look planned after the next
+passes. Branch `item-13-argocd-upgrade`. Designed in three rounds and one
+interrupt (Q218 to Q229); built and tested by the agent on local, which
+the user allowed while away (AFK, remote control).
+
+- **Step 1, the upgrade.** Chart 7.7.23 (v2.13.4) to 10.11.6 (v3.5.6);
+  the kiesei CLI 3.4.3 to 3.5.6. Annotation tracking, the v3 default
+  (Q227). The chart's NetworkPolicies on (Q221): `argocd-server` open,
+  repo-server and Redis only from Argo CD's own pods; core mode reaches
+  them through port forwarding. Chart 10 moved Redis to
+  `ecr-public.aws.com`, which no node mirrors: Redis now comes through
+  Zot (imageParams and phase 30). The agent's `down` and `up`: every
+  phase `.ok`, 16 Applications Synced. Record in UPGRADE.md.
+- **Step 2, the sync switch** (the user's interrupt: "fast mode" no
+  longer said what it does). `sync off`, `apply`, `sync on [confirm]` in
+  `driver/modes/sync.sh`, on Argo CD's own `argocd app sync --local` in
+  core mode. `fast-mode.sh` and its copy of Argo CD's injection are gone.
+  `release` and `sync on` share one check for differences from git. The
+  six kustomize Applications have one `source:`. GLOSSARY "Sync switch",
+  LOCAL.md "Sync off and on", the ADR-0025 amendment.
+- **The agent's live test**, after a second `down` and `up`: `apply` with
+  sync on showed the diff and stopped; `sync off`; `apply` put a changed
+  field in; `apply` again said "nothing differs"; with the tree reverted,
+  `sync on` refused with the exact diff; `sync on confirm` healed at once.
+- **Three findings on the way, each fixed and documented:**
+  1. Argo CD's local render runs `kustomize edit` in place. The first test
+     rewrote two kustomizations (the portal's here, chofesh's
+     `deploy/local`), both restored with git. `apply` renders a copy.
+  2. After a local sync, Argo CD compares against what it last synced,
+     not git, and a hard refresh does not change that. The first check
+     passed a real drift. `sync on` now diffs against the git revision
+     and syncs each kustomize Application from git before the switch.
+     This was the safety the user asked for (Q225), so it took three runs.
+  3. A field that only the working tree added is no difference for Argo
+     CD, and it stays after `sync on`. LOCAL.md says so.
+- **The agent's own faults, seen in the tests:** an exit code read from
+  a `grep` in a pipeline (inverted), no check after each sync, and one
+  claim that the spike had passed when its edit had not matched the file.
+- **On the user's request (2026-11-04):** the new run sheets have one
+  command per line. Checked with `bash -n` on the emitted streams; Docker
+  was not running then, so not on a live cluster. The rule for all
+  emitters is BACKLOG 36; `hold`/`release` naming is BACKLOG 35.
+- **Left behind:** the annotation `brzl.dev/spike=item-13b` on the
+  binding `brzl-tier-auditors`, from the test. Harmless; the next `down`
+  and `up` removes it.

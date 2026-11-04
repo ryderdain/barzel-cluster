@@ -237,7 +237,20 @@ Order of work (Q120):
 13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.23 (v2.13.4; the
     patch that fixed the login `return_url` under a base href, taken in
     pass 5c) to the current chart (10.x, v3.5). Aligns the server with the
-    `argocd` CLI in kiesei (3.4.3).
+    `argocd` CLI in kiesei (3.4.3). **Designed 2026-10-29** (Q218–Q229,
+    with the user's interrupt): chart 10.11.6 = v3.5.6, the CLI 3.5.6,
+    annotation tracking, the NetworkPolicies on; and the item replaces
+    fast mode with the sync switch (`sync off` / `sync on` / `apply` on
+    `argocd app sync --local`; GLOSSARY "Sync switch"). **Step 1 (the
+    upgrade) built and tested 2026-10-29** by the agent (`down`, `up`,
+    all phases, the checks in UPGRADE.md). **Step 2 (the sync switch) built
+    and tested 2026-10-29** by the agent: `sync off`, `apply` (a changed
+    field, then "nothing differs"), `sync on` refused with the diff, `sync
+    on confirm` healed. Three findings fixed on the way (ADR-0025
+    amendment). **DONE 2026-11-04, user-accepted** (RETROSPECTIVE): "fine
+    for now"; the user looks at it again after the next pass(es). The run
+    sheets of the sync switch have one command per line; the rule for all
+    emitters is item 36.
 14. **The `*.localhost` default test** — done 2026-10-15 (RETROSPECTIVE);
     sleipnir is back on `local.barzel.sh`, the reference chosen-name case.
 15. **The ApplicationSet itself is not in GitOps** (found 2026-10-15): phase
@@ -495,6 +508,18 @@ Order of work (Q120):
     setting. The option: Grafana reads the person from the gate's
     headers (`auth.proxy`) and has no sign-in of its own. That also
     helps item 26. A polish item: close old tabs after a new cluster.
+35. **Rename `hold` / `release`** (user, 2026-10-29). `release` is a term of art
+    for a version of software made public. It collides with the break-glass
+    action that gives the cluster back to git. Decide a new pair later, with the
+    sync verbs of item 13 (`sync off` / `sync on`) in view, and rename the
+    actions, the docs and GLOSSARY together.
+36. **Emitted run sheets: one command per line** (user, 2026-11-01). The new
+    sheets of item 13 chain commands with semicolons inside a group (the
+    kubeconfig copy for core mode, the copy of the source tree, the `{ …; } 2>&1
+    | tee` lines, which came from the break-glass emitter). A group already
+    gives the reader the block, so a newline between commands costs nothing. The
+    rule lands in `ryderdain/bash` first (the user), then the emitters here
+    (driver.sh, modes/sync.sh, modes/break-glass.sh, modes/reader.sh).
 
 Standing concerns (check in every pass):
 

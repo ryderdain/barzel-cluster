@@ -23,7 +23,7 @@
 #   - the repo mounted at its own host path, so every path in the stream is the
 #     same inside and out, and run sheets land in the host's var/run/; the
 #     example app's checkout (BRZL_EXAMPLE_APP_SRC, beside the repo) the same
-#     way, when it exists, so phase 20 builds it and fast mode renders it;
+#     way, when it exists, so phase 20 builds it and apply renders it;
 #   - user root, because the engine socket in the engine's VM is root-only;
 #   - every exported BRZL_* variable, so a one-off override reaches the phase
 #     emitters that run inside;

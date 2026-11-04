@@ -9,9 +9,12 @@
 #   bash driver/driver.sh <env> up | bash       # ...and run them all at once
 #                                               #    (only for local-only effects)
 #   bash driver/driver.sh <env> down | bash     # remove the environment's cluster
-#   bash driver/driver.sh local fast_on | bash  # fast mode: Argo CD holds
-#   bash driver/driver.sh local apply | bash    # ...apply the working tree
-#   bash driver/driver.sh local fast_off | bash # ...back to the pushed branch
+#   bash driver/driver.sh local sync off | bash driver/kiesei.sh
+#                                               # the sync switch: Argo CD stops
+#   bash driver/driver.sh local apply | bash driver/kiesei.sh
+#                                               # ...apply the working tree
+#   bash driver/driver.sh local sync on [confirm] | bash driver/kiesei.sh
+#                                               # ...back to the pushed branch
 #   bash driver/driver.sh <env> hold '<reason>' | bash driver/kiesei.sh
 #                                               # break-glass mode: Argo CD holds,
 #                                               #    the admins are cluster-admin
@@ -41,9 +44,9 @@
 # -i, kubectl exec -i, cat, ssh) would swallow the rest of the procedure, and
 # the stream would end silently. Data reaches a command by pipe or heredoc.
 #
-# Fast mode (GLOSSARY; local only; ADR-0025): fast_on / fast_off / apply write
-# their run sheets into the current run (fast-on-<HHMMSS>Z.sh, ..., in UTC) with
-# driver/fast-mode.sh and need a run that has passed 30-gitops.
+# The sync switch (GLOSSARY; local only; ADR-0025): sync off / sync on / apply
+# write their run sheets into the current run (sync-off-<HHMMSS>Z.sh, ..., in
+# UTC) with driver/modes/sync.sh and need a run that has passed 30-gitops.
 #
 # Break-glass mode (GLOSSARY; any environment; ADR-0037): hold / release
 # write their run sheets the same way (break-glass-hold-<HHMMSS>Z.sh, ...) with
@@ -186,43 +189,58 @@ emit_down() {
   end_function 0 "emitted $env down for $run_dir"
 }
 
-# emit_fast <env> <on|off|apply> — one group for a fast-mode action, in the
-# current run. Switching runs here (driver locus); apply runs on the conductor.
-emit_fast() {
-  local env="$1" what="$2" link="$repo_root/var/run/$1/current" run_dir name
+# emit_sync <env> <off|on|apply> [confirm] — one group for a sync-switch
+# action, in the current run, at the driver locus. Three steps, each recorded,
+# as for break-glass: the emitter (it reads the cluster and the working tree,
+# and stops with error 3 when the action must not run: a hold is on, sync is
+# on for apply, a difference from git for sync on), the run sheet, the check
+# (apply has none: Argo CD's own result is in the run output).
+emit_sync() {
+  local env="$1" what="$2" link="$repo_root/var/run/$1/current" run_dir name args='' arg fn title
   if [[ ! -L "$link" ]]; then
     printf 'error: %s has no current run; bring it up first\n' "$env" >&2
     return 2
   fi
   run_dir="var/run/$env/$(readlink "$link")"
   if [[ ! -e "$repo_root/$run_dir/30-gitops.ok" ]]; then
-    printf 'error: fast mode needs Argo CD: phase 30-gitops has not passed in %s\n' "$run_dir" >&2
+    printf 'error: the sync switch needs Argo CD: phase 30-gitops has not passed in %s\n' "$run_dir" >&2
     return 2
   fi
-  name="fast-$what-$(utc '%H%M%S')Z"
+  if [[ -n "${3:-}" && ( "$what" != on || "$3" != confirm ) ]]; then
+    printf 'usage: bash driver/driver.sh %s sync <off|on> [confirm] | bash driver/kiesei.sh\n' "$env" >&2
+    return 2
+  fi
+  for arg in "${@:3}"; do args+=" $(squote "$arg")"; done
+  if [[ "$what" == apply ]]; then
+    name="apply-$(utc '%H%M%S')Z"; fn="apply $(printf '%q %q' "$env" "$run_dir")"
+    title="apply the working tree ($env, locus: driver; docs/LOCAL.md)"
+  else
+    name="sync-$what-$(utc '%H%M%S')Z"; fn="sync_switch $what $(printf '%q %q' "$env" "$run_dir")$args"
+    title="sync $what ($env, locus: driver; docs/LOCAL.md)"
+  fi
   printf 'cd %q || exit 1\n' "$repo_root"
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
+  printf '{ # %s\n' "$title"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name-emit")"
+  printf '    bash driver/modes/sync.sh %s > %q < /dev/null\n' "$fn" "$run_dir/$name.sh"
+  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name-emit.rc"
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name-emit.out"
+  # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
+  printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name-emit.rc"
+  printf '    || error 3 %s\n' "$(squote "$name stopped before any change: read the lines above (kept in $run_dir/$name-emit.out)")"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name")"
+  printf '    bash %q < /dev/null\n' "$run_dir/$name.sh"
+  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name.rc"
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name.out"
   if [[ "$what" == apply ]]; then
-    printf '{ # fast mode: apply the working tree (%s, locus: conductor)\n' "$env"
-    printf '  bash driver/fast-mode.sh fast_apply %q %q > %q \\\n' "$env" "$run_dir" "$run_dir/$name.sh"
-    printf '    || error 3 %s\n' "$(squote "nothing applied: is fast mode on? (bash driver/driver.sh $env fast_on)")"
-    printf '  { %s; bash driver/conductor.sh %q %q < /dev/null; } 2>&1 | tee %q\n' \
-      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir" "$name" "$run_dir/$name.out"
-    # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
     printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name.rc"
-    printf '    || error 3 %s\n' "$(squote "apply failed (fast mode stays on); read $run_dir/$name.out, fix, then apply again")"
-    printf '}\n'
+    printf '    || error 3 %s\n' "$(squote "apply failed (sync stays off); read $run_dir/$name.out, fix, then apply again")"
   else
-    printf '{ # fast mode %s (%s, locus: driver)\n' "$what" "$env"
-    printf '  bash driver/fast-mode.sh fast_switch %q %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
-    printf '    || error 3 %s\n' "$(squote "fast mode not switched: see the message above")"
-    printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
-    printf '  bash driver/fast-mode.sh fast_check %q %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
-    printf '    || error 3 %s\n' "$(squote "fast mode $what did not take effect; read $run_dir/$name.out")"
-    printf '}\n'
+    printf '  bash driver/modes/sync.sh sync_check %s %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
+    printf '    || error 3 %s\n' "$(squote "sync $what did not take effect; read $run_dir/$name.out")"
   fi
-  end_function 0 "emitted $env fast $what for $run_dir"
+  printf '}\n'
+  end_function 0 "emitted $env $name for $run_dir"
 }
 
 # emit_break_glass <env> <hold|release> [args] — one group for a break-glass
@@ -339,14 +357,17 @@ main() {
     down)   emit_down "$env" ;;
     check)  check "$env" "$@" ;;
     status) status "$env" ;;
-    fast_on)  emit_fast "$env" on ;;
-    fast_off) emit_fast "$env" off ;;
-    apply)    emit_fast "$env" apply ;;
+    sync)
+      case "${1:-}" in
+        off|on) emit_sync "$env" "$1" "${@:2}" ;;
+        *) printf 'usage: bash driver/driver.sh %s sync <off|on> [confirm] | bash driver/kiesei.sh\n' "$env" >&2; return 2 ;;
+      esac ;;
+    apply)    emit_sync "$env" apply ;;
     hold)     emit_break_glass "$env" hold "$@" ;;
     release)  emit_break_glass "$env" release "$@" ;;
     reader_on)  emit_reader "$env" on ;;
     reader_off) emit_reader "$env" off ;;
-    *) printf 'error: unknown action %q (up, next, down, status, check, fast_on, fast_off, apply, hold, release, reader_on, reader_off)\n' "$action" >&2; return 2 ;;
+    *) printf 'error: unknown action %q (up, next, down, status, check, sync off, sync on, apply, hold, release, reader_on, reader_off)\n' "$action" >&2; return 2 ;;
   esac
 }
 

@@ -3,7 +3,7 @@
 Audience: an SRE who knows Kubernetes but has not seen this platform.
 Companions: [SECURITY.md](SECURITY.md) (identities, the audit records),
 [RECOVERY.md](RECOVERY.md) (when a recovery needs this mode),
-[LOCAL.md](LOCAL.md) (fast mode, sign-on). The decision record is
+[LOCAL.md](LOCAL.md) (the sync switch, sign-on). The decision record is
 [ADR-0037](adr/0037-break-glass-mode.md).
 
 **Status: built in pass 6b.** Step 1 (2026-10-27) has `hold` and
@@ -34,10 +34,10 @@ break-glass mode:
 The two driver actions are `hold` (enter) and `release` (leave). One
 hold exists per environment at a time.
 
-Break-glass mode is not for usual work. On the local environment, fast
-mode is the developer's tool for a change to the structure of the cluster
-([LOCAL.md](LOCAL.md), "Fast mode"). Break-glass mode is for an
-emergency, and local is where you practise it.
+Break-glass mode is not for usual work. On the local environment, `sync
+off` and `apply` are the developer's tools for a change to the structure
+of the cluster ([LOCAL.md](LOCAL.md), "Sync off and on"). Break-glass
+mode is for an emergency, and local is where you practise it.
 
 ## When to use it, and when not
 
@@ -61,8 +61,8 @@ Examples:
 Do not use break-glass mode for:
 
 - A normal change. Commit it, push it, and let Argo CD sync it.
-- A developer loop on local. Use fast mode. It applies your working tree
-  and does not elevate anybody.
+- A developer loop on local. Use `sync off` and `apply`. They apply your
+  working tree and do not elevate anybody.
 - A long investigation that only reads. The `view` role reads the pods,
   the logs and the events of every namespace. You need no hold to read.
 - A change that Argo CD can do for you. An admin keeps `role:admin` in
@@ -99,26 +99,26 @@ is broken only in an emergency, and everybody can see that it was broken.
 | Automated sync | On for every Application. Argo CD prunes and self-heals to git. | Off for every Application. Argo CD shows differences but does not apply git. | On again. Argo CD self-heals the cluster to git. |
 | The admins' rights in Kubernetes | `view`, like operators and auditors. | `cluster-admin`, for the whole `brzl-admins` team. | `view` again. |
 | The admins' rights in Argo CD | `role:admin` | `role:admin` (unchanged) | `role:admin` |
-| Fast mode (local) | Available. | Refused. | Available. |
+| `sync off`, `apply`, `sync on` (local) | Available. | Refused. | Available. |
 | The record | None. | The annotation `brzl.dev/break-glass` on the cluster Secret. The run sheet and output of `hold` in the admin log store. The API audit log at Request level for the admins' writes. | The annotation is gone. The run sheet and output of `release` close the record. |
 
 The mechanism, for the reader who wants it:
 
-- `hold` sets the annotation `brzl.dev/auto-sync: "false"` on the cluster
-  Secret (`argocd/brzl-<env>-in-cluster`). This is the same switch that
-  fast mode uses. The platform ApplicationSet reads it and renders every
-  Application without automated sync (ADR-0025). Nothing in git changes.
-- `hold` adds a second annotation, `brzl.dev/break-glass`, with the
-  person, whether the name is verified, the start time (UTC, ISO 8601
-  with `Z`) and the reason.
-- `hold` creates a ClusterRoleBinding, `brzl-break-glass`,
+- `hold` sets the annotation `brzl.dev/auto-sync: "false"` on the
+  cluster Secret (`argocd/brzl-<env>-in-cluster`). This is the sync
+  switch, which `sync off` and `sync on` move on local. The platform
+  ApplicationSet reads it and renders every Application without
+  automated sync (ADR-0025). Nothing in git changes. - `hold` adds a
+  second annotation, `brzl.dev/break-glass`, with the person, whether
+  the name is verified, the start time (UTC, ISO 8601 with `Z`) and the
+  reason. - `hold` creates a ClusterRoleBinding, `brzl-break-glass`,
   from the group `oidc:<org>:brzl-admins` to `cluster-admin`. Kubernetes
   does not let a binding change its `roleRef`, so this is a second
   binding beside the standing one, not an edit of it. `release` deletes
   it. Git does not manage this binding, so Argo CD does not remove it or
-  bring it back.
-- The standing binding of the admins, `brzl-tier-admins-view`, gives
-  them `view` (`gitops/clusters/<env>/access/`). Until pass 6b it was
+  bring it back. - The standing binding of the admins,
+  `brzl-tier-admins-view`, gives them `view`
+  (`gitops/clusters/<env>/access/`). Until pass 6b it was
   `brzl-tier-admins`, with `cluster-admin` at all times. It has a new
   name, because the role of a binding cannot change.
 
@@ -137,8 +137,8 @@ and the shell signs you in through Dex when no session is cached.
    reason goes into the record. Name the incident or the ticket.
 3. Tell the other admins. During the hold, every admin has
    `cluster-admin`, and Argo CD does not sync for anybody.
-4. Make sure that no fast mode is on (local only). `hold` and fast mode
-   do not mix.
+4. Make sure that sync is on (local only). `hold` stops while sync is off
+   without a hold.
 
 ### Enter
 
@@ -155,7 +155,7 @@ bash driver/driver.sh <env> hold 'portal down after sync of chart X, INC-123' | 
 1. It asks the kube-API who you are, with `kubeconfig-sign-on`
    (`kubectl auth whoami`). The API server verifies that identity.
 2. It stops if you are not in `brzl-admins`, if a hold by another person
-   exists, or if fast mode is on. If your own hold exists, it completes
+   exists, or if sync is off without a hold. If your own hold exists, it completes
    that hold and keeps its start time.
 3. It writes a run sheet, and the driver runs it: the sync switch, the
    record annotation, the `brzl-break-glass` binding.
@@ -371,10 +371,11 @@ cluster that runs and a Grafana that works, use the in-cluster Grafana.
 - **`release` stops on differences.** It lists each resource that differs
   from git, with its diff. Commit the fix, or confirm the undo. Nothing
   else continues.
-- **Fast mode refuses during a hold.** `fast_on`, `apply` and `fast_off`
-  stop while `brzl.dev/break-glass` is set. The two modes use the same
-  sync switch, and `fast_off` would otherwise release a hold without a
-  record.
+- **The sync switch refuses during a hold.** `sync off`, `apply` and
+  `sync on` stop while `brzl.dev/break-glass` is set. Break-glass mode
+  moves the same switch, and `sync on` would otherwise release a hold
+  without a record. `release` and `sync on` run one check for differences
+  from git (item 13).
 - **The audit rule needs `down` and `up` on local.** The node mounts the
   audit policy when the cluster is made. A local cluster from before the
   rule records the admins' writes at Metadata level only.
@@ -426,7 +427,8 @@ is out of scope: SPEC §3 keeps k3s on every substrate.
 Decided in the last design rounds:
 
 - **The reader's command names** are `reader_on` and `reader_off`, like
-  fast mode's `fast_on` and `fast_off` (Q205).
+  fast mode's `fast_on` and `fast_off` (Q205), now `sync off` and `sync
+  on` (item 13).
 - **The reader runs beside a running cluster** (Q206). It cannot write,
   so it cannot damage the store.
 - **On local, the cluster-admin kubeconfig stays** in the run directory

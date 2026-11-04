@@ -7,8 +7,8 @@
 #   bash driver/phases/40-workloads.sh phase_up <env> <run_dir>     # EMIT
 #   bash driver/phases/40-workloads.sh phase_check <env> <run_dir>  # GENERATOR
 #
-# In fast mode Argo CD does not sync, so this phase waits until its timeout and
-# its check fails: run it in GitOps mode (fast_off first).
+# With sync off Argo CD does not sync, so this phase waits until its timeout and
+# its check fails: run it with sync on (sync on first).
 #
 # Inputs: <run_dir>/kubeconfig from phase 10 (for the check); BRZL_PORTAL_*
 # and, in local-ca mode, the CA certificate in BRZL_SECRET_STORE_DIR;

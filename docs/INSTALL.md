@@ -25,7 +25,7 @@ cd barzel-cluster
 docker build -t kiesei:local containers/kiesei       # the toolchain image
 ```
 
-The example app's checkout is for fast mode only (LOCAL.md). Argo CD reads
+The example app's checkout is for `apply` only (LOCAL.md). Argo CD reads
 the pushed repository, not the checkout.
 
 ## 3. The platform's own deploy key

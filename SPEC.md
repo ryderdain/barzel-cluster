@@ -82,7 +82,7 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **Storage:** EBS CSI + gp3 default StorageClass. `local-path` only as a documented descope lever. A standalone/DR path installs the CSI driver + gp3 itself (it bypasses the wave-0 GitOps storage app).
 - **Backups:** CNPG → S3 (Barman Cloud), authenticated by the **EC2 instance profile** — no second IAM user.
 - **GitOps:** a **single `ApplicationSet`** (account-id-free, ADR-0016 — NOT an app-of-apps root) with **sync waves** so operators land before the applications that need them; `clusters/{dev,prod}` + `clusters/local`.
-- **Local is the first environment (2026-10-07, ADR-0024).** The promotion chain is local → dev → prod. Local runs on a laptop (k3d) as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **fast mode** (`fast_on`/`fast_off` turn Argo auto-sync off and on so the working tree can be applied directly). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** outside the cluster, persistent, static seal (KV v2 + transit; ADR-0026), ESO as the read boundary with one write adapter per store, and the admin log store's data on a host directory (ADR-0027). The local cluster is disposable.
+- **Local is the first environment (2026-10-07, ADR-0024).** The promotion chain is local → dev → prod. Local runs on a laptop (k3d) as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **the sync switch** (`sync off`/`sync on` stop and start Argo's automated sync so the working tree can be applied with `apply`; item 13). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** outside the cluster, persistent, static seal (KV v2 + transit; ADR-0026), ESO as the read boundary with one write adapter per store, and the admin log store's data on a host directory (ADR-0027). The local cluster is disposable.
 - **A workload is deployed from its own repo, and the environment decides what
   it follows (2026-10-18, ADR-0034).** A workload element names its repo and
   its release. The cluster's `brzl.dev/workload-follow` label is `release`
@@ -97,92 +97,150 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   the cluster Secret (registry host, per-upstream prefix, the workload follow
   policy, backup bucket, git revision), written by the bootstrap (AWS) or phase
   30-gitops (local) — never in git. The annotation `brzl.dev/auto-sync: "false"`
-  is the one switch that stops automated sync: **fast mode** (local,
-  `fast_on`/`fast_off`, `apply` renders the working tree with Argo's own
-  injection) and **break-glass mode** (any environment, emergencies,
-  built in pass 6b, ADR-0037: `hold` sets the switch for the
-  whole environment and adds a record annotation `brzl.dev/break-glass`.
-  It elevates the admins to `cluster-admin` with a second binding for the
-  hold. Outside a hold the admins have `view`. `release` stops on
-  differences from git, then gives the cluster back to Argo CD. The
-  reader of the admin log store runs outside the cluster.
+  is the one switch that stops automated sync: **the sync switch** (local,
+  `sync off`/`sync on`; `apply` puts the working tree in through `argocd app
+  sync --local`; item 13, 2026-10-29) and **break-glass mode** (any
+  environment, emergencies, built in pass 6b, ADR-0037: `hold` sets the switch
+  for the whole environment and adds a record annotation
+  `brzl.dev/break-glass`. It elevates the admins to `cluster-admin` with a
+  second binding for the hold. Outside a hold the admins have `view`.
+  `release` stops on differences from git, then gives the cluster back to Argo
+  CD. The reader of the admin log store runs outside the cluster.
   `docs/BREAK-GLASS.md` is the working model). Guard against the ADR-0016
-  prune cascade: `applicationsSync:
-  create-update` + `preserveResourcesOnDeletion`, and phase 30-gitops stops
-  before an apply that would orphan a live Application. Argo CD reads the
-  private repo with a read-only deploy key from the bootstrap source
-  `BRZL_REPO_DEPLOY_KEY` (phase 25, driver locus); a GitHub App replaces it
-  before any environment beyond local.
-- **The cluster secret store is external, persistent, and seeds the cluster
-  (2026-10-13, ADR-0026).** On every substrate the store exists before the
-  cluster and outlives it (AWS: Secrets Manager; local: OpenBao beside Zot on
-  the container network, `pebbledb` on a volume, static seal with the key in
-  `var/secret-store/<env>/`, init once with the root token revoked). The driver
-  seeds it from the bootstrap secret sources (`secret_put`), then bootstraps the
-  cluster FROM the store (Argo CD's repo credential): a secret enters once. ESO
-  reads it through one ClusterSecretStore name, `brzl-secrets`, defined per
-  environment in `gitops/clusters/<env>/secret-store` (Vault provider +
-  Kubernetes auth on local). Smoke: phase 25 writes a random value, phase 40
-  compares hashes. One adapter per store type (`driver/secret-stores/`).
-- **Logs: an admin log store and a diagnostic log store (2026-10-14,
-  ADR-0027).** Platform logs that audit the environment (run outputs, k3s
-  server, API audit, OpenBao audit, events, break-glass) go to the **admin
-  log store**, whose data is outside the cluster (object storage; local: a
-  host directory) and flushes within minutes. Detailed logs go to the
-  **diagnostic log store** in the cluster. OpenTelemetry Collector (OTLP),
-  two Loki installations, Grafana. Each namespace routes its logs with
-  `brzl.dev/log-routes` (`drop|admin|diagnostic|cold`) and chooses a
-  retention class with `brzl.dev/log-retention` (`7d|30d|90d`). Time is UTC,
-  ISO 8601 with `Z`, everywhere; each run output starts with a logfmt
-  header. Grafana is kube-prometheus-stack's, on every substrate. Loki and
-  the collector come from their Helm charts. The collector beside a local
-  cluster sends to the one in it, with a queue on disk (Q158–Q162). On
-  local, the **cold log store** is a host directory of JSON lines, which
-  `jq` reads, and nothing removes it (pass 6c, Q210–Q217).
-- **The admin portal (2026-10-14, ADR-0028).** One nginx in the cluster
-  serves a static page and passes each path to its service (`/argocd/`,
-  `/grafana/`, `/apps/<workload>/`): one host name, one certificate, the
-  same page on every environment, the same URL for HTTP CLI tools. Sign-on
-  leads to it, in every environment (Q177).
-- **Sign-on (2026-10-23, ADR-0035 amendment).** Dex under the portal at
+  prune cascade: `applicationsSync: create-update` +
+  `preserveResourcesOnDeletion`, and phase 30-gitops stops before an apply
+  that would orphan a live Application. Argo CD reads the private repo with a
+  read-only deploy key from the bootstrap source `BRZL_REPO_DEPLOY_KEY` (phase
+  25, driver locus); a GitHub App replaces it before any environment beyond
+  local. - **The cluster secret store is external, persistent, and seeds the
+  cluster (2026-10-13, ADR-0026).** On every substrate the store exists before
+  the cluster and outlives it (AWS: Secrets Manager; local: OpenBao beside Zot
+  on the container network, `pebbledb` on a volume, static seal with the key
+  in `var/secret-store/<env>/`, init once with the root token revoked). The
+  driver seeds it from the bootstrap secret sources (`secret_put`), then
+  bootstraps the cluster FROM the store (Argo CD's repo credential): a secret
+  enters once. ESO reads it through one ClusterSecretStore name,
+  `brzl-secrets`, defined per environment in
+  `gitops/clusters/<env>/secret-store` (Vault provider + Kubernetes auth on
+  local). Smoke: phase 25 writes a random value, phase 40 compares hashes. One
+  adapter per store type (`driver/secret-stores/`). - **Logs: an admin log
+  store and a diagnostic log store (2026-10-14, ADR-0027).** Platform logs
+  that audit the environment (run outputs, k3s server, API audit, OpenBao
+  audit, events, break-glass) go to the **admin log store**, whose data is
+  outside the cluster (object storage; local: a host directory) and flushes
+  within minutes. Detailed logs go to the **diagnostic log store** in the
+  cluster. OpenTelemetry Collector (OTLP), two Loki installations, Grafana.
+  Each namespace routes its logs with `brzl.dev/log-routes`
+  (`drop|admin|diagnostic|cold`) and chooses a retention class with
+  `brzl.dev/log-retention` (`7d|30d|90d`). Time is UTC, ISO 8601 with `Z`,
+  everywhere; each run output starts with a logfmt header. Grafana is
+  kube-prometheus-stack's, on every substrate. Loki and the collector come
+  from their Helm charts. The collector beside a local cluster sends to the
+  one in it, with a queue on disk (Q158–Q162). On local, the **cold log
+  store** is a host directory of JSON lines, which `jq` reads, and nothing
+  removes it (pass 6c, Q210–Q217). - **The admin portal (2026-10-14,
+  ADR-0028).** One nginx in the cluster serves a static page and passes each
+  path to its service (`/argocd/`, `/grafana/`, `/apps/<workload>/`): one host
+  name, one certificate, the same page on every environment, the same URL for
+  HTTP CLI tools. Sign-on leads to it, in every environment (Q177). -
+  **Sign-on (2026-10-23, ADR-0035 amendment).** Dex under the portal at
   `/dex/`, GitHub as the identity provider, one OAuth App for each
-  environment. nginx asks oauth2-proxy about each request. Argo CD and
-  Grafana are clients of Dex themselves. The built-in logins are off. Three
-  access tiers from GitHub teams (`brzl-admins`, `brzl-operators`,
-  `brzl-auditors`). Workloads are outside sign-on. The CLI with the
-  kubeconfig is the emergency path. `kubectl` uses the same identity (step
-  2, 2026-10-27): the kube-API trusts Dex through a structured
-  authentication configuration, and bindings in each environment give the
-  tiers their rights. ID tokens last 1 hour, so a removed person loses
-  access within the hour.
-- **Certificates and the local stand-ins (2026-10-15, ADR-0036).**
-  cert-manager is a platform component on every substrate; it renews the
-  portal's certificate from the `ClusterIssuer` that each environment's
-  `gitops/clusters/<env>/pki/` defines: `local-ca` (OpenBao's PKI engine,
-  outside the cluster; the default for a local environment) or
-  `letsencrypt` (ACME DNS-01; the default on a cloud, pass 8). On a laptop
-  a small CoreDNS container stands in for public DNS: it answers for the
-  portal's host name only, when that name is one the operator chose; the
-  default, `brzl-<env>.localhost`, resolves by itself. The host name is a
-  value in the environment definition, never built from a pattern.
-- **Supply chain of the kiesei image (restated 2026-10-14, from ADR-0007).**
-  Every tool that the image downloads is pinned to a version and verified,
-  by checksum or GPG signature, before it is installed; a build that cannot
-  verify a tool fails. ADR-0021 replaced the toolbox image with kiesei and
-  did not restate this rule. It stands (`containers/kiesei/`).
-- **The Bash doctrine helpers are vendored and pinned (2026-10-14,
-  ADR-0029).** `driver/lib/{runlib,error}.sh` are byte-identical to a tagged
-  commit of `ryderdain/bash` master; `upstream-check.sh` enforces it.
-- **Platform-layer portability (2026-10-07).** The platform layer (`gitops/infrastructure`, operators, workloads) assumes only conformant Kubernetes plus the substrate adapter's outputs (kubeconfig, registry host, secret store). No dependency on k3s-bundled components, so a managed control plane (EKS/GKE/DOKS) can later replace k3s inside one adapter. Known violation: the legacy local SSO edge uses Traefik `IngressRoute` CRDs; the admin portal (ADR-0028) replaces its routing.
-- **CI:** keep all pipeline/runner definitions **CI-system agnostic** (must work on GitHub Actions or GitLab CI).
-- **Node access:** **SSM Session Manager (SSH-over-SSM)** is the access path — no inbound `:22` (`20-security` `enable_ssh_ingress=false`), node role granted SSM (`30-iam` `enable_ssm=true`), Ansible tunnels via a ProxyCommand using the EC2 instance-id. IAM-gated + audited; the TF-generated key is break-glass only. *Chosen over the Ansible `aws_ssm` connection plugin specifically to avoid its S3 file-transfer bucket — SSH-over-SSM needs none.* Prod hardening (documented): private subnets, no public IP, VPC interface endpoints for `ssm`/`ssmmessages`/`ec2messages`.
-- **Operations run from the kiesei image, in two modes (2026-10-07, ADR-0021).** The operator toolchain is one container image, **kiesei** (formerly "toolbox"), which needs only a container engine. The **driver** (*kiesei nahag*) runs it outside the cluster: it makes and removes clusters, sequences phases, approves, and collects outputs. The **conductor** (*kiesei bakar*) runs it as a warm pod in the cluster and runs the run sheets the driver sends. **Substrate phases run on the driver; cluster phases run on the conductor; a locus never removes or replaces itself.** Locus is a property of where the driver sends a run sheet, not of a script, so scripts stay dual-locus and never hard-require `AWS_PROFILE`. Goals unchanged: one toolchain for every operator, an access-controlled entry, audited activity (run sheets in the admin log store, ADR-0027).
-- **Driver execution model (2026-10-07, ADR-0022).** `platform.sh` is being split into emit-style phase scripts plus a thin driver. The driver is itself an emit script: one `{ … }` group per phase, each group = emit the phase into a run sheet (`var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh`, gitignored) → run the file → `.rc` → the phase's check → `.ok`. **No prompts: approval is running the output** — `driver.sh <env> next` (one phase, careful) or `driver.sh <env> up | bash` (all remaining, fast; only for local-only effects). Emitted commands sit in `{ … }` groups used as anonymous functions, with a check only where re-running a block would harm or leave state ambiguous. Outputs pass between phases as files. **Every phase must be safe to run again** — resume is "the first phase with no `.ok`" (the exit code is not the verdict; the check is). Phases with effects outside the driver's machine, or billable ones, are driven one reviewed phase at a time. Each environment has one committed **environment definition** (plain `NAME=value`, no secrets; an exported value wins with a warning; never flags). Rules: `ryderdain/bash` STYLE.md §1.2, §1.11–§1.12. *The EC2 conductor (`environments/dev/00-conductor`) is retired as a concept; it stays in the tree, frozen with the rest of AWS, until pass 8.*
-- **Saved-plan workflow (every billable/mutating tofu change):** `tofu plan -out=FILE` → review → `tofu apply FILE`. **Never `-auto-approve`** (it re-plans fresh, can drift from what was reviewed). Plan files gitignored (`*tfplan*`).
-- **Encryption:** **customer-managed KMS keys only** (per-purpose: state / ECR / EBS) — never the AWS-managed default keys, for key-policy control, rotation, and grantability (HYOK posture). ~$1/mo per key.
-- **Secrets / account-bearing values:** account-id-bearing names are **DERIVED at runtime from the caller** (`aws sts get-caller-identity`) or persisted in a gitignored auto-loaded file — never a per-run `TF_VAR_*` the operator must remember (if it can be dropped between runs, it will be). Committed per-env `<env>.tfvars` hold only **non-secret** env definitions (CIDRs, flags); rendered secret/ARN tfvars use `*.auto.tfvars` and stay gitignored; otherwise only `.example` templates are committed. Inventory in [`docs/SECRETS.md`](docs/SECRETS.md).
-- **Conductor GitHub credential — one precisely-scoped token.** The conductor reaches GitHub with **one** dedicated fine-grained PAT scoped to exactly its jobs: `read:packages` (GHCR pull-through) **+** Contents:read + Metadata:read (repo clone). **Not** split per job — "scope credentials to their job" means *no broader than needed*, not *one token per call*; the earlier clone-403 was an **under-scoped** token (a `read:packages`-only PAT used to clone), not a multi-purpose one. (This replaces the S3 tree-ship repo delivery — §9.)
-- **Runbooks:** `docs/{BOOTSTRAP,ACCESS,UPGRADE,RECOVERY,TEARDOWN}.md` maintained as living team runbooks. Scaling + backups are automated and documented in the top-level `README.md` (no separate SCALING runbook). The **top-level `README.md` is the primary doc**; no per-directory READMEs.
+  environment. nginx asks oauth2-proxy about each request. Argo CD and Grafana
+  are clients of Dex themselves. The built-in logins are off. Three access
+  tiers from GitHub teams (`brzl-admins`, `brzl-operators`, `brzl-auditors`).
+  Workloads are outside sign-on. The CLI with the kubeconfig is the emergency
+  path. `kubectl` uses the same identity (step 2, 2026-10-27): the kube-API
+  trusts Dex through a structured authentication configuration, and bindings
+  in each environment give the tiers their rights. ID tokens last 1 hour, so a
+  removed person loses access within the hour. - **Certificates and the local
+  stand-ins (2026-10-15, ADR-0036).** cert-manager is a platform component on
+  every substrate; it renews the portal's certificate from the `ClusterIssuer`
+  that each environment's `gitops/clusters/<env>/pki/` defines: `local-ca`
+  (OpenBao's PKI engine, outside the cluster; the default for a local
+  environment) or `letsencrypt` (ACME DNS-01; the default on a cloud, pass 8).
+  On a laptop a small CoreDNS container stands in for public DNS: it answers
+  for the portal's host name only, when that name is one the operator chose;
+  the default, `brzl-<env>.localhost`, resolves by itself. The host name is a
+  value in the environment definition, never built from a pattern. - **Supply
+  chain of the kiesei image (restated 2026-10-14, from ADR-0007).** Every tool
+  that the image downloads is pinned to a version and verified, by checksum or
+  GPG signature, before it is installed; a build that cannot verify a tool
+  fails. ADR-0021 replaced the toolbox image with kiesei and did not restate
+  this rule. It stands (`containers/kiesei/`). - **The Bash doctrine helpers
+  are vendored and pinned (2026-10-14, ADR-0029).**
+  `driver/lib/{runlib,error}.sh` are byte-identical to a tagged commit of
+  `ryderdain/bash` master; `upstream-check.sh` enforces it. - **Platform-layer
+  portability (2026-10-07).** The platform layer (`gitops/infrastructure`,
+  operators, workloads) assumes only conformant Kubernetes plus the substrate
+  adapter's outputs (kubeconfig, registry host, secret store). No dependency
+  on k3s-bundled components, so a managed control plane (EKS/GKE/DOKS) can
+  later replace k3s inside one adapter. Known violation: the legacy local SSO
+  edge uses Traefik `IngressRoute` CRDs; the admin portal (ADR-0028) replaces
+  its routing. - **CI:** keep all pipeline/runner definitions **CI-system
+  agnostic** (must work on GitHub Actions or GitLab CI). - **Node access:**
+  **SSM Session Manager (SSH-over-SSM)** is the access path — no inbound `:22`
+  (`20-security` `enable_ssh_ingress=false`), node role granted SSM (`30-iam`
+  `enable_ssm=true`), Ansible tunnels via a ProxyCommand using the EC2
+  instance-id. IAM-gated + audited; the TF-generated key is break-glass only.
+  *Chosen over the Ansible `aws_ssm` connection plugin specifically to avoid
+  its S3 file-transfer bucket — SSH-over-SSM needs none.* Prod hardening
+  (documented): private subnets, no public IP, VPC interface endpoints for
+  `ssm`/`ssmmessages`/`ec2messages`. - **Operations run from the kiesei image,
+  in two modes (2026-10-07, ADR-0021).** The operator toolchain is one
+  container image, **kiesei** (formerly "toolbox"), which needs only a
+  container engine. The **driver** (*kiesei nahag*) runs it outside the
+  cluster: it makes and removes clusters, sequences phases, approves, and
+  collects outputs. The **conductor** (*kiesei bakar*) runs it as a warm pod
+  in the cluster and runs the run sheets the driver sends. **Substrate phases
+  run on the driver; cluster phases run on the conductor; a locus never
+  removes or replaces itself.** Locus is a property of where the driver sends
+  a run sheet, not of a script, so scripts stay dual-locus and never
+  hard-require `AWS_PROFILE`. Goals unchanged: one toolchain for every
+  operator, an access-controlled entry, audited activity (run sheets in the
+  admin log store, ADR-0027). - **Driver execution model (2026-10-07,
+  ADR-0022).** `platform.sh` is being split into emit-style phase scripts plus
+  a thin driver. The driver is itself an emit script: one `{ … }` group per
+  phase, each group = emit the phase into a run sheet
+  (`var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh`, gitignored) → run the file
+  → `.rc` → the phase's check → `.ok`. **No prompts: approval is running the
+  output** — `driver.sh <env> next` (one phase, careful) or `driver.sh <env>
+  up | bash` (all remaining, fast; only for local-only effects). Emitted
+  commands sit in `{ … }` groups used as anonymous functions, with a check
+  only where re-running a block would harm or leave state ambiguous. Outputs
+  pass between phases as files. **Every phase must be safe to run again** —
+  resume is "the first phase with no `.ok`" (the exit code is not the verdict;
+  the check is). Phases with effects outside the driver's machine, or billable
+  ones, are driven one reviewed phase at a time. Each environment has one
+  committed **environment definition** (plain `NAME=value`, no secrets; an
+  exported value wins with a warning; never flags). Rules: `ryderdain/bash`
+  STYLE.md §1.2, §1.11–§1.12. *The EC2 conductor
+  (`environments/dev/00-conductor`) is retired as a concept; it stays in the
+  tree, frozen with the rest of AWS, until pass 8.* - **Saved-plan workflow
+  (every billable/mutating tofu change):** `tofu plan -out=FILE` → review →
+  `tofu apply FILE`. **Never `-auto-approve`** (it re-plans fresh, can drift
+  from what was reviewed). Plan files gitignored (`*tfplan*`). -
+  **Encryption:** **customer-managed KMS keys only** (per-purpose: state / ECR
+  / EBS) — never the AWS-managed default keys, for key-policy control,
+  rotation, and grantability (HYOK posture). ~$1/mo per key. - **Secrets /
+  account-bearing values:** account-id-bearing names are **DERIVED at runtime
+  from the caller** (`aws sts get-caller-identity`) or persisted in a
+  gitignored auto-loaded file — never a per-run `TF_VAR_*` the operator must
+  remember (if it can be dropped between runs, it will be). Committed per-env
+  `<env>.tfvars` hold only **non-secret** env definitions (CIDRs, flags);
+  rendered secret/ARN tfvars use `*.auto.tfvars` and stay gitignored;
+  otherwise only `.example` templates are committed. Inventory in
+  [`docs/SECRETS.md`](docs/SECRETS.md). - **Conductor GitHub credential — one
+  precisely-scoped token.** The conductor reaches GitHub with **one**
+  dedicated fine-grained PAT scoped to exactly its jobs: `read:packages` (GHCR
+  pull-through) **+** Contents:read + Metadata:read (repo clone). **Not**
+  split per job — "scope credentials to their job" means *no broader than
+  needed*, not *one token per call*; the earlier clone-403 was an
+  **under-scoped** token (a `read:packages`-only PAT used to clone), not a
+  multi-purpose one. (This replaces the S3 tree-ship repo delivery — §9.) -
+  **Runbooks:** `docs/{BOOTSTRAP,ACCESS,UPGRADE,RECOVERY,TEARDOWN}.md`
+  maintained as living team runbooks. Scaling + backups are automated and
+  documented in the top-level `README.md` (no separate SCALING runbook). The
+  **top-level `README.md` is the primary doc**; no per-directory READMEs.
 
 ---
 

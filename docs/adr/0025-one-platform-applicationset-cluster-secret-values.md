@@ -108,3 +108,40 @@ The workload's element sits in a nested matrix with an SCM generator.
   Application after its resources converge. The alert shows in
   Grafana and Prometheus. No channel sends it yet (BACKLOG 21).
 
+## Amendment (2026-10-29, item 13): the sync switch
+
+- **"Fast mode" is gone. The switch has the name of what it does** (the
+  user, 2026-10-29; GLOSSARY "Sync switch"). The driver's verbs are `sync
+  off`, `sync on [confirm]` and `apply`, on local only
+  (`BRZL_SYNC_SWITCH_ALLOWED`). Break-glass `hold` and `release` move the
+  same switch, with a record and the elevation (ADR-0037).
+- **`apply` is Argo CD's own local sync** (Q224): `argocd app diff --local`
+  at emit time, then `argocd app sync --local` for each kustomize
+  Application that differs, in core mode. Argo CD renders the working
+  tree with the Application's images and patches and writes its own
+  tracking marks. So the copy of its injection in `fast-mode.sh` is gone.
+  This needs one `source:` on each kustomize Application, not a list:
+  the CLI refuses `--local` on a list, also a list of one. The local
+  render edits the kustomization it is given in place (`kustomize edit`
+  for the images and patches; the first live test rewrote two files), so
+  `apply` copies the source tree (`gitops/`, `deploy/`) and renders the
+  copy.
+- **`sync on` has `release`'s check** (Q225): it stops while an
+  Application differs from git and shows the diff. Commit and push, or
+  `sync on confirm`. One function, `differences_from_git`, serves both.
+  It diffs each single-source Application against its git revision
+  (`--revision`): after a local sync, Argo CD compares against the
+  manifests it last synced, not git, and a refresh does not change that
+  (the live tests showed it: a changed subject in a ClusterRoleBinding
+  was "Synced" and not healed). So `sync on` also syncs each kustomize
+  Application from git before it moves the switch. When git and the
+  cluster agree, that changes nothing. What Argo CD counts as a
+  difference is its own rule: a field that only the working tree added,
+  such as a new annotation, is none, so it stays after `sync on`.
+- **`apply` with sync on shows the diff and stops** (Q226). Argo CD refuses
+  a local sync while automated sync is on, and self-heal would undo it.
+- **The tracking method is Argo CD's default** (annotation, v3; Q227).
+  Nothing of ours writes tracking marks any more.
+- The Decision's bullet "Fast mode applies the working tree with Argo
+  CD's own injection" and the Consequence on `fast_off` are replaced by
+  this amendment.

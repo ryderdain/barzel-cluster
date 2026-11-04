@@ -97,14 +97,20 @@ spec:
                   serverSideApply: "true"
                   chartRepo: https://argoproj.github.io/argo-helm
                   chart: argo-cd
-                  # 7.7.23 = Argo CD v2.13.4: its UI strips the base href from
-                  # the login return_url (v2.13.0 doubled it under /argocd/).
-                  chartVersion: "7.7.23"
+                  # 10.11.6 = Argo CD v3.5.6 (item 13, 2026-10-29). Before:
+                  # 7.7.23 = v2.13.4, the first with the login return_url fix
+                  # under a base href (pass 5c).
+                  chartVersion: "10.11.6"
                   valueFile: gitops/infrastructure/argocd/values.yaml
                   imageParams:
                     - name: global.image.repository
                       upstream: quay
                       path: argoproj/argocd
+                    # Chart 10 takes Redis from ecr-public.aws.com, which no
+                    # node mirrors; the same image is on Docker Hub.
+                    - name: redis.image.repository
+                      upstream: docker-hub
+                      path: library/redis
                   portalHostParams:
                     - name: configs.cm.url
                       prefix: https://
@@ -553,58 +559,60 @@ spec:
       {{- $rev := $revision }}
       {{- if .repo }}{{ $repo = .repo }}{{ $rev = .revision }}{{ end }}
       {{- if and .repo (eq $follow "branch") }}{{ $rev = .sha }}{{ end }}
-      sources:
-        - repoURL: {{ $repo }}
-          targetRevision: {{ $rev }}
-          path: {{ $path }}
-          kustomize:
-            {{- if eq .appName "chofesh" }}
-            {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
-            images:
-              - "ghcr.io/tzvat/chofesh={{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/tzvat/chofesh{{ if eq $follow "branch" }}:{{ .short_sha }}{{ end }}"
-            patches:
-              - target:
-                  group: postgresql.cnpg.io
-                  version: v1
-                  kind: Cluster
-                  name: pg
-                patch: |-
-                  - op: replace
-                    path: /spec/imageName
-                    value: {{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/cloudnative-pg/postgresql:17.2
-                  {{- if $bucket }}
-                  - op: replace
-                    path: /spec/backup/barmanObjectStore/destinationPath
-                    value: s3://{{ $bucket }}/
-                  {{- end }}
-            {{- if eq $env "prod" }}
-              - target:
-                  version: v1
-                  kind: Service
-                  name: chofesh
-                patch: |-
-                  - op: replace
-                    path: /spec/type
-                    value: NodePort
-                  - op: add
-                    path: /spec/ports/0/nodePort
-                    value: 30080
-            {{- end }}
-            {{- else if eq .appName "portal" }}
-            images:
-              - "nginxinc/nginx-unprivileged={{ $host }}/{{ index $ann "brzl.dev/prefix-docker-hub" }}/nginxinc/nginx-unprivileged"
-            patches:
-              - target:
-                  group: cert-manager.io
-                  version: v1
-                  kind: Certificate
-                  name: portal
-                patch: |-
-                  - op: replace
-                    path: /spec/commonName
-                    value: {{ index $ann "brzl.dev/portal-host" }}
-                  - op: replace
-                    path: /spec/dnsNames/0
-                    value: {{ index $ann "brzl.dev/portal-host" }}
+      # One source, not a list (item 13): `argocd app sync --local` refuses an
+      # Application with a sources list, even of one.
+      source:
+        repoURL: {{ $repo }}
+        targetRevision: {{ $rev }}
+        path: {{ $path }}
+        kustomize:
+          {{- if eq .appName "chofesh" }}
+          {{- $bucket := index $ann "brzl.dev/backup-bucket" }}
+          images:
+            - "ghcr.io/tzvat/chofesh={{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/tzvat/chofesh{{ if eq $follow "branch" }}:{{ .short_sha }}{{ end }}"
+          patches:
+            - target:
+                group: postgresql.cnpg.io
+                version: v1
+                kind: Cluster
+                name: pg
+              patch: |-
+                - op: replace
+                  path: /spec/imageName
+                  value: {{ $host }}/{{ index $ann "brzl.dev/prefix-github" }}/cloudnative-pg/postgresql:17.2
+                {{- if $bucket }}
+                - op: replace
+                  path: /spec/backup/barmanObjectStore/destinationPath
+                  value: s3://{{ $bucket }}/
+                {{- end }}
+          {{- if eq $env "prod" }}
+            - target:
+                version: v1
+                kind: Service
+                name: chofesh
+              patch: |-
+                - op: replace
+                  path: /spec/type
+                  value: NodePort
+                - op: add
+                  path: /spec/ports/0/nodePort
+                  value: 30080
+          {{- end }}
+          {{- else if eq .appName "portal" }}
+          images:
+            - "nginxinc/nginx-unprivileged={{ $host }}/{{ index $ann "brzl.dev/prefix-docker-hub" }}/nginxinc/nginx-unprivileged"
+          patches:
+            - target:
+                group: cert-manager.io
+                version: v1
+                kind: Certificate
+                name: portal
+              patch: |-
+                - op: replace
+                  path: /spec/commonName
+                  value: {{ index $ann "brzl.dev/portal-host" }}
+                - op: replace
+                  path: /spec/dnsNames/0
+                  value: {{ index $ann "brzl.dev/portal-host" }}
             {{- end }}
       {{- end }}

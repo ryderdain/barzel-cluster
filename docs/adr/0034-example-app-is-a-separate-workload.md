@@ -67,7 +67,8 @@ that any workload can consume.
   GitOps base) left this repo (Q146).
 - **The image is the workload's** (amendment below): its CI publishes it,
   and the cluster pulls it through the registry like any upstream image.
-  Phase 20 pushes only the kiesei image. Fast mode renders the app's
+  Phase 20 pushes only the kiesei image. `apply` (item 13; before, fast
+  mode) renders the app's
   manifests from its checkout beside this repo (`BRZL_EXAMPLE_APP_SRC`).
 - The example app's name is in three places that must agree, and phase 30
   checks it: `BRZL_EXAMPLE_APP_NAME`, the element, the portal's location.
@@ -97,7 +98,7 @@ workload's CI, and a stand-in must not stay in the path. Decided:
   a tag.
 - **A laptop loop without a release:** `make dev-image` in the app's repo
   builds for the machine and pushes into the registry's push namespace.
-  It also points the local overlay at the build. Fast mode then applies
+  It also points the local overlay at the build. `apply` then applies
   the checkout.
 - **The workload is private** (Q153, Q154 b: privacy first, because the
   platform models a cluster that runs proprietary software). The repository and the
