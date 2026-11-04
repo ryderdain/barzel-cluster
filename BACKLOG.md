@@ -247,7 +247,10 @@ Order of work (Q120):
     and tested 2026-10-29** by the agent: `sync off`, `apply` (a changed
     field, then "nothing differs"), `sync on` refused with the diff, `sync
     on confirm` healed. Three findings fixed on the way (ADR-0025
-    amendment). The user's verification is pending.
+    amendment). **DONE 2026-11-04, user-accepted** (RETROSPECTIVE): "fine
+    for now"; the user looks at it again after the next pass(es). The run
+    sheets of the sync switch have one command per line; the rule for all
+    emitters is item 36.
 14. **The `*.localhost` default test** — done 2026-10-15 (RETROSPECTIVE);
     sleipnir is back on `local.barzel.sh`, the reference chosen-name case.
 15. **The ApplicationSet itself is not in GitOps** (found 2026-10-15): phase

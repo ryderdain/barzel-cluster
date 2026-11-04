@@ -58,22 +58,17 @@ a restore drill went to item 9 (Q217). Argo CD after the hour: a reload
 in a private window asked for no step (the user, 2026-10-28). That open
 item is closed.
 
-**▶ IN FLIGHT: item 13, the Argo CD upgrade and the sync switch**,
-branch `item-13-argocd-upgrade`, both steps BUILT AND AGENT-TESTED
-2026-10-29, the user's verification pending, not merged. Step 1: chart
-10.11.6 = v3.5.6, CLI 3.5.6, Redis through Zot, NetworkPolicies on,
-annotation tracking (UPGRADE.md). Step 2: `sync off` / `sync on
-[confirm]` / `apply` (`driver/modes/sync.sh`, on `argocd app sync
---local` in core mode), `fast-mode.sh` gone, the kustomize Applications
-have one `source:`, `release` and `sync on` share
-`differences_from_git`; GLOSSARY "Sync switch", LOCAL.md "Sync off and
-on", ADR-0025 amendment. Three findings from the live tests, all fixed:
-Argo CD's local render edits the kustomization in place (apply works on
-a copy); after a local sync Argo CD compares against what it last
-synced, not git, so `sync on` diffs with --revision and syncs each
-kustomize app from git; a field that only the working tree added (an
-annotation) is no difference for Argo CD and stays (the auditors CRB
-still has `brzl.dev/spike=item-13b`; harmless; a `down`/`up` clears it).
-The user still runs `10-host.sh`. NEXT: the user reads LOCAL.md "Sync
-off and on" and verifies; then RETROSPECTIVE, the merge to `main`, and
-BACKLOG 35 (rename `hold`/`release`) or the next item.
+**Item 13, Argo CD v3.5 and the sync switch, DONE 2026-11-04,
+user-accepted** (RETROSPECTIVE), merged to `main`. The user looks at it
+again after the next pass(es). Facts to keep: `apply` = `argocd app
+diff/sync --local` in core mode on a copy of the source tree (the local
+render edits kustomizations in place); after a local sync Argo CD
+compares against what it last synced, so `sync on` diffs with
+`--revision` and syncs the kustomize apps from git; a field that only
+the tree added is no difference for Argo CD. The auditors binding still
+has `brzl.dev/spike=item-13b` until the next `down`/`up`. Docker was not
+running on 2026-11-04.
+
+**▶ NEXT:** the user chooses: BACKLOG 35 (rename `hold`/`release`), 36
+(one command per line, the rule in `ryderdain/bash` first, by the user),
+or item 8 (`promote platform`).
