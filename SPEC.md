@@ -186,7 +186,7 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   its S3 file-transfer bucket — SSH-over-SSM needs none.* Prod hardening
   (documented): private subnets, no public IP, VPC interface endpoints for
   `ssm`/`ssmmessages`/`ec2messages`. - **Operations run from the kiesei image,
-  in two modes (2026-10-07, ADR-0021).** The operator toolchain is one
+  at two loci (2026-10-07, ADR-0021).** The operator toolchain is one
   container image, **kiesei** (formerly "toolbox"), which needs only a
   container engine. The **driver** (*kiesei nahag*) runs it outside the
   cluster: it makes and removes clusters, sequences phases, approves, and

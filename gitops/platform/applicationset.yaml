@@ -39,7 +39,7 @@
 #
 # A kustomize element's path may carry __ENV__, replaced by the env label: the
 # `secret-store` app renders gitops/clusters/<env>/secret-store (ADR-0026),
-# and `pki` renders gitops/clusters/<env>/pki, the TLS mode's issuer (ADR-0036).
+# and `pki` renders gitops/clusters/<env>/pki, the TLS type's issuer (ADR-0036).
 #
 # A workload is an element with its own `repo` and `revision` (ADR-0034): Argo
 # CD reads its manifests from that repo; this file only names the overlay and
@@ -300,7 +300,7 @@ spec:
                   wave: "2"
                   namespace: cert-manager
                   serverSideApply: "false"
-                  # The environment's TLS mode: the ClusterIssuer the portal's
+                  # The environment's TLS type: the ClusterIssuer the portal's
                   # Certificate names (ADR-0036).
                   path: gitops/clusters/__ENV__/pki
                 # Sign-on (ADR-0035): the Secrets from the store, then Dex (the

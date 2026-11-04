@@ -9,9 +9,9 @@ to a public cloud.
 ### Where things run
 
 **Kiesei**:
-The container image that holds the full operator toolchain. It is necessary
-to have only a container engine to operate it. Each locus is a kiesei in one
-of two modes.
+The container image that holds the full operator toolchain. Only a container
+engine is necessary to operate it. It runs in one of two loci, as the driver
+or the conductor.
 _Avoid_: toolbox, ops image, tools container, kisei (spelling)
 
 **Locus**:
@@ -19,13 +19,13 @@ The position where an operation occurs: the driver or the conductor.
 _Avoid_: local (for this meaning), host, runner
 
 **Driver**:
-The kiesei mode external to the cluster. It makes the cluster, puts phases in
+The kiesei locus external to the cluster. It makes the cluster, puts phases in
 sequence, and sends commands to the conductor. It is the only locus that can
 remove or replace a cluster. Accurate name: kiesei nahag.
 _Avoid_: orchestrator, seed locus, laptop (for this meaning)
 
 **Conductor**:
-The kiesei mode in the cluster. It operates the commands that the driver sends
+The kiesei locus in the cluster. It operates the commands that the driver sends
 to it. A conductor must not operate a phase that removes or replaces its own
 cluster. Accurate name: kiesei bakar.
 _Avoid_: bastion, jump host, conductor instance
@@ -120,7 +120,7 @@ The landing page of an environment, over HTTPS. It links to every service in
 the cluster and gives the matching CLI commands. Sign-on leads to it.
 _Avoid_: dashboard, homepage, launcher
 
-**TLS mode**:
+**TLS type**:
 Where an environment's certificates come from: `letsencrypt` (a public CA;
 the environment has a public name) or `local-ca` (the cluster secret store
 is the CA; nothing public is needed). Each environment has one.

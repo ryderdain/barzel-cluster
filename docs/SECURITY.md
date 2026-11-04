@@ -634,7 +634,7 @@ To end the emergency path, remake the cluster.
   The log data in `var/log-store/<env>/` is not encrypted. Treat it as
   confidential ([SECRETS.md](SECRETS.md) §8).
 - **In transit:** the admin portal and the log intake use TLS from the
-  environment's TLS mode. The log intake also requires a client certificate.
+  environment's TLS type. The log intake also requires a client certificate.
   The kube-API uses k3s's own PKI. On AWS, the backup bucket rejects
   requests without TLS. Local gaps: the store's listener and Zot are plain
   HTTP, on the Docker network only.

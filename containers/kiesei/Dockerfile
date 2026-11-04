@@ -10,7 +10,7 @@
 # Toolchain: tofu, ansible, kubectl, helm, kustomize, argocd, kubelogin,
 # kubectl-cnpg, aws-cli, session-manager-plugin, yq, trivy, tflint, psql, git,
 # jq, tmux, k3d,
-# and the docker CLI (driver mode: it drives the host's engine through the
+# and the docker CLI (at the driver locus it drives the host's engine through the
 # mounted socket — see driver/kiesei.sh) — see the pinned ARGs below.
 #
 # Base: python:3.14-slim-trixie — CPython 3.14 on Debian 13 (trixie) slim.
@@ -122,7 +122,7 @@ RUN set -eux; \
     helm version --short
 
 # --- k3d (verify against published checksums.txt) --------------------------
-# Driver mode makes local (k3d) clusters through the host engine's socket.
+# The driver makes local (k3d) clusters through the host engine's socket.
 RUN set -eux; \
     f="k3d-linux-${TARGETARCH}"; \
     base="https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}"; \
