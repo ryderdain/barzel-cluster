@@ -530,10 +530,22 @@ Order of work (Q120):
     target states. Modes: `cluster` (`bootstrap`, `teardown`, `status`, `check`;
     `next` goes, `up` already resumes), `break-glass` (`open '<reason>'`,
     `close [confirm]`, `apply [<dir>]`, which refuses unless open; `sync
-    off`/`on` and `pause`/`resume` go), `readonly` (`view` for the reader;
-    the rest in design). The names in the records follow (run sheets, the
-    alert). Every document that shows a driver command changes with it.
-    Supersedes item 35.
+    off`/`on` and `pause`/`resume` go), `audit` (`bootstrap`/`teardown`
+    start and stop the reader; `start`/`stop` are synonyms in both modes).
+    `cluster teardown` and `audit teardown` emit every line behind the
+    prefix `## ⚠ ##` and a space, and a footer says how to strip it, so a
+    pipe without the `sed` runs nothing. `BRZL_ENV` has a default. The
+    names in the records follow (run sheets, the alert). Every document
+    that shows a driver command changes with it. Supersedes item 35.
+38. **Environment names and the environment definition** (user, 2026-11-05;
+    Q239, Q240). Before pass 8. An environment is a step of the promotion
+    chain, so its name is `dev`, `test`, `stage` or `production`, as in the
+    Terraform and Ansible idioms. `local` names a substrate, not an
+    environment: `BRZL_SUBSTRATE` takes `local`, `aws`, `gcp`, and not `k3d`
+    (a control plane; the alternatives to k3d are EKS and GKE). So
+    `env/local.env` becomes `env/dev.env`, and the `BRZL_*` keys in it get a
+    review. The driver's default for `BRZL_ENV` becomes `dev` with it
+    (item 37 sets it to the one environment that exists until then).
 
 Standing concerns (check in every pass):
 
