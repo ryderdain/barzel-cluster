@@ -28,24 +28,20 @@ the plan in [BACKLOG.md](BACKLOG.md), the records in
 <verb>`, the modes `cluster`, `break-glass`, `audit`, the teardown guard
 (`## ⚠ ##`, `sed 's/^## ⚠ ##//'` in the pipe), ADR-0038. Item 35 was
 dropped. The item-35 branch (local and origin) is the user's to delete.
-**Item 38, environment names, IN PROGRESS** on the branch
-`item-38-environment-names` (Q245–Q249; ADR-0039). Built: the ADR,
-GLOSSARY, SPEC, every document, the code (`env/dev.env`,
-`substrates/local.sh`, `BRZL_AUDIT_*`, `gitops/clusters/dev`, the
-ApplicationSet tests the substrate label, `localPath` carries
-`__ENV__`). 39 tests pass. The external pieces were purged (Q249 b,
-scope `all`: OpenBao, Zot, the collector, DNS, the network `brzl-local`,
-the log store), and the OAuth App material was renamed to `oauth-dev-*`.
-`var/run/local` stays as a record. **Item 39 built with it** (ADR-0040):
-the kiesei Dockerfile is a `core` stage and one stage per substrate
-(`local` the default target, `aws` frozen). `kiesei:local` is 1.13 GB
-unpacked, from 2.12 GB. **Waiting:** the user's bootstrap
-under `dev` with the deploy key (the INSTALL path from zero), their
-verification, their follow-up question on the key names and `env/*.env`.
-Then the ADR's "As built", BACKLOG 38 done, RETROSPECTIVE. **Then
-BACKLOG 36** (one command per line): the rule goes into `ryderdain/bash`
-STYLE §1.2 first (the user commits there), then the emitters here. The
-user wants a second look at item 13 after the next passes.
+**Items 38 and 39 DONE and user-verified 2026-11-05** (RETROSPECTIVE),
+merged to `main`: the environment `dev` on the substrate `local`
+(`env/dev.env`, `substrates/local.sh`, `gitops/clusters/dev`, ADR-0039),
+and the kiesei image as a `core` stage with one stage per substrate
+(ADR-0040). The cluster is up, from zero, under the new names. BACKLOG
+had its cleanup round: done items keep their number and one entry, the
+June 2026 sections are condensed, and item 40 is new.
+**Next: the user's choice.** Item 36 (one command per line) waits for
+the rule in `ryderdain/bash` STYLE §1.2, the user's commit. A draft is
+in `notes/DECISIONS.md` (Q245). Then item 8 (`promote platform`), item
+40 (`cluster teardown all`, the CA and hosts setup), or the user's second
+look at item 13. The branches `item-35-rename-hold-release`,
+`item-37-driver-grammar` and `item-38-environment-names` are merged or
+dropped, and the user's to delete.
 
 **Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
 (RETROSPECTIVE 2026-10-23 and 2026-10-27, three entries), merged to
