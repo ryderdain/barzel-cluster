@@ -28,9 +28,19 @@ the plan in [BACKLOG.md](BACKLOG.md), the records in
 <verb>`, the modes `cluster`, `break-glass`, `audit`, the teardown guard
 (`## ⚠ ##`, `sed 's/^## ⚠ ##//'` in the pipe), ADR-0038. Item 35 was
 dropped. The item-35 branch (local and origin) is the user's to delete.
-**Next: the user's choice.** BACKLOG 38 (environment names: `dev`,
-`BRZL_SUBSTRATE=local`, `env/dev.env`, before pass 8). BACKLOG 36 (one
-command per line, the rule in `ryderdain/bash` first). Or item 8. The
+**Item 38, environment names, IN PROGRESS** on the branch
+`item-38-environment-names` (Q245–Q248 accepted; ADR-0039). Done: the
+ADR, GLOSSARY, SPEC, every document. Waiting: the code part, a script in
+the session scratchpad (`apply-38-code.sh`, dry-run in a clone, 39 tests
+pass), held until the user's teardown/bootstrap cycle ends, because the
+checks and `kiesei.sh` read the tree live. Open: Q249 (the transit key
+is made at first start only, so `brzl-dev` fails the check on a kept
+store), and the user's follow-up question on the key names and
+`env/*.env`. Then the migration of `var/` (`migrate-38-var.sh`), a
+teardown under the old names, a bootstrap under `dev`, the ADR's "As
+built", BACKLOG 38, RETROSPECTIVE after the user verifies. **Then
+BACKLOG 36** (one command per line): the rule goes into `ryderdain/bash`
+STYLE §1.2 first (the user commits there), then the emitters here. The
 user wants a second look at item 13 after the next passes.
 
 **Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
