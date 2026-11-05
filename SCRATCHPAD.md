@@ -35,15 +35,12 @@ and the kiesei image as a `core` stage with one stage per substrate
 (ADR-0040). The cluster is up, from zero, under the new names. BACKLOG
 had its cleanup round: done items keep their number and one entry, the
 June 2026 sections are condensed, and item 40 is new.
-**Item 36 (one command per line) built 2026-11-05, not yet verified.**
-The rule is in `ryderdain/bash` (`a5e8127` on the branch
-`bash-doctrine`: STYLE §1.2, the bash-ops skill, `includes/error.sh`).
-`error.sh` is re-vendored and the `UPSTREAM` pin is that commit. The
-driver's per-phase run block and one line of phase 10 are split (Q251,
-Q252). `UPSTREAM` says `branch=main` (the user merged and renamed the
-branch, 2026-11-05). The user verifies at the next bootstrap.
-`env/dev.env` is in sections (Q250, `48074d5`).
-**Then: the user's choice.** Item 8 (`promote platform`), item 40
+**Item 36 (one command per line) DONE and user-verified 2026-11-06**
+(RETROSPECTIVE). The rule is in `ryderdain/bash` `main` (`a5e8127`).
+Here: `error.sh` re-vendored, the pin and branch in `UPSTREAM` moved,
+the driver's run block and one line of phase 10 split. `env/dev.env` is in
+sections (Q250, `48074d5`).
+**Next: the user's choice.** Item 8 (`promote platform`), item 40
 (`cluster teardown all`, the CA and hosts setup), or the user's second
 look at item 13. The branches `item-35-rename-hold-release`,
 `item-37-driver-grammar` and `item-38-environment-names` are merged or

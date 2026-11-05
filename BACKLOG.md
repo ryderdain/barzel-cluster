@@ -28,6 +28,8 @@ Done (verified live; see [RETROSPECTIVE.md](RETROSPECTIVE.md)):
 - Items 13, 37, 38, 39: the Argo CD upgrade, the driver grammar, the
   environment names, the kiesei stages (2026-11-05; ADR-0038, ADR-0039,
   ADR-0040).
+- Item 36: one command per line in the emitted streams (2026-11-06, the
+  rule in `ryderdain/bash` STYLE §1.2).
 
 Each done item below keeps its number and one short entry, because other
 documents and notes name items by number. The record is RETROSPECTIVE.
@@ -360,17 +362,10 @@ Order of work (Q120):
 35. **Rename `hold` / `release`** — dropped 2026-11-05 (Q234 b): the pair
     and the sync verbs were one thing. Superseded by item 37. The branch
     `item-35-rename-hold-release` is the user's to delete.
-36. **Emitted run sheets: one command per line** (user, 2026-11-01). A
-    group already gives the reader the block, so a newline between
-    commands costs nothing. The rule is written into `ryderdain/bash`
-    STYLE §1.2, the bash-ops skill and `includes/error.sh`, uncommitted,
-    for the user's commit (Q251). Three things stay on one line: a
-    condition and its one command, two short commands that make one
-    step, a short pipe. The test is readability. Applied here 2026-11-05: the driver's
-    per-phase run block and the `mkdir && chmod` line of phase 10. The
-    rule is upstream (`a5e8127`, merged to `main`),
-    `error.sh` re-vendored, the pin moved. Open: the user verifies at
-    the next bootstrap.
+36. **Emitted run sheets: one command per line** — **done 2026-11-06**
+    (RETROSPECTIVE, the rule in `ryderdain/bash` STYLE §1.2, `a5e8127`):
+    the driver's run block and one line of phase 10 split, `error.sh`
+    re-vendored, the pin moved.
 37. **The driver grammar** — **done 2026-11-05** (RETROSPECTIVE; ADR-0038):
     `BRZL_ENV=<env> driver.sh <mode> <verb>`, the modes `cluster`,
     `break-glass`, `audit`, the teardown guard. Supersedes item 35.

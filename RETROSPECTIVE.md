@@ -912,3 +912,33 @@ ADR-0040.
 - **The result.** `kiesei:local` is 1.13 GB unpacked, from 2.12 GB. The
   build log shows the seven checksum checks. Phase 20 pushed the image to
   the fresh registry cache.
+
+## 2026-11-06 — item 36: one command per line in the emitted streams
+
+**User-verified 2026-11-06**, by review of the emitters and the preview.
+No bootstrap has run since the change. The rule is in `ryderdain/bash`
+(`a5e8127`, merged to `main`), not in an ADR: it is a doctrine rule.
+
+- **The rule** (the user's text, Q251, Q252). In an emitted group each
+  command goes on its own line, inside a subshell or a case arm too.
+  Three things stay on one line: a condition and the one command it
+  guards, two short commands that make one step (the `shift` after the
+  return code in `error()`), and a short pipe. A long pipe breaks before each
+  `|`. The shell's own
+  forms keep their semicolon. The test is readability, not the count of
+  semicolons. STYLE §1.2 has the reasoning, the bash-ops skill one
+  bullet, and `error()` lost its `exec >&2` line (the user).
+- **Applied here.** The driver's per-phase run block is four lines, as
+  the break-glass block already was since item 37: the header, the run,
+  the `.rc` write, the `} 2>&1 | tee`. Phase 10's `mkdir -p` and
+  `chmod 0700` of the OIDC cache are two lines. The short one-step
+  pairs stay: the `umask 077` subshells, the two `unset` commands of
+  the root token, the conductor's `mkdir -p && touch`, the host
+  sheet's case arm.
+- **The vendoring.** `driver/lib/error.sh` is re-vendored from
+  `a5e8127`, byte-identical. The pin in `driver/lib/UPSTREAM` is that
+  commit, with no tag, and the branch line is `main` (the user renamed
+  `master`). The 39 driver tests pass.
+- **Beside it, Q250.** `env/dev.env` is in four sections, and each
+  section names the one reader of its keys. Same keys, same values.
+  The key-name question returns in pass 8 (BACKLOG item 10).
