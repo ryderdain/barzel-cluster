@@ -42,16 +42,16 @@ a user sees. Item 35 was dropped (Q234) and this item took its place.
   Q224 asked for. `close` syncs each kustomize Application from git
   before it moves the switch, as `sync on` did. `apply <branch>` is not
   a verb: it would mean two different things.
-- **The teardown guard** (Q238, the user; Q244). `cluster teardown` and
+- **The teardown guard** (Q238 the user, Q244). `cluster teardown` and
   `audit teardown` emit every line behind the prefix `## ⚠ ##`. The first
   line sets a variable, behind the prefix too. The last group has no
   prefix, and it tests the variable. When the variable is not set, the
   group prints how to strip the prefix (`sed 's/^## ⚠ ##//'` in the pipe)
-  to stderr, from a heredoc, and exits 2. So a pipe without the `sed` runs nothing and says
-  so, and a pipe with it runs the teardown in silence. The message comes
-  from the run, not from the emitter, so it cannot show when the `sed` is
-  there. The recorded run sheets in `var/run/` are written when the stream
-  runs, so they carry no prefix.
+  to stderr, from a heredoc, and exits 2. So a pipe without the `sed` runs
+  nothing and says so, and a pipe with it runs the teardown in silence.
+  The message comes from the run, not from the emitter, so it cannot show
+  when the `sed` is there. The recorded run sheets in `var/run/` are
+  written when the stream runs, so they carry no prefix.
 - **Who opens** (Q241). Sign-on names the person when it answers. When it
   does not, the record names the declared name, else the account on the
   operator's machine, as declared, not verified, with a warning. One rule
