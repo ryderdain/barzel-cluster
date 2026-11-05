@@ -57,10 +57,12 @@ the names are set before it.
 ## Consequences
 
 - A live cluster cannot be renamed in place: its cluster Secret carries
-  `brzl.dev/env: local`. The path is a teardown under the old names, a move
-  of `var/log-store/local`, `var/secret-store/local` and the `oauth-local-*`
-  files to their `dev` names, then a bootstrap. The secret store keeps the
-  deploy key through the move.
+  `brzl.dev/env: local`. The path is a teardown under the old names, then a
+  bootstrap under `dev`. The secret store makes its transit key at its
+  first start only, and the check round-trips it by name, so the store is
+  purged in between (Q249): the next bootstrap makes a new one and takes
+  the deploy key again. The log store and the `oauth-local-*` files move
+  to their `dev` names.
 - The OAuth App on GitHub keeps the name `brzl-sign-on-local` unless the
   operator renames it there. Its callback URL does not change.
 - Every document that says "the local environment" says "the dev
