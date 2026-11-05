@@ -5,6 +5,5 @@
 # Check with: bash driver/lib/upstream-check.sh
 repo=ryderdain/bash
 branch=master
-tag=barzel-cluster/2026-10-14.2
-commit=83fdd41
+commit=a5e8127
 files=includes/runlib.sh includes/error.sh
