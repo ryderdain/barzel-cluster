@@ -86,6 +86,9 @@ sign_on_kubeconfig_up() {
     "--oidc-issuer-url=https://$BRZL_PORTAL_HOST/dex"
   printf '    --exec-arg=--oidc-extra-scope=profile --exec-arg=--oidc-extra-scope=groups \\\n'
   printf '    --exec-arg=--oidc-extra-scope=offline_access \\\n'
+  # kiesei has no browser: kubelogin prints the URL to open, with no attempt
+  # (and no error) first.
+  printf '    --exec-arg=--skip-open-browser \\\n'
   if [[ "${BRZL_PORTAL_TLS:-}" == local-ca ]]; then
     printf '    --exec-arg=%q \\\n' "--certificate-authority=$repo_root/$BRZL_SECRET_STORE_DIR/ca.crt"
   fi

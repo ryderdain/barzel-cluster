@@ -80,7 +80,7 @@ Open the shell once, then:
 ```sh
 bash driver/kiesei.sh shell
 # kubectl is you: the shell uses the sign-on kubeconfig of the current run
-# and signs in through Dex at its start (the browser opens on localhost:8000)
+# and signs in through Dex at its start: kubelogin prints a URL (localhost:8000); open it
 kubectl auth whoami
 # only in an open break-glass when Dex is down (docs/BREAK-GLASS.md):
 # kubectl as cluster-admin, with a red prompt, then back to you
