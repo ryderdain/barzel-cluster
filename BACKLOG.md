@@ -537,6 +537,10 @@ Order of work (Q120):
     pipe without the `sed` runs nothing. `BRZL_ENV` has a default. The
     names in the records follow (run sheets, the alert). Every document
     that shows a driver command changes with it. Supersedes item 35.
+    **Built 2026-11-05** (branch `item-37-driver-grammar`, ADR-0038): the
+    driver, `modes/break-glass.sh` (with `apply`), `modes/audit.sh`, 37
+    driver tests, every document. Not tested live: `open`, `apply` and
+    `close` need a cluster with sign-on.
 38. **Environment names and the environment definition** (user, 2026-11-05;
     Q239, Q240). Before pass 8. An environment is a step of the promotion
     chain, so its name is `dev`, `test`, `stage` or `production`, as in the
