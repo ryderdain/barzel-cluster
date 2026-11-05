@@ -36,11 +36,13 @@ and the kiesei image as a `core` stage with one stage per substrate
 had its cleanup round: done items keep their number and one entry, the
 June 2026 sections are condensed, and item 40 is new.
 **Item 36 (one command per line) built 2026-11-05, not yet verified.**
-The rule is in the `../bash` working tree (STYLE §1.2, the bash-ops
-skill, `includes/error.sh`), uncommitted, the user's to commit. The
+The rule is in `ryderdain/bash` (`a5e8127` on the branch
+`bash-doctrine`: STYLE §1.2, the bash-ops skill, `includes/error.sh`).
+`error.sh` is re-vendored and the `UPSTREAM` pin is that commit. The
 driver's per-phase run block and one line of phase 10 are split (Q251,
-Q252). Open: re-vendor `driver/lib/error.sh` and move the `UPSTREAM`
-pin after the upstream commit. The user verifies at the next bootstrap.
+Q252). Open: `UPSTREAM` says `branch=master`, and master is behind, so
+the check reports `error.sh` as newer there (Q253). The user verifies
+at the next bootstrap.
 `env/dev.env` is in sections (Q250, `48074d5`).
 **Then: the user's choice.** Item 8 (`promote platform`), item 40
 (`cluster teardown all`, the CA and hosts setup), or the user's second
