@@ -127,7 +127,7 @@ The driver prints. The pipe runs. A pipe into `kiesei.sh` or `bash` is the
 approval. Thus a piped `cluster bootstrap`, `cluster teardown`, `break-glass
 open`, `break-glass apply`, `break-glass close` or `audit bootstrap` changes
 the cluster or the machine. Ask the user before each one, per the "always
-ask" rule below. A teardown runs nothing until `sed 's/^## ⚠ ## //'` is in
+ask" rule below. A teardown runs nothing until `sed 's/^## ⚠ ##//'` is in
 the pipe. For the full set (break-glass, audit, GitHub access setup), read
 [`docs/LOCAL.md`](docs/LOCAL.md).
 
@@ -137,7 +137,7 @@ export BRZL_ENV=local                                     # the environment (the
 bash driver/driver.sh cluster bootstrap                   # read the unfinished phases (safe)
 bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # operate them (mutating)
 bash driver/driver.sh cluster status                      # read-only
-bash driver/driver.sh cluster teardown | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh   # remove the cluster
+bash driver/driver.sh cluster teardown | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh   # remove the cluster
 bash driver/tests/driver-cases.sh                         # driver tests, no cluster
 bash driver/lib/upstream-check.sh                         # vendored-lib pin check
 shellcheck -x <file.sh>

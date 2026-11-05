@@ -351,7 +351,7 @@ stream is behind the prefix `## ⚠ ##` until the `sed` strips it:
 
 ```sh
 BRZL_ENV=<env> bash driver/driver.sh audit bootstrap | bash driver/kiesei.sh    # start it
-BRZL_ENV=<env> bash driver/driver.sh audit teardown | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh   # stop it after use
+BRZL_ENV=<env> bash driver/driver.sh audit teardown | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh   # stop it after use
 ```
 
 `start` and `stop` are synonyms of `bootstrap` and `teardown`.

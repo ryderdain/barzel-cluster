@@ -254,7 +254,7 @@ directory. Grafana listens on `127.0.0.1` only, with no sign-on
 ```sh
 export BRZL_ENV=<env>
 bash driver/driver.sh audit bootstrap | bash driver/kiesei.sh    # start the reader
-bash driver/driver.sh audit teardown | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh   # stop it after use
+bash driver/driver.sh audit teardown | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh   # stop it after use
 ```
 
 The reader only reads: its Loki has the directory read-only. It can run

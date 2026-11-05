@@ -110,7 +110,7 @@ audit_bootstrap_check() {
   while (( waited <= 90 )); do
     if curl -fsS "$url/api/datasources/uid/admin-log-store/health" >/dev/null 2>&1; then
       printf 'the reader of the admin log store: %s/explore (data source "Admin log store", %s)\n' "$url" "$store"
-      printf 'stop it after use: BRZL_ENV=%s bash driver/driver.sh audit teardown | sed %s | bash driver/kiesei.sh\n' "$env" "'s/^## ⚠ ## //'"
+      printf 'stop it after use: BRZL_ENV=%s bash driver/driver.sh audit teardown | sed %s | bash driver/kiesei.sh\n' "$env" "'s/^## ⚠ ##//'"
       return 0
     fi
     sleep 3

@@ -76,7 +76,7 @@ exit "$rc"
 EOF
 
 drive() { (cd "$scratch" && export BRZL_ENV=test && bash driver/driver.sh "$@" 2>/dev/null); }
-unguard() { sed 's/^## ⚠ ## //'; }
+unguard() { sed 's/^## ⚠ ##//'; }
 run_dir() { readlink "$scratch/var/run/test/current"; }
 
 "$quiet" || printf 'driver mechanics (bash %s)\n\n' "$BASH_VERSION"
@@ -176,7 +176,7 @@ report 'a refused open stops with exit 3, keeps its emit output, runs no sheet' 
 # and the current run stays. Teardown is guarded (Q238).
 report 'audit bootstrap emits one group' '1' "$(drive audit bootstrap | grep -c '^{ # audit bootstrap: the reader of the admin log store')"
 report 'audit start is the same verb' '1' "$(drive audit start | grep -c '^{ # audit bootstrap: the reader of the admin log store')"
-report 'audit teardown emits one group behind the guard' '1' "$(drive audit teardown | grep -c '^## ⚠ ## { # audit teardown: the reader of the admin log store')"
+report 'audit teardown emits one group behind the guard' '1' "$(drive audit teardown | grep -c '^## ⚠ ##{ # audit teardown: the reader of the admin log store')"
 report 'audit teardown piped without the sed exits 2' '2' "$(drive audit teardown | (cd "$scratch" && bash >/dev/null 2>&1); printf '%s' "$?")"
 report 'the reader writes into var/run/<env>/audit-<UTC>Z' '1' \
   "$(drive audit bootstrap | grep -cE '^  mkdir -p var/run/test/audit-[0-9]{8}T[0-9]{4}Z(-[0-9]+)?$')"
@@ -189,16 +189,17 @@ report 'audit bootstrap without a local store stops with exit 3; the current run
 # line sets. A pipe without the sed runs nothing: the last line prints the
 # footer to stderr and exits 2. The same stream through the sed removes the
 # cluster, passes its check, and drops the current run.
-got="$(drive cluster teardown | grep -vc '^## ⚠ ## ')"
-report 'every line of cluster teardown but the last is behind the prefix' '1' "$got"
-report 'the first line sets the guard, behind the prefix' '## ⚠ ## guard=stripped' "$(drive cluster teardown | head -n 1)"
+got="$(drive cluster teardown | grep -vc '^## ⚠ ##')"
+report 'every line of cluster teardown but the last group (6 lines) is behind the prefix' '6' "$got"
+report 'the first line sets the guard, behind the prefix' '## ⚠ ##guard=stripped' "$(drive cluster teardown | head -n 1 | sed 's/   #.*//')"
 # shellcheck disable=SC2016  # the expected text is the emitted line, which bash expands later
-report 'the last line of cluster teardown tests the guard and carries the footer' 'yes' \
-  "$([[ "$(drive cluster teardown | tail -n 1)" == '[[ "${guard:-}" == stripped ]] || { printf '"'"'##    TO TEARDOWN, PASTE `sed '"'"'"'"'"'"'"'"'s/^## ⚠ ## //'"'"'"'"'"'"'"'"'` INTO PIPE    ##\n'"'"' >&2; exit 2; }' ]] && printf yes || printf no)"
+report 'the last group of cluster teardown tests the guard and carries the footer' 'yes' \
+  "$([[ "$(drive cluster teardown | tail -n 6 | sed -n '1p;3p')" == '[[ "${guard:-}" == stripped ]] || {   # the prefix was not stripped: nothing ran
+##    TO TEARDOWN, PASTE `sed '"'"'s/^## ⚠ ##//'"'"'` INTO PIPE    ##' ]] && printf yes || printf no)"
 out="$(drive cluster teardown | (cd "$scratch" && bash 2>&1 >/dev/null; printf '\n%s' "$?"))"
 rc="${out##*$'\n'}"; err="${out%$'\n'*}"; err="${err%$'\n'}"
 report 'cluster teardown piped without the sed runs nothing, prints the footer to stderr, exits 2' \
-  "2 $before present ##    TO TEARDOWN, PASTE \`sed 's/^## ⚠ ## //'\` INTO PIPE    ##" \
+  "2 $before present ##    TO TEARDOWN, PASTE \`sed 's/^## ⚠ ##//'\` INTO PIPE    ##" \
   "$rc $(run_dir) $([[ -L "$scratch/var/run/test/current" ]] && printf present || printf absent) $err"
 drive cluster stop | unguard | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
 report 'cluster teardown (as stop) through the sed succeeds and passes its check' '0' "$rc"

@@ -7,7 +7,7 @@
 #
 #   BRZL_ENV=<env> bash driver/driver.sh cluster bootstrap        # preview the unfinished phases
 #   BRZL_ENV=<env> bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # ...and run them
-#   BRZL_ENV=<env> bash driver/driver.sh cluster teardown | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh
+#   BRZL_ENV=<env> bash driver/driver.sh cluster teardown | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
 #                                               # remove the environment's cluster
 #   BRZL_ENV=<env> bash driver/driver.sh cluster status           # GENERATOR: the current run
 #   BRZL_ENV=<env> bash driver/driver.sh cluster check <phase> <run_dir> [down]   # GENERATOR;
@@ -23,12 +23,12 @@
 #                                               # the reader of the admin log
 #                                               #    store, on 127.0.0.1, also
 #                                               #    without a cluster
-#   BRZL_ENV=<env> bash driver/driver.sh audit teardown | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh
+#   BRZL_ENV=<env> bash driver/driver.sh audit teardown | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
 #                                               # ...stop it
 #
 # `start` and `stop` are synonyms of `bootstrap` and `teardown`, in both modes.
 # A teardown (cluster or audit) is guarded: every emitted line is behind the
-# prefix `## ⚠ ## `, so a pipe without the `sed` runs nothing: its last line
+# prefix `## ⚠ ##`, so a pipe without the `sed` runs nothing: its last line
 # prints how to strip it, to stderr, and exits 2.
 #
 # Each phase group: (1) the phase's emitter writes its commands to a run sheet,
@@ -189,18 +189,23 @@ emit_down() {
 
 # guarded <emit function> <args> — the teardown guard (Q238, Q244): every
 # line of the emitted stream behind the prefix, between a first line that
-# sets a variable (behind the prefix too) and a last line, with no prefix,
+# sets a variable (behind the prefix too) and a last group, with no prefix,
 # that tests it. A pipe without the sed reads only comments, then the last
-# line prints the footer to stderr and exits 2. With the sed, the first line
-# sets the variable, the teardown runs, and the last line passes.
+# group prints the footer to stderr and exits 2. With the sed, the first
+# line sets the variable, the teardown runs, and the last group passes.
 guarded() {
   local rc
   set -o pipefail   # the emitter's failure must not hide behind sed's success
-  { printf 'guard=stripped\n'; "$@"; } | sed 's/^/## ⚠ ## /'
+  { printf 'guard=stripped   # the teardown guard: the last group tests it\n'; "$@"; } | sed 's/^/## ⚠ ##/'
   rc=$?
   set +o pipefail
   (( rc == 0 )) || return "$rc"
-  printf '[[ "${guard:-}" == stripped ]] || { printf '\''##    TO TEARDOWN, PASTE `sed '\''"'\''"'\''s/^## ⚠ ## //'\''"'\''"'\''` INTO PIPE    ##\\n'\'' >&2; exit 2; }\n'
+  printf '[[ "${guard:-}" == stripped ]] || {   # the prefix was not stripped: nothing ran\n'
+  printf "  cat >&2 <<'EOF'\n"
+  printf '##    TO TEARDOWN, PASTE `sed '"'"'s/^## ⚠ ##//'"'"'` INTO PIPE    ##\n'
+  printf 'EOF\n'
+  printf '  exit 2\n'
+  printf '}\n'
 }
 
 # emit_break_glass <env> <open|close|apply> [args] — one group for a
@@ -334,7 +339,7 @@ usage() {
   printf '  cluster bootstrap | teardown | status | check <phase> <run_dir> [down]\n' >&2
   printf "  break-glass open '<reason>' | apply [<dir>] | close [confirm]\n" >&2
   printf '  audit bootstrap | teardown\n' >&2
-  printf '(start and stop are synonyms of bootstrap and teardown; a teardown needs | sed %s in the pipe)\n' "'s/^## ⚠ ## //'" >&2
+  printf '(start and stop are synonyms of bootstrap and teardown; a teardown needs | sed %s in the pipe)\n' "'s/^## ⚠ ##//'" >&2
 }
 
 main() {

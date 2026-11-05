@@ -140,11 +140,11 @@ bootstrap and before you make the OAuth App.
 
 ```sh
 BRZL_ENV=local bash driver/driver.sh cluster teardown \
-  | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh
+  | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
 ```
 
-The procedure is guarded: every line is behind the prefix `## ⚠ ##` and
-a space, so a pipe without the `sed` runs nothing. Its last line then
-prints how to strip the prefix, and exits 2. The cluster goes. The
+The procedure is guarded: every line is behind the prefix `## ⚠ ##`, so
+a pipe without the `sed` runs nothing. Its last group then prints how to
+strip the prefix, and exits 2. The cluster goes. The
 registry cache, the secret store and its credentials stay, so the next
 bootstrap is fast and needs no key.
