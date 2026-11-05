@@ -143,8 +143,12 @@ and the shell signs you in through Dex when no session is cached.
 
 ### Enter
 
-Sign in first, in the kiesei shell: `kubectl auth whoami` must name you.
-`open` uses that session and does not open a browser itself.
+Sign in first, in the kiesei shell (`bash driver/kiesei.sh shell`): at
+its start, kubelogin prints a URL, and you open it in your browser. Then
+`kubectl auth whoami` names you, and the session is cached for the run.
+`open` uses that session. Without one, `open` itself waits up to 30 s for
+the same URL to be opened, and then goes on as declared (below, "When
+Dex is down").
 
 ```sh
 BRZL_ENV=<env> bash driver/driver.sh break-glass open 'portal down after sync of chart X, INC-123'   # read it

@@ -105,7 +105,10 @@ kustomize_apps() {
 # 3 when the person is not an admin.
 whoami_admin() {
   local run_dir="$1" who
-  who="$(timeout 30 kubectl --kubeconfig "$run_dir/kubeconfig-sign-on" auth whoami -o json < /dev/null 2>/dev/null)" \
+  # With no cached session kubelogin prints a URL and waits for the browser,
+  # 30 s at most here; its output shows, so the person can open the URL.
+  printf 'sign-on: asking the kube-API who you are (when kubelogin prints a URL, open it within 30 s; or sign in first in the kiesei shell)\n' >&2
+  who="$(timeout 30 kubectl --kubeconfig "$run_dir/kubeconfig-sign-on" auth whoami -o json < /dev/null)" \
     || return 1
   if ! jq -e --arg g "$admins" '.status.userInfo.groups | index($g)' <<< "$who" >/dev/null; then
     printf 'error: sign-on names you %s, who is not in the team %s; only an admin can open\n' \
@@ -317,8 +320,9 @@ close() {
   fi
   # Who closes: any person whom sign-on names (the driver acts with the
   # cluster-admin kubeconfig either way); without sign-on, not verified.
+  printf 'sign-on: asking the kube-API who you are (when kubelogin prints a URL, open it within 30 s)\n' >&2
   closer="$(timeout 30 kubectl --kubeconfig "$run_dir/kubeconfig-sign-on" auth whoami \
-    -o jsonpath='{.status.userInfo.username}' < /dev/null 2>/dev/null)" || closer=''
+    -o jsonpath='{.status.userInfo.username}' < /dev/null)" || closer=''
   [[ -n "$closer" ]] || closer='not-verified(no-sign-on)'
   # The differences from git (Q200): Argo CD's own diff in core mode on
   # stderr (the record).

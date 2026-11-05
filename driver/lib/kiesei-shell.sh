@@ -67,6 +67,10 @@ argocd() {
 
 printf 'kiesei shell: kubectl is you (KUBECONFIG=%s)\n' "$KUBECONFIG"
 printf '              the cluster-admin kubeconfig is the driver'"'"'s; when Dex is down: as_admin, then as_me\n'
-if ! kubectl auth whoami -o json 2>/dev/null | jq -r '"              you are " + .status.userInfo.username'; then
+# The sign-in: with no cached session kubelogin prints a URL (on stderr) and
+# waits for the browser's callback; its output must show, or the wait looks
+# like a hang.
+printf '              signing in through Dex: when kubelogin prints a URL, open it in your browser (ctrl-c skips)\n'
+if ! kubectl auth whoami -o json | jq -r '"              you are " + .status.userInfo.username'; then
   printf 'kiesei shell: no sign-on session (is Dex or GitHub down?); in an emergency: as_admin (docs/BREAK-GLASS.md)\n' >&2
 fi
