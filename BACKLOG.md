@@ -550,6 +550,12 @@ Order of work (Q120):
     `env/local.env` becomes `env/dev.env`, and the `BRZL_*` keys in it get a
     review. The driver's default for `BRZL_ENV` becomes `dev` with it
     (item 37 sets it to the one environment that exists until then).
+    **Built 2026-11-05** (Q245–Q249; ADR-0039), on the branch
+    `item-38-environment-names`: `env/dev.env`, `substrates/local.sh`,
+    `BRZL_AUDIT_*`, `gitops/clusters/dev`, the ApplicationSet tests the
+    substrate, every document. The external pieces were purged (Q249 b,
+    "all"). The first bootstrap under `dev` is the INSTALL path from zero.
+    Awaiting the user's bootstrap and verification.
 
 Standing concerns (check in every pass):
 

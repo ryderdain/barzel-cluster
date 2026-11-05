@@ -29,16 +29,17 @@ the plan in [BACKLOG.md](BACKLOG.md), the records in
 (`## ⚠ ##`, `sed 's/^## ⚠ ##//'` in the pipe), ADR-0038. Item 35 was
 dropped. The item-35 branch (local and origin) is the user's to delete.
 **Item 38, environment names, IN PROGRESS** on the branch
-`item-38-environment-names` (Q245–Q248 accepted; ADR-0039). Done: the
-ADR, GLOSSARY, SPEC, every document. Waiting: the code part, a script in
-the session scratchpad (`apply-38-code.sh`, dry-run in a clone, 39 tests
-pass), held until the user's teardown/bootstrap cycle ends, because the
-checks and `kiesei.sh` read the tree live. Open: Q249 (the transit key
-is made at first start only, so `brzl-dev` fails the check on a kept
-store), and the user's follow-up question on the key names and
-`env/*.env`. Then the migration of `var/` (`migrate-38-var.sh`), a
-teardown under the old names, a bootstrap under `dev`, the ADR's "As
-built", BACKLOG 38, RETROSPECTIVE after the user verifies. **Then
+`item-38-environment-names` (Q245–Q249; ADR-0039). Built: the ADR,
+GLOSSARY, SPEC, every document, the code (`env/dev.env`,
+`substrates/local.sh`, `BRZL_AUDIT_*`, `gitops/clusters/dev`, the
+ApplicationSet tests the substrate label, `localPath` carries
+`__ENV__`). 39 tests pass. The external pieces were purged (Q249 b,
+scope `all`: OpenBao, Zot, the collector, DNS, the network `brzl-local`,
+the log store), and the OAuth App material was renamed to `oauth-dev-*`.
+`var/run/local` stays as a record. **Waiting:** the user's bootstrap
+under `dev` with the deploy key (the INSTALL path from zero), their
+verification, their follow-up question on the key names and `env/*.env`.
+Then the ADR's "As built", BACKLOG 38 done, RETROSPECTIVE. **Then
 BACKLOG 36** (one command per line): the rule goes into `ryderdain/bash`
 STYLE §1.2 first (the user commits there), then the emitters here. The
 user wants a second look at item 13 after the next passes.
