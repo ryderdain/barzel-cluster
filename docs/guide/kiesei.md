@@ -29,9 +29,9 @@ the commands and runs nothing. The command on the right side of the pipe
 decides where the commands run:
 
 ```sh
-bash driver/driver.sh local next                            # read it
-bash driver/driver.sh local next | bash driver/kiesei.sh    # run it in kiesei
-bash driver/driver.sh local next | bash                     # run it on the host
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap                           # read it
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # run it in kiesei
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash                    # run it on the host
 ```
 
 The procedure is the same in each case, so the run sheets in `var/run/` are
@@ -82,7 +82,7 @@ bash driver/kiesei.sh shell
 # kubectl is you: the shell uses the sign-on kubeconfig of the current run
 # and signs in through Dex at its start (the browser opens on localhost:8000)
 kubectl auth whoami
-# only in a break-glass hold when Dex is down (docs/BREAK-GLASS.md):
+# only in an open break-glass when Dex is down (docs/BREAK-GLASS.md):
 # kubectl as cluster-admin, with a red prompt, then back to you
 as_admin
 as_me

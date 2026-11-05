@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted · The substrate-adapter interface moved to ADR-0030 ·
-**Date:** 2026-10-07
+Accepted · The substrate-adapter interface moved to ADR-0030 · The
+driver's grammar (`<mode> <verb>`, `BRZL_ENV`) is ADR-0038 (item 37,
+2026-11-05) · **Date:** 2026-10-07
 
 ## Context
 

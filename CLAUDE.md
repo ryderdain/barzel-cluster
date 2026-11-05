@@ -81,16 +81,18 @@ into GLOSSARY first.
 ## Repo layout
 
 - `driver/`: the local-first operations driver (ADR-0022).
-  - `driver.sh <env> <verb>` is an emit script. It prints a run sheet and
-    runs nothing. The verbs are in its usage line. The `up` phases are
+  - `BRZL_ENV=<env> driver.sh <mode> <verb>` is an emit script. It prints
+    a run sheet and runs nothing. The modes are `cluster`, `break-glass`
+    and `audit`. The verbs are in its usage line (ADR-0038). The bootstrap
+    phases are
     `phases/{10-substrate,20-images,25-bootstrap,30-gitops,40-workloads}.sh`.
   - `kiesei.sh` runs the emitted stream in the `kiesei:local` image.
     `kiesei.sh shell` opens a signed-in shell.
   - `conductor.sh` sends a conductor phase to the in-cluster pod. The driver
     calls it. Do not run it by hand.
   - Adapters: `substrates/k3d.sh`, `secret-stores/openbao.sh`. Modes:
-    `modes/break-glass.sh`, `modes/reader.sh`, `modes/sync.sh`. GitHub access
-    setup: `access/github.sh`.
+    `modes/break-glass.sh`, `modes/audit.sh`. GitHub access setup:
+    `access/github.sh`.
   - `lib/runlib.sh` and `lib/error.sh` are vendored from `ryderdain/bash`
     and pinned in `lib/UPSTREAM`. Change them upstream first, then re-vendor.
   - `tests/driver-cases.sh` tests the driver mechanics with no cluster.
@@ -122,18 +124,20 @@ into GLOSSARY first.
 ## Commands
 
 The driver prints. The pipe runs. A pipe into `kiesei.sh` or `bash` is the
-approval. Thus a piped `up`, `next`, `down`, `apply`, `sync off`, `hold`, or
-`reader_on` changes the cluster. Ask the user before each one, per the
-"always ask" rule below. For the full set (the sync switch, reader, GitHub access
-setup), read [`docs/LOCAL.md`](docs/LOCAL.md).
+approval. Thus a piped `cluster bootstrap`, `cluster teardown`, `break-glass
+open`, `break-glass apply`, `break-glass close` or `audit bootstrap` changes
+the cluster or the machine. Ask the user before each one, per the "always
+ask" rule below. A teardown runs nothing until `sed 's/^## ⚠ ## //'` is in
+the pipe. For the full set (break-glass, audit, GitHub access setup), read
+[`docs/LOCAL.md`](docs/LOCAL.md).
 
 ```bash
 docker build -t kiesei:local containers/kiesei            # build the toolbox image
-bash driver/driver.sh local next                          # read the next phase (safe)
-bash driver/driver.sh local next | bash driver/kiesei.sh  # operate it (mutating)
-bash driver/driver.sh local up   | bash driver/kiesei.sh  # all phases (mutating)
-bash driver/driver.sh local status                        # read-only
-bash driver/driver.sh local down | bash driver/kiesei.sh  # remove the cluster
+export BRZL_ENV=local                                     # the environment (the default, until BACKLOG 38)
+bash driver/driver.sh cluster bootstrap                   # read the unfinished phases (safe)
+bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # operate them (mutating)
+bash driver/driver.sh cluster status                      # read-only
+bash driver/driver.sh cluster teardown | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh   # remove the cluster
 bash driver/tests/driver-cases.sh                         # driver tests, no cluster
 bash driver/lib/upstream-check.sh                         # vendored-lib pin check
 shellcheck -x <file.sh>

@@ -60,7 +60,7 @@ separate roads, and Argo CD in each cluster is where they meet:
   ┌─ local ───────────────────────────┐    ┌─────────────────────────────────┐
   │ Argo CD follows the branch the    │◀───│ registry: Zot / ECR, a pull-    │
   │ driver checked out                │    │ through with the packages token │
-  │ (sync off: the working tree)      │    └─────────────────────────────────┘
+  │ (break-glass open: a source tree) │    └─────────────────────────────────┘
   │ workload: follow = branch         │    reads of the repo: a GitHub App,
   │  the SCM generator asks GitHub    │    read-only, one per organization
   │  for the head of main every 5 min │    (Argo CD and the SCM generator)
@@ -80,8 +80,9 @@ separate roads, and Argo CD in each cluster is where they meet:
 A **platform change** is a commit here. Argo CD renders the one platform
 ApplicationSet (ADR-0025) from the revision named in the cluster's
 registration. Local follows the branch the driver checked out (GitOps mode)
-or applies the working tree with sync off (`apply`, ADR-0025 amendment). `promote
-platform` moves that revision to the next environment. A **workload change**
+or applies the working tree while the break-glass is open (`break-glass
+apply`, ADR-0025 amendment, ADR-0038). `promote platform` moves that
+revision to the next environment. A **workload change**
 is a commit in the workload's repo, and nothing else. Its CI publishes the
 image, and the environment's **follow policy** (ADR-0034) decides what Argo
 CD deploys. Local follows the development branch. An SCM generator in the
@@ -336,7 +337,7 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0022](adr/0022-driver-runs-phases-through-run-logs.md) | The driver runs phases through run-logs (now: run sheets) | Accepted; adapter interface → ADR-0030 |
 | [ADR-0023](adr/0023-mimic-cloud-services-locally.md) | Mimic cloud services locally now; decide on portable services later | Partly superseded by ADR-0026 |
 | [ADR-0024](adr/0024-local-is-the-first-environment.md) | Local is the first environment in the promotion chain | Accepted; k3s line → ADR-0030 |
-| [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted; amended item 13 (the sync switch: `sync off`, `sync on`, `apply` on `argocd app sync --local`) |
+| [ADR-0025](adr/0025-one-platform-applicationset-cluster-secret-values.md) | One platform ApplicationSet; values and sync switch per cluster | Accepted; amended item 13 (`apply` on `argocd app sync --local`); the sync verbs went into break-glass mode in item 37 (ADR-0038) |
 | [ADR-0026](adr/0026-local-secret-store-outside-the-cluster.md) | The local cluster secret store runs outside the cluster | Accepted |
 | [ADR-0027](adr/0027-logs-admin-and-diagnostic-stores.md) | Logs: an admin log store and a diagnostic log store | Accepted; amended Q158–Q162, Q163–Q166 (mutual TLS on the OTLP receiver) and Q210–Q217 (the cold log store on local); built in pass 6, item 4a and pass 6c |
 | [ADR-0028](adr/0028-admin-portal.md) | The admin portal: one nginx, a static page, a path for each service | Accepted; built in pass 5c; amended Q177 (sign-on in every environment) |
@@ -348,4 +349,5 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0034](adr/0034-example-app-is-a-separate-workload.md) | The example app is a separate workload (chofesh, private, from its own repo and CI); an environment follows a branch or a release; the platform depends on no workload | Accepted; built (pass 5d) |
 | [ADR-0035](adr/0035-operator-sign-on-dex-oauth2-proxy.md) | Operator sign-on: Dex → GitHub, oauth2-proxy, kube-API OIDC (from ADR-0018) | Accepted; amended Q169–Q183; steps 1 (web sign-on) and 2 (`kubectl` through Dex) built in pass 6a |
 | [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |
-| [ADR-0037](adr/0037-break-glass-mode.md) | Break-glass mode: `hold` stops sync and elevates the admins for the hold, with a record; `release` gives the cluster back to git; the reader of the admin log store | Accepted (pass 6b, Q195–Q209); built |
+| [ADR-0037](adr/0037-break-glass-mode.md) | Break-glass mode: `open` stops sync and elevates the admins, with a record; `close` gives the cluster back to git; the reader of the admin log store | Accepted (pass 6b, Q195–Q209); built; the verbs renamed in item 37 (ADR-0038) |
+| [ADR-0038](adr/0038-driver-grammar.md) | The driver grammar: `BRZL_ENV=<env> driver.sh <mode> <verb>`; the modes `cluster`, `break-glass`, `audit`; the sync verbs fold into break-glass; the teardown guard | Accepted (item 37, Q234–Q243); built |

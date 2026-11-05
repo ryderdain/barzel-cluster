@@ -217,8 +217,8 @@ traps are in [BREAK-GLASS.md](BREAK-GLASS.md).
 
 **When a recovery needs it.** In GitOps mode, Argo CD undoes a change that
 a person makes to a live object. The admins have only `view` in
-Kubernetes. A recovery that changes live objects by hand needs a hold
-first. Examples from this runbook:
+Kubernetes. A recovery that changes live objects by hand needs an open
+break-glass first. Examples from this runbook:
 
 - The Argo CD control plane after a self-inflicted prune (above): the
   `helm upgrade --install` and the rollout restarts are hand changes
@@ -228,32 +228,33 @@ first. Examples from this runbook:
 - A recovery `Cluster` for CNPG applied outside git (Step 5 above) when
   the GitOps path is not available.
 
-A recovery that goes through git (a PR, then a sync) needs no hold. A
-recovery that only reads needs no hold.
+A recovery that goes through git (a PR, then a sync) does not need it.
+A recovery that only reads does not need it.
 
 ```sh
-bash driver/driver.sh <env> hold 'INC-123: restore Argo CD after prune' | bash driver/kiesei.sh
+export BRZL_ENV=<env>
+bash driver/driver.sh break-glass open 'INC-123: restore Argo CD after prune' | bash driver/kiesei.sh
 # ... the hand changes, with your own kubectl in the kiesei shell ...
-bash driver/driver.sh <env> release | bash driver/kiesei.sh   # stops on differences from git
+bash driver/driver.sh break-glass close | bash driver/kiesei.sh   # stops on differences from git
 ```
 
-`release` lists each resource that differs from git and stops. Commit
-the recovered state to the branch that Argo CD follows, or confirm the
-undo (`release confirm`). When Dex is down, `hold` records a declared
-name, and the kiesei shell's `as_admin` switches `kubectl` to the
-cluster-admin kubeconfig with a banner (BREAK-GLASS.md, "When Dex is
-down").
+`close` lists each resource that differs from git and stops. Commit the
+recovered state to the branch that Argo CD follows, or confirm the undo
+(`close confirm`). When Dex is down, `open` records a declared name, and
+the kiesei shell's `as_admin` switches `kubectl` to the cluster-admin
+kubeconfig with a banner (BREAK-GLASS.md, "When Dex is down").
 
 **The admin log store when the cluster is down.** The store's data is
 outside the cluster (local: `var/log-store/<env>/admin/`), but the Loki
 and the Grafana that serve it are in the cluster. A driver action starts
 a Loki and a Grafana in containers on the operator's machine, on that
 directory. Grafana listens on `127.0.0.1` only, with no sign-on
-(BACKLOG 28, Q197, Q205):
+(BACKLOG 28, Q197, Q205, and audit mode, Q238):
 
 ```sh
-bash driver/driver.sh <env> reader_on | bash driver/kiesei.sh    # start the reader
-bash driver/driver.sh <env> reader_off | bash driver/kiesei.sh   # stop it after use
+export BRZL_ENV=<env>
+bash driver/driver.sh audit bootstrap | bash driver/kiesei.sh    # start the reader
+bash driver/driver.sh audit teardown | sed 's/^## ⚠ ## //' | bash driver/kiesei.sh   # stop it after use
 ```
 
 The reader only reads: its Loki has the directory read-only. It can run
@@ -266,14 +267,14 @@ in BREAK-GLASS.md.
 `var/log-store/<env>/cold/` (pass 6c). It keeps a copy of each admin
 record. It also keeps the pod logs of each namespace whose
 `brzl.dev/log-routes` names `cold`. Nothing removes these records, also
-not `down`. The files are OTLP JSON lines, in one directory for each
+not `cluster teardown`. The files are OTLP JSON lines, in one directory for each
 node. A full file gets the UTC time in its name. Each file has one
 purpose:
 
 | File | What it holds | Use it to find |
 | --- | --- | --- |
-| `platform/run-output.jsonl` | Every run output of the driver and the conductor: each phase of `up` and `down`, `hold`, `release`, `sync off`, `sync on` and `apply`. The header line of each output names the run, the phase, the start and the person. | What the platform did, when, and who ran it. |
-| `platform/api-audit.jsonl` | The Kubernetes API audit log: each request, with the user, the verb, the object and the result. During a hold, also the request body of the admins' writes. | Who changed which object, and when. |
+| `platform/run-output.jsonl` | Every run output of the driver and the conductor: each phase of `cluster bootstrap` and `cluster teardown`, and `break-glass open`, `apply` and `close`. The header line of each output names the run, the phase, the start and the person. | What the platform did, when, and who ran it. |
+| `platform/api-audit.jsonl` | The Kubernetes API audit log: each request, with the user, the verb, the object and the result. While the break-glass is open, also the request body of the admins' writes. | Who changed which object, and when. |
 | `platform/k8s-event.jsonl` | The Kubernetes events: what the cluster did with its objects, for example a failed probe, an image pull or a scheduling decision. | What happened to a workload, as the cluster saw it. |
 | `platform/openbao-audit.jsonl` | The secret store's audit log: each request, with the token's name, the operation and the path. A hash stands for each secret value. | Who read or wrote which secret, and when. |
 | `platform/k3s-server.jsonl` | The k3s server log: the API server, the scheduler, the controllers and the kubelet. | Why the control plane failed. |
@@ -298,13 +299,15 @@ to=2026-10-28T19:00:00Z
 
 **An example: the app is down, and the cluster is gone.** The example app
 stopped answering at about 17:30 UTC. Before anyone looked, someone ran
-`down`, and the cluster's Grafana went with the cluster. The cold records
+`cluster teardown`, and the cluster's Grafana went with the cluster. The cold records
 are on the disk. Work through the sources in this sequence.
 
 Step 1 — What the platform did, and who did it. Each run output starts
-with a header line. A hold shows as the phase `break-glass-hold-<UTC>Z`,
-a release as `break-glass-release-<UTC>Z`, and a `down` as
-`10-substrate-down` in a run `teardown-<UTC>Z`:
+with a header line. An open shows as the phase `break-glass-open-<UTC>Z`,
+and a close as `break-glass-close-<UTC>Z`. A teardown shows as
+`10-substrate-down` in a run `teardown-<UTC>Z`. Records from before
+2026-11-05 use the old names, `break-glass-hold-` and
+`break-glass-release-`:
 
 ```sh
 cold "$from" "$to" | jq -r 'select(.source == "run-output"
@@ -313,7 +316,7 @@ cold "$from" "$to" | jq -r 'select(.source == "run-output"
 
 In the live test of 2026-10-28 this gave one line for each phase of the
 run `cluster-20261028T1729Z`, each with `person=rdain`. The output of a
-`down` arrives after the next `up`: the collector beside the cluster
+teardown arrives after the next bootstrap: the collector beside the cluster
 holds it in its queue while the cluster is absent.
 
 Step 2 — What the cluster saw in the app's namespace. The events name

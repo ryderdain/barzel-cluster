@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted (designed in pass 6b, Q195–Q209, built) · **Date:**
+Accepted (designed in pass 6b, Q195–Q209, built; the verbs are `open`,
+`apply` and `close` since item 37, ADR-0038, 2026-11-05) · **Date:**
 2026-10-27 · **Extends:** ADR-0025 (the sync switch), ADR-0027 (the admin
 log store), ADR-0035 (the identities) · **Amends:** ADR-0035 (the admins'
 rights in Kubernetes)

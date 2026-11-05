@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted · **Date:** 2026-10-12 · **Extends:** ADR-0016, ADR-0024
+Accepted · The sync verbs of the item-13 amendment went into break-glass
+mode in item 37 (ADR-0038, 2026-11-05) · **Date:** 2026-10-12 ·
+**Extends:** ADR-0016, ADR-0024
 
 ## Context
 

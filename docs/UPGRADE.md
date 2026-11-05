@@ -74,8 +74,9 @@ Upgrade **servers one at a time** to keep the embedded-etcd quorum (need 2 of 3)
 Item 13. The chart version is one line in
 `gitops/platform/applicationset.yaml` (the `argocd` element), and phase 30
 reads it for the first install. The `argocd` CLI in kiesei has the same
-version (`containers/kiesei/Dockerfile`). Done on local with `down` and
-`up`, not in place (Q220): local is disposable, and no cloud is built.
+version (`containers/kiesei/Dockerfile`). Done on local with `cluster
+teardown` and `cluster bootstrap`, not in place (Q220): local is
+disposable, and no cloud is built.
 
 What the jump changed for this repo:
 
@@ -93,8 +94,8 @@ What the jump changed for this repo:
 - The built-in roles already have v3's finer rights (`update/*`,
   `delete/*`, `logs`). The repository credential was a Secret already.
 
-Checks after `up`: every image under the registry host and at the new
-version, five NetworkPolicies in `argocd`, each object with a
+Checks after `cluster bootstrap`: every image under the registry host and at
+the new version, five NetworkPolicies in `argocd`, each object with a
 `tracking-id` and no instance label, every Application Synced.
 
 ## OS / node patching 🔜
