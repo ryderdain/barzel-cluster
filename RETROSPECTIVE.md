@@ -923,11 +923,11 @@ No bootstrap has run since the change. The rule is in `ryderdain/bash`
   command goes on its own line, inside a subshell or a case arm too.
   Three things stay on one line: a condition and the one command it
   guards, two short commands that make one step (the `shift` after the
-  return code in `error()`), and a short pipe. A long pipe breaks before each
-  `|`. The shell's own
-  forms keep their semicolon. The test is readability, not the count of
-  semicolons. STYLE §1.2 has the reasoning, the bash-ops skill one
-  bullet, and `error()` lost its `exec >&2` line (the user).
+  return code in `error()`), and a short pipe. A long pipe breaks before
+  each `|`. The shell's own forms keep their semicolon. The test is
+  readability, not the count of semicolons. STYLE §1.2 has the
+  reasoning, the bash-ops skill one bullet, and `error()` lost its
+  `exec >&2` line (the user).
 - **Applied here.** The driver's per-phase run block is four lines, as
   the break-glass block already was since item 37: the header, the run,
   the `.rc` write, the `} 2>&1 | tee`. Phase 10's `mkdir -p` and
