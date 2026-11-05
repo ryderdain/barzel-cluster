@@ -808,3 +808,50 @@ the user allowed while away (AFK, remote control).
 - **Left behind:** the annotation `brzl.dev/spike=item-13b` on the
   binding `brzl-tier-auditors`, from the test. Harmless; the next `down`
   and `up` removes it.
+
+## 2026-11-05 — item 37: the driver grammar
+
+**User-verified 2026-11-05.** The user ran the full loop on the live
+local cluster: `cluster bootstrap`, `break-glass open`, `apply` with a
+change, `close`, `close confirm`, and the guard on `audit teardown`.
+Branch `item-37-driver-grammar`, merged to `main` with `--no-ff`.
+ADR-0038.
+
+- **The origin.** Item 35 renamed `hold`/`release` to `pause`/`resume`
+  (built 2026-11-04). The user tried it and saw two things. The sync verbs
+  and the break-glass pair move one switch. And the driver mixed nouns
+  and verbs. Item 35 was dropped (Q234 b: "failure and cutting changes
+  also counts as progress"), and item 37 took its place.
+- **The grammar** (the user, Q235–Q240): `BRZL_ENV=<env> driver.sh <mode>
+  <verb>`. The mode `cluster` has `bootstrap`, `teardown`, `status` and
+  `check`. `next` is gone, because `bootstrap` resumes. The mode
+  `break-glass` has `open '<reason>'`, `apply [<dir>]` and `close
+  [confirm]`. `sync off` and `sync on` are gone, and `apply` refuses
+  unless the break-glass is open. The mode `audit` has `bootstrap` and
+  `teardown`, for the reader. `start` and `stop` are synonyms. `BRZL_ENV`
+  defaults to `local` until BACKLOG 38 (Q242). `open` without sign-on
+  names the host account as declared (Q241). The names follow (Q243):
+  `modes/audit.sh`, no `modes/sync.sh`, `break-glass-open-` and
+  `-close-`, `audit-<UTC>Z`, `BrzlBreakGlassOpen`, `brzl-audit-<env>-*`.
+- **The teardown guard** (the user, Q238, and Q244). Every line is behind
+  `## ⚠ ##`. The first line sets `guard=stripped`. The last group tests it
+  and, without the `sed` in the pipe, prints the footer to stderr and
+  exits 2. The first shape, a footer on stdout, showed nothing when
+  nothing ran. The second, a one-line test, was messy in the preview. The
+  third is five lines with a heredoc. The user removed the space after
+  the prefix.
+- **Found in the live test, fixed.** An edit to the example app's
+  `namespace.yaml` showed no diff. The cause is kustomize, not the
+  driver: the base kustomization's `namespace:` renames `Namespace`
+  objects too. The kiesei shell's login and `open`/`close` ran `kubectl
+  auth whoami` with stderr thrown away, so kubelogin's URL never showed.
+  The shell looked hung, and `open` waited 30 s. Both now show the output
+  and say what happens.
+- **The user's GLOSSARY edits**, with the documents that follow. The
+  kiesei runs at one of two loci, not "in two modes". "TLS mode" is "TLS
+  type".
+- **Method.** Three rounds, Q234–Q244. Two forks wrote BREAK-GLASS.md and
+  LOCAL/INSTALL/kiesei.md in parallel, and their diffs were read. One
+  commit went in before its lint result was read, and the next commit
+  repaired it. 39 driver tests. The item-35 branch is the user's to
+  delete.

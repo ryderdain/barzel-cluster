@@ -23,24 +23,15 @@ with the agent's internal cycles, not instead of them.
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
 
-**▶ IN FLIGHT: BACKLOG 37, the driver grammar — BUILT 2026-11-05, the
-user's verification pending, not merged** (branch `item-37-driver-grammar`
-from `main`; ADR-0038). Item 35 (`pause`/`resume`) was built, then dropped
-by the user (Q234 b): the sync verbs and the break-glass pair move one
-switch. Decided (Q234–Q243, DECISIONS): `BRZL_ENV=<env> driver.sh <mode>
-<verb>`, default `local` until BACKLOG 38; modes `cluster` (`bootstrap`,
-`teardown`, `status`, `check`; no `next`), `break-glass` (`open
-'<reason>'`, `apply [<dir>]` only when open, `close [confirm]`; no
-`sync`), `audit` (`bootstrap`, `teardown`; the reader). `start`/`stop`
-are synonyms. A teardown is emitted behind `## ⚠ ##` (no space: the user);
-without the `sed` in the pipe its last group prints the footer and exits 2
-(Q244).
-39 driver tests pass. Not tested
-live: `open`, `apply`, `close`. The user's GLOSSARY edits (loci, TLS type)
-are in `7222ba9`. The item-35 branch still exists (local and origin): the
-user deletes it. After verification: RETROSPECTIVE, BACKLOG 37 done,
-merge `--no-ff`, tests on main, push. Then BACKLOG 38 (environment names)
-before pass 8, BACKLOG 36, item 8.
+**Item 37, the driver grammar, DONE and user-verified 2026-11-05**
+(RETROSPECTIVE), merged to `main`: `BRZL_ENV=<env> driver.sh <mode>
+<verb>`, the modes `cluster`, `break-glass`, `audit`, the teardown guard
+(`## ⚠ ##`, `sed 's/^## ⚠ ##//'` in the pipe), ADR-0038. Item 35 was
+dropped. The item-35 branch (local and origin) is the user's to delete.
+**Next: the user's choice.** BACKLOG 38 (environment names: `dev`,
+`BRZL_SUBSTRATE=local`, `env/dev.env`, before pass 8). BACKLOG 36 (one
+command per line, the rule in `ryderdain/bash` first). Or item 8. The
+user wants a second look at item 13 after the next passes.
 
 **Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
 (RETROSPECTIVE 2026-10-23 and 2026-10-27, three entries), merged to
