@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted (BACKLOG item 38, Q239, Q240, Q245–Q248) · **Date:** 2026-11-05 ·
+Accepted (BACKLOG item 38, Q239, Q240, Q245–Q249), built, user-verified
+2026-11-05 · **Date:** 2026-11-05 ·
 **Extends:** ADR-0024 (local is the first environment), ADR-0022 (the
 driver), ADR-0038 (the driver grammar) · **Amends:** ADR-0024 (the name of
 the first environment)
@@ -74,3 +75,17 @@ the names are set before it.
   for one row. Keep the `brzl-local` values in `env/dev.env`: they would
   name a thing that no longer exists. Keep both `clusters/dev` contents:
   two AppProjects named `brzl-dev` in one directory.
+
+## As built (item 38, 2026-11-05)
+
+- `env/dev.env`. `driver/substrates/local.sh` with `local-dns.Corefile`,
+  `local-otelcol.yaml` and `local-zot.json`. `BRZL_AUDIT_*` in
+  `driver/modes/audit.sh`. The default `dev` in `driver/driver.sh` and
+  `driver/kiesei.sh`, which refuses an unknown `BRZL_ENV`.
+  `gitops/clusters/dev` with the AppProject `brzl-dev`. The
+  ApplicationSet on the label `brzl.dev/substrate`.
+- The migration ran as "all" (Q249): every external piece was removed and
+  made again by the bootstrap. The host run sheet's CA step now compares
+  the certificate's fingerprint, found at that bootstrap.
+- User-verified 2026-11-05: the portal loaded and worked after the
+  bootstrap from zero (RETROSPECTIVE).
