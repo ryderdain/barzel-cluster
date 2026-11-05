@@ -5,7 +5,7 @@ Run the platform and its example app on a developer laptop with **no AWS**
 [ARCHITECTURE](ARCHITECTURE.md)). The example app is
 [chofesh](https://github.com/tzvat/chofesh) (ADR-0034): Argo CD reads
 its manifests from that repo, and the platform's own manifests get a thin
-[`gitops/clusters/local`](../gitops/clusters/local) overlay.
+[`gitops/clusters/dev`](../gitops/clusters/dev) overlay.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ its manifests from that repo, and the platform's own manifests get a thin
 - For `break-glass apply` only: the example app's checkout beside this
   repo,
   `git clone git@github.com:tzvat/chofesh.git ../chofesh`
-  (`BRZL_EXAMPLE_APP_SRC` in `env/local.env`). Argo CD reads the pushed
+  (`BRZL_EXAMPLE_APP_SRC` in `env/dev.env`). Argo CD reads the pushed
   repo, not the checkout.
 - Enough memory for the container engine. The reference hosts:
 
@@ -62,14 +62,14 @@ The driver prints a procedure and does not operate it. You give your approval
 when you pipe the procedure to a shell. A driver command is
 `BRZL_ENV=<env> bash driver/driver.sh <mode> <verb>` (GLOSSARY, "Driver
 command"): `BRZL_ENV` selects the environment definition `env/<env>.env`.
-Its default is `local` until BACKLOG 38 makes it `dev`, so on this
-machine a command without `BRZL_ENV` also works today.
+Its default is `dev`, so on this machine a command without `BRZL_ENV`
+also works.
 
 Read the phases that are not complete, then operate them:
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap   # read the procedure
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap   # read the procedure
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 ```
 
 `cluster start` is the same verb. The procedure holds every phase that has
@@ -82,15 +82,15 @@ Give it only to the command that operates the procedure. The key is then not
 in your shell for other commands:
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap \
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap \
   | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/sleipnir-brzl-deploy)" bash driver/kiesei.sh
 ```
 
 The run sheet records only the name `BRZL_REPO_DEPLOY_KEY`, not the key. The key
 must not have a passphrase, because Argo CD cannot use one. Before an
-environment other than local, a GitHub App replaces the deploy key (BACKLOG).
+environment other than dev, a GitHub App replaces the deploy key (BACKLOG).
 
-The local environment has five phases. Each phase has a locus: the driver
+The dev environment has five phases. Each phase has a locus: the driver
 (where you operate the procedure) or the conductor (a kiesei pod in the
 cluster). The locus is where the run sheet of the phase runs. The command is
 always `driver.sh`, for all phases: the driver sends a conductor phase to the
@@ -106,7 +106,7 @@ conductor. Do not operate `driver/conductor.sh` yourself.
   sign-on through Dex. It writes the host run sheet (below, "Steps on your
   machine"). If `k3d cluster create` waits at "Starting node" for more than
   a minute, the API server did not start: look at
-  `docker logs k3d-brzl-local-server-0`, stop the stream, and run
+  `docker logs k3d-brzl-dev-server-0`, stop the stream, and run
   `cluster teardown`.
   If the configuration of a container changed, it replaces that container.
   The data stays.
@@ -146,7 +146,7 @@ starts no second run. The
 conductor stops itself after `BRZL_CONDUCTOR_IDLE_SECONDS` with no work. The
 next conductor phase starts it again.
 
-Each phase writes a run sheet to `var/run/local/cluster-<UTC>Z/`, for
+Each phase writes a run sheet to `var/run/dev/cluster-<UTC>Z/`, for
 example `cluster-20261019T1300Z`: the commands (`<NN>-<phase>.sh`), their
 output (`.out`), the exit status (`.rc`), and `.ok` when the check of the
 phase is correct. A `cluster teardown` writes to `teardown-<UTC>Z`. Each
@@ -161,28 +161,28 @@ has no `.ok`.
 To see the commands of one phase without the driver:
 
 ```sh
-bash driver/phases/30-gitops.sh phase_up local var/run/local/preview
+bash driver/phases/30-gitops.sh phase_up dev var/run/dev/preview
 ```
 
 To see the condition of the current run:
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh cluster status
+BRZL_ENV=dev bash driver/driver.sh cluster status
 ```
 
-The values for the local environment are in `env/local.env`. To change one
+The values for the dev environment are in `env/dev.env`. To change one
 value for one run, export it. The driver shows a warning and records the
 value in the run sheet. Export the value. Then the two sides of the pipe get
 it:
 
 ```sh
 export BRZL_K3D_AGENTS=2
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 ```
 
 ### The Zot registry
 
-Zot operates adjacent to the cluster, on the container network `brzl-local`.
+Zot operates adjacent to the cluster, on the container network `brzl-dev`.
 It is a pull-through cache for `docker.io`, `ghcr.io`, `quay.io`,
 `registry.k8s.io` and `public.ecr.aws`, and the
 registry for images that you assemble here
@@ -195,18 +195,18 @@ To remove Zot, its cache, and the network:
 ```sh
 docker rm -f brzl-zot
 docker volume rm brzl-zot-data
-docker network rm brzl-local
+docker network rm brzl-dev
 ```
 
 ### The secret store
 
 OpenBao is the local cluster secret store (ADR-0026). It mimics a cloud secret
-store: it operates adjacent to the cluster, on the network `brzl-local`, with
+store: it operates adjacent to the cluster, on the network `brzl-dev`, with
 its data on the volume `brzl-openbao-data`. It exists before the cluster and
 stays when you remove the cluster. The driver reaches it at `127.0.0.1:8200`.
 In the cluster, External Secrets reads it through the store `brzl-secrets`.
 
-The files in `var/secret-store/local/` are your credential to the store.
+The files in `var/secret-store/dev/` are your credential to the store.
 Phase 10 makes them the first time. They are not in git:
 
 - `seal.key`: the key that unseals the store. If you lose this file, the
@@ -231,14 +231,14 @@ namespace `logs`:
   the environment. These are the run outputs, the k3s server log, the
   Kubernetes API audit log (metadata only), the secret store's audit log
   and the Kubernetes events. Its data is in the host
-  directory `var/log-store/local/admin/`, so it stays when you remove the
+  directory `var/log-store/dev/admin/`, so it stays when you remove the
   cluster. It saves its records within five minutes.
 - **The diagnostic log store** (`log-store-diagnostic`) keeps the pod logs
   of the workloads and the platform applications. Its data is lost with
   the cluster.
 - **The cold log store** keeps a copy of the admin records, and the pod
   logs of each namespace whose routes name `cold`. It is the host
-  directory `var/log-store/local/cold/`, as JSON lines. Nothing removes
+  directory `var/log-store/dev/cold/`, as JSON lines. Nothing removes
   it, also not `cluster teardown`. Read it with `jq` (RECOVERY.md, "The
   cold records").
 
@@ -250,16 +250,16 @@ annotation, its logs go to the diagnostic log store for 7 days.
 Two collectors send the records. A collector in the cluster, on each node,
 reads the pod logs, the k3s server log, the API audit log and the events. A
 collector beside the cluster, the container `brzl-log-collector`, reads what
-only your machine has: the run outputs in `var/run/local/` and the secret
-store's audit log in `var/log-store/local/openbao-audit/`. It sends them to
+only your machine has: the run outputs in `var/run/dev/` and the secret
+store's audit log in `var/log-store/dev/openbao-audit/`. It sends them to
 the collector in the cluster. While there is no cluster, it keeps them in
-its queue in `var/log-store/local/queue/` and sends them later. So the
+its queue in `var/log-store/dev/queue/` and sends them later. So the
 records of phases 10 to 30 and of a `cluster teardown` arrive after the
 next `cluster bootstrap`. Like Zot, it stays when you remove the cluster.
 
 The two collectors use mutual TLS (BACKLOG 4a). The receiver in the cluster
 is `log-intake.<host>`, with a certificate from cert-manager. It accepts
-only the client certificate in `var/secret-store/local/log-shipper/`, which
+only the client certificate in `var/secret-store/dev/log-shipper/`, which
 phase 10 issues from the store's CA, valid for 30 days. A cluster that
 lives longer than that keeps its run outputs in the queue until the next
 `cluster bootstrap` issues a new certificate. No workload can write over
@@ -282,8 +282,8 @@ what is in the store. The run outputs of a `cluster teardown`, and of
 every action while there is no cluster, are still in the queue:
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh audit bootstrap | bash driver/kiesei.sh
-BRZL_ENV=local bash driver/driver.sh audit teardown \
+BRZL_ENV=dev bash driver/driver.sh audit bootstrap | bash driver/kiesei.sh
+BRZL_ENV=dev bash driver/driver.sh audit teardown \
   | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
 ```
 
@@ -297,7 +297,7 @@ the store's audit log):
 
 ```sh
 docker rm -f brzl-log-collector
-rm -r var/log-store/local
+rm -r var/log-store/dev
 ```
 
 ### The workload's access
@@ -315,7 +315,7 @@ Phase 25 reads those files once and puts them into the store. From the
 store it writes the Argo CD `repo-creds` Secret `workload-github-app`, for
 `https://github.com/<org>` and so for every repository of the organization.
 It also writes Zot's upstream credentials file,
-`var/secret-store/local/zot-credentials.json`.
+`var/secret-store/dev/zot-credentials.json`.
 It restarts Zot when that file changed. Later runs need the files no more.
 A public workload needs none of this: the phase says so and goes on.
 
@@ -323,7 +323,7 @@ To write one secret into the store yourself, use the `bao` CLI in the
 container. The value goes on stdin, and the token in the environment:
 
 ```sh
-printf '%s' "$VALUE" | BAO_TOKEN="$(<var/secret-store/local/driver.token)" \
+printf '%s' "$VALUE" | BAO_TOKEN="$(<var/secret-store/dev/driver.token)" \
   docker exec -i -e BAO_TOKEN -e BAO_ADDR=http://127.0.0.1:8200 brzl-openbao \
   bao kv put -mount=secret <path> value=-
 ```
@@ -333,7 +333,7 @@ To purge the store and its credential, and start from zero:
 ```sh
 docker rm -f brzl-openbao
 docker volume rm brzl-openbao-data
-rm -r var/secret-store/local
+rm -r var/secret-store/dev
 ```
 
 The next `cluster bootstrap` makes a new store. Then give the deploy key
@@ -352,10 +352,10 @@ The admin portal is the one place to start: `https://<host>/` (ADR-0028).
 It links to Argo CD (`/argocd/`), Grafana (`/grafana/`) and the example
 app (`/apps/chofesh/`), and lists the CLI commands. You sign in with
 GitHub first (below, "Sign-on"). The host name and the port
-are in `env/local.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
+are in `env/dev.env` (`BRZL_PORTAL_HOST`, `BRZL_PORTAL_PORT`). The k3d
 adapter maps the port to the portal's NodePort when it makes the cluster.
 
-**The host name** (ADR-0036). `env/local.env` sets `local.barzel.sh`, the
+**The host name** (ADR-0036). `env/dev.env` sets `local.barzel.sh`, the
 reference setup on sleipnir. A DNS stand-in beside the cluster answers for
 that one name, and your machine must ask it (below, "Steps on your
 machine"). For a first test without that step, export
@@ -372,7 +372,7 @@ bash driver/kiesei.sh shell   # signs you in through Dex: kubelogin prints a URL
 kubectl get nodes             # as yourself
 argocd app list               # the first use signs in through Dex too
 # in an emergency, without sign-on: the cluster-admin kubeconfig, named on purpose
-KUBECONFIG=var/run/local/current/kubeconfig argocd --core app list
+KUBECONFIG=var/run/dev/current/kubeconfig argocd --core app list
 ```
 
 **In the shell you are yourself** (sign-on step 2, Q193). The run
@@ -400,7 +400,7 @@ there) but not for a callback: the browser gets "connection refused"
 binds, loopback included.
 
 k3d also adds the cluster to your default kubeconfig, as the context
-`k3d-brzl-local`.
+`k3d-brzl-dev`.
 
 Do a search. The app sends the query to Sefaria, shows the results, and writes
 them to the local Postgres, as in the cloud.
@@ -408,7 +408,7 @@ them to the local Postgres, as in the cloud.
 ### Steps on your machine
 
 Two steps change your machine, not kiesei. You do them one time, and only
-for a local environment on a laptop. The entries stay across
+for the local substrate, a laptop. The entries stay across
 `cluster teardown` and `cluster bootstrap`.
 
 1. **Resolve the name** (only for a chosen name, not for `*.localhost`).
@@ -425,30 +425,30 @@ for a local environment on a laptop. The entries stay across
 
    On Linux, add `127.0.0.1 local.barzel.sh` to `/etc/hosts` instead.
 2. **Trust the CA.** The store is the CA (`local-ca` mode), and its
-   certificate is `var/secret-store/local/ca.crt`. Until you trust it, the
+   certificate is `var/secret-store/dev/ca.crt`. Until you trust it, the
    browser warns, and that is acceptable. The commands depend on the
    operating system. The Linux rows were tested in containers on
    2026-10-23:
 
    | System | Commands |
    | --- | --- |
-   | macOS | `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db var/secret-store/local/ca.crt` (no `sudo`; macOS asks for your password) |
-   | Debian, Ubuntu, Alpine | `sudo cp var/secret-store/local/ca.crt /usr/local/share/ca-certificates/brzl-local.barzel.sh.crt` (the name must end in `.crt`), then `sudo update-ca-certificates` |
-   | Fedora, RHEL | `sudo cp var/secret-store/local/ca.crt /etc/pki/ca-trust/source/anchors/brzl-local.barzel.sh.crt`, then `sudo update-ca-trust` |
-   | openSUSE | `sudo cp var/secret-store/local/ca.crt /etc/pki/trust/anchors/brzl-local.barzel.sh.crt`, then `sudo update-ca-certificates` |
-   | Arch | `sudo trust anchor --store var/secret-store/local/ca.crt` |
+   | macOS | `security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db var/secret-store/dev/ca.crt` (no `sudo`; macOS asks for your password) |
+   | Debian, Ubuntu, Alpine | `sudo cp var/secret-store/dev/ca.crt /usr/local/share/ca-certificates/brzl-local.barzel.sh.crt` (the name must end in `.crt`), then `sudo update-ca-certificates` |
+   | Fedora, RHEL | `sudo cp var/secret-store/dev/ca.crt /etc/pki/ca-trust/source/anchors/brzl-local.barzel.sh.crt`, then `sudo update-ca-trust` |
+   | openSUSE | `sudo cp var/secret-store/dev/ca.crt /etc/pki/trust/anchors/brzl-local.barzel.sh.crt`, then `sudo update-ca-certificates` |
+   | Arch | `sudo trust anchor --store var/secret-store/dev/ca.crt` |
 
    No one command works on all Linux systems: `trust anchor` fails on
    Ubuntu. On Linux, Firefox and Chrome usually keep their own certificate
    store (NSS) and do not read the system's. To trust the CA there too,
    use `certutil` from the NSS tools:
    `certutil -d sql:$HOME/.pki/nssdb -A -t C,, -n brzl-local -i
-   var/secret-store/local/ca.crt` (for Chrome, not tested here).
+   var/secret-store/dev/ca.crt` (for Chrome, not tested here).
    Firefox has a store in each profile. Windows is not a supported driver
    machine.
 
 **The host run sheet (Q180).** Phase 10 writes the steps into
-`var/run/local/current/10-host.sh`. When the stream ends,
+`var/run/dev/current/10-host.sh`. When the stream ends,
 `driver/kiesei.sh` runs that sheet on your machine, outside kiesei. The
 sheet finds which steps are not done, for your system (`/etc/os-release` on
 Linux). It shows them, asks you one time to confirm, and runs them with
@@ -456,7 +456,7 @@ Linux). It shows them, asks you one time to confirm, and runs them with
 beside it (`10-host.out`, `10-host.rc`), and the admin log store receives
 the output. It runs again only when phase 10 writes it again. Without a
 terminal, or with `| bash` in place of `| bash driver/kiesei.sh`, run it
-yourself: `bash var/run/local/current/10-host.sh`. The checks of phases 10
+yourself: `bash var/run/dev/current/10-host.sh`. The checks of phases 10
 and 25 name the sheet. The purge (BACKLOG 18) removes the entries.
 
 **What sign-on changes here: nothing.** Dex is at `/dex/` under the portal
@@ -469,7 +469,7 @@ own hosts file, which phase 10 sets: nothing on your machine.
 
 The example app's repo has a contract with the platform (ADR-0034,
 amendment): `main` is its development branch, and its CI publishes an
-image for every push to it. The local environment **follows the branch**
+image for every push to it. The dev environment **follows the branch**
 (`BRZL_WORKLOAD_FOLLOW=branch`). The platform ApplicationSet asks GitHub
 for the head commit of `main` every 5 minutes. Argo CD then deploys that
 commit's manifests with that commit's image. So, in GitOps mode:
@@ -496,15 +496,15 @@ Secret. Break-glass mode moves it ([BREAK-GLASS.md](BREAK-GLASS.md)):
 `open` turns it off, with a record of who and why, and `close` turns it
 on. While the break-glass is open, you apply a source tree directly and do
 not push first: a change to the structure of the cluster, or the example
-app from its checkout. `apply` is only for the local environment, and it
-refuses while the break-glass is not open. On local, when sign-on does not
+app from its checkout. `apply` is only for the dev environment, and it
+refuses while the break-glass is not open. On dev, when sign-on does not
 answer, the record of `open` names your account on this machine, declared,
 not verified.
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh break-glass open 'try the portal' | bash driver/kiesei.sh
-BRZL_ENV=local bash driver/driver.sh break-glass apply | bash driver/kiesei.sh   # working tree
-BRZL_ENV=local bash driver/driver.sh break-glass close | bash driver/kiesei.sh   # pushed branch
+BRZL_ENV=dev bash driver/driver.sh break-glass open 'try the portal' | bash driver/kiesei.sh
+BRZL_ENV=dev bash driver/driver.sh break-glass apply | bash driver/kiesei.sh   # working tree
+BRZL_ENV=dev bash driver/driver.sh break-glass close | bash driver/kiesei.sh   # pushed branch
 ```
 
 - `open` sets the annotation `brzl.dev/auto-sync: "false"` on the cluster
@@ -573,7 +573,7 @@ order. The order matters: while the element is still in the ApplicationSet
 in the cluster, a deleted Application comes back at once.
 
 ```sh
-export KUBECONFIG=var/run/local/current/kubeconfig
+export KUBECONFIG=var/run/dev/current/kubeconfig
 
 # 1. Find the element's index in the ApplicationSet in the cluster.
 kubectl -n argocd get applicationset brzl-platform -o \
@@ -589,8 +589,8 @@ kubectl -n argocd delete application <name>
 kubectl delete namespace <namespace>
 
 # 4. Apply the file: phase 30 runs again, then phase 40.
-rm var/run/local/current/30-gitops.ok
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
+rm var/run/dev/current/30-gitops.ok
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 ```
 
 Step 4 removes the `.ok` by hand because `cluster bootstrap` skips a phase
@@ -616,7 +616,7 @@ Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
   Service address (`BRZL_PORTAL_CLUSTER_IP`, a script that k3d runs at
   every start of the node). So the pods and the kube-API reach Dex at the
   same URL as your browser. The fixed address is local only, a stand-in for public DNS
-  (`gitops/clusters/local/portal/`). It is `10.43.0.43`: k3s's Service
+  (`gitops/clusters/dev/portal/`). It is `10.43.0.43`: k3s's Service
   range is `10.43.0.0/16`, and Kubernetes keeps the first 256 addresses
   of it for fixed addresses, so nothing else takes it. A Service's address
   cannot change: a cluster from before it needs `cluster teardown`, then
@@ -634,16 +634,16 @@ Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
 before you try the platform with your own account.
 
 **Before the first bootstrap with sign-on**, do these one time (gh logged
-in, with the `admin:org` scope). `BRZL_SIGN_ON_ORG` in `env/local.env`
+in, with the `admin:org` scope). `BRZL_SIGN_ON_ORG` in `env/dev.env`
 names the organization:
 
 ```sh
 # the three teams; you in brzl-admins
 bash driver/access/github.sh teams tzvat | bash
 # the OAuth App, in the browser
-bash driver/access/github.sh oauth_app tzvat local | bash
+bash driver/access/github.sh oauth_app tzvat dev | bash
 # verify
-bash driver/access/github.sh sign_on_check tzvat local
+bash driver/access/github.sh sign_on_check tzvat dev
 ```
 
 The second step opens GitHub's form for a new OAuth App and prints the
@@ -660,8 +660,8 @@ cluster in that state is an open break-glass with a declared name
 ## Teardown
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh cluster teardown   # read the procedure
-BRZL_ENV=local bash driver/driver.sh cluster teardown \
+BRZL_ENV=dev bash driver/driver.sh cluster teardown   # read the procedure
+BRZL_ENV=dev bash driver/driver.sh cluster teardown \
   | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh         # remove the cluster
 ```
 

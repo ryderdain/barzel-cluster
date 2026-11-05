@@ -1,4 +1,4 @@
-# Install — the local environment, from zero
+# Install — the dev environment on your machine, from zero
 
 This is the shortest path from a clean machine to the platform running on
 it, with its example app. It is a procedure. The reference for each part is
@@ -82,16 +82,16 @@ this section.
 
 Every environment has sign-on (ADR-0035). Before the first bootstrap, make the
 three teams of the access tiers in the organization, and one GitHub OAuth
-App for this environment. `BRZL_SIGN_ON_ORG` in `env/local.env` names the
+App for this environment. `BRZL_SIGN_ON_ORG` in `env/dev.env` names the
 organization. Your `gh` login needs the `admin:org` scope.
 
 ```sh
 # the teams brzl-admins, brzl-operators, brzl-auditors; you in brzl-admins
 bash driver/access/github.sh teams tzvat | bash
 # the OAuth App: opens GitHub's form and prints what to type in
-bash driver/access/github.sh oauth_app tzvat local | bash
+bash driver/access/github.sh oauth_app tzvat dev | bash
 # verify
-bash driver/access/github.sh sign_on_check tzvat local
+bash driver/access/github.sh sign_on_check tzvat dev
 ```
 
 The OAuth App's callback URL contains the portal's host name, so make it
@@ -101,14 +101,15 @@ GitHub gives Dex at sign-on", before you use your own GitHub account.
 ## 6. Bootstrap
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap   # read the procedure first
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap \
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap   # read the procedure first
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap \
   | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/brzl-local-deploy)" bash driver/kiesei.sh
 ```
 
-`BRZL_ENV` selects the environment definition, `env/local.env`. A driver
-command is `BRZL_ENV=<env> bash driver/driver.sh <mode> <verb>`. The verbs
-are in LOCAL.md.
+`BRZL_ENV` selects the environment definition, `env/dev.env`. It is the
+default, so you can omit it. A driver command is
+`BRZL_ENV=<env> bash driver/driver.sh <mode> <verb>`. The verbs are in
+LOCAL.md.
 
 Pipe the procedure to `bash driver/kiesei.sh`, not to `bash`. The phases
 need the tools of the kiesei image (`yq`, `kubectl`, `helm`, `k3d`). On a
@@ -120,7 +121,7 @@ host run sheet with the steps for your machine: trust the local CA and,
 for a host name that is not under `.localhost`, a resolver entry. When the
 stream ends, `driver/kiesei.sh` shows those steps and asks you once before
 it runs them with `sudo` (LOCAL.md, "Steps on your machine").
-`env/local.env` sets `local.barzel.sh`. To use `brzl-local.localhost`,
+`env/dev.env` sets `local.barzel.sh`. To use `brzl-local.localhost`,
 which needs no resolver entry, export `BRZL_PORTAL_HOST` before the first
 bootstrap and before you make the OAuth App.
 
@@ -139,7 +140,7 @@ bootstrap and before you make the OAuth App.
 ## 8. Teardown
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh cluster teardown \
+BRZL_ENV=dev bash driver/driver.sh cluster teardown \
   | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
 ```
 

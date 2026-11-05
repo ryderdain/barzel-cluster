@@ -29,9 +29,9 @@ the commands and runs nothing. The command on the right side of the pipe
 decides where the commands run:
 
 ```sh
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap                           # read it
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # run it in kiesei
-BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash                    # run it on the host
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap                           # read it
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # run it in kiesei
+BRZL_ENV=dev bash driver/driver.sh cluster bootstrap | bash                    # run it on the host
 ```
 
 The procedure is the same in each case, so the run sheets in `var/run/` are
@@ -103,11 +103,11 @@ kubectl -n portal describe certificate portal
 kubectl cnpg status -n chofesh pg
 
 # the secret store (the CLI runs in the store's container; the token is a file)
-BAO_TOKEN="$(<var/secret-store/local/driver.token)" \
+BAO_TOKEN="$(<var/secret-store/dev/driver.token)" \
   docker exec -e BAO_TOKEN -e BAO_ADDR=http://127.0.0.1:8200 brzl-openbao bao status
 
 # what a phase would run, without running it
-bash driver/phases/30-gitops.sh phase_up local var/run/local/current
+bash driver/phases/30-gitops.sh phase_up dev var/run/dev/current
 ```
 
 One-off commands need no shell. The container reads commands on stdin:
