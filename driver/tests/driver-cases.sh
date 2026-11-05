@@ -194,7 +194,7 @@ report 'every line of cluster teardown but the last group (6 lines) is behind th
 report 'the first line sets the guard, behind the prefix' '## ⚠ ##guard=stripped' "$(drive cluster teardown | head -n 1 | sed 's/   #.*//')"
 # shellcheck disable=SC2016  # the expected text is the emitted line, which bash expands later
 report 'the last group of cluster teardown tests the guard and carries the footer' 'yes' \
-  "$([[ "$(drive cluster teardown | tail -n 6 | sed -n '1p;3p')" == '[[ "${guard:-}" == stripped ]] || {   # the prefix was not stripped: nothing ran
+  "$([[ "$(drive cluster teardown | tail -n 6 | sed -n '1p;3p')" == '[[ "${guard:-}" == stripped ]] || {   # the guard prefix was not stripped: nothing ran
 ##    TO TEARDOWN, PASTE `sed '"'"'s/^## ⚠ ##//'"'"'` INTO PIPE    ##' ]] && printf yes || printf no)"
 out="$(drive cluster teardown | (cd "$scratch" && bash 2>&1 >/dev/null; printf '\n%s' "$?"))"
 rc="${out##*$'\n'}"; err="${out%$'\n'*}"; err="${err%$'\n'}"

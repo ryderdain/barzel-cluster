@@ -200,7 +200,7 @@ guarded() {
   rc=$?
   set +o pipefail
   (( rc == 0 )) || return "$rc"
-  printf '[[ "${guard:-}" == stripped ]] || {   # the prefix was not stripped: nothing ran\n'
+  printf '[[ "${guard:-}" == stripped ]] || {   # the guard prefix was not stripped: nothing ran\n'
   printf "  cat >&2 <<'EOF'\n"
   printf '##    TO TEARDOWN, PASTE `sed '"'"'s/^## ⚠ ##//'"'"'` INTO PIPE    ##\n'
   printf 'EOF\n'
