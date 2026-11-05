@@ -3,7 +3,8 @@
 ## Status
 
 Accepted · The "k3s stays on each substrate" line is superseded by
-ADR-0030 · **Date:** 2026-10-07 · **Supersedes:** ADR-0015
+ADR-0030 · The first environment is named `dev`, on the substrate `local`,
+since item 38 (ADR-0039) · **Date:** 2026-10-07 · **Supersedes:** ADR-0015
 
 ## Context
 

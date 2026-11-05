@@ -31,10 +31,11 @@ cluster. Accurate name: kiesei bakar.
 _Avoid_: bastion, jump host, conductor instance
 
 **Substrate**:
-The thing that a cluster operates on. Examples: k3d on a laptop, AWS, GCP, or
-DigitalOcean. Each cloud provider is a separate substrate. Accurate name:
+The thing that a cluster operates on: `local` (this machine, with k3d),
+`aws`, `gcp`, or DigitalOcean. Each cloud provider is a separate substrate.
+The control plane on it (k3d, EKS, GKE) is not the substrate. Accurate name:
 hatzer.
-_Avoid_: platform, provider, cloud (for this meaning)
+_Avoid_: platform, provider, cloud (for this meaning), k3d (for this meaning)
 
 **Substrate adapter**:
 The set of steps that make, change, or remove the cluster on one substrate.
@@ -44,12 +45,14 @@ _Avoid_: backend, plugin
 ### What moves through the chain
 
 **Environment**:
-One step of the promotion chain. Each environment has its own configuration
-and its own deployed resources. The local environment is the first step.
-_Avoid_: stage, workspace, cluster (for this meaning)
+One step of the promotion chain: `dev`, `test`, `stage` or `production`.
+Each environment has its own configuration and its own deployed resources.
+The dev environment is the first step. It runs on the local substrate.
+_Avoid_: local (for this meaning), workspace, cluster (for this meaning)
 
 **Promotion chain**:
-The sequence of environments that a change must go through, from local to prod.
+The sequence of environments that a change must go through, from dev to
+production.
 _Avoid_: pipeline, release train
 
 **Workload**:
@@ -70,8 +73,8 @@ development branch, and the image its CI published for that commit.
 _Avoid_: tracking mode, image policy, update strategy
 
 **Environment definition**:
-The one shell script that tells all values for one environment. Each value is
-a default that the operator can replace for a single test.
+The one file, `env/<env>.env`, that tells all values for one environment.
+Each value is a default that the operator can replace for a single test.
 _Avoid_: config, profile, tfvars (for this meaning)
 
 ### How a change is applied
