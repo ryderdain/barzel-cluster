@@ -25,7 +25,7 @@
 #   auto_sync_wait <none|all> wait up to 90 s until the ApplicationSet renders
 #                             no (none) or every (all) Application with
 #                             automated sync (the sync switch, ADR-0025;
-#                             driver/modes/sync.sh and break-glass.sh); print
+#                             driver/modes/break-glass.sh); print
 #                             "<automated> of <total>"; return 1 on timeout
 #   argocd_core_kubeconfig    print the path of a copy of the current kubeconfig
 #                             whose context names the namespace argocd, which
@@ -134,7 +134,7 @@ argocd_core_kubeconfig() {
   printf '%s' "$kc"
 }
 
-# The safety for a kept change (Q200, Q225): `release` and `sync on` stop
+# The safety for a kept change (Q200, Q225): `break-glass close` stops
 # while an Application differs from git, and show what Argo CD would put
 # back.
 differences_from_git() {

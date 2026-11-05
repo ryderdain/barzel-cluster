@@ -1,4 +1,4 @@
-# The data source of the reader's Grafana (driver/modes/reader.sh). The
+# The data source of the reader's Grafana (driver/modes/audit.sh). The
 # same name and uid as in the cluster's Grafana, so the queries in
 # docs/BREAK-GLASS.md work in both. Grafana shares the network of the
 # reader's Loki container, so Loki is on 127.0.0.1.

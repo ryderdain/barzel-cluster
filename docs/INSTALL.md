@@ -25,7 +25,7 @@ cd barzel-cluster
 docker build -t kiesei:local containers/kiesei       # the toolchain image
 ```
 
-The example app's checkout is for `apply` only (LOCAL.md). Argo CD reads
+The example app's checkout is for `break-glass apply` only (LOCAL.md). Argo CD reads
 the pushed repository, not the checkout.
 
 ## 3. The platform's own deploy key
@@ -39,7 +39,7 @@ ssh-keygen -t ed25519 -N '' -C brzl-local -f ~/.ssh/brzl-local-deploy
 gh repo deploy-key add ~/.ssh/brzl-local-deploy.pub --title brzl-local
 ```
 
-The key is given to the first `up` only (section 5). The cluster secret
+The key is given to the first bootstrap only (section 6). The cluster secret
 store keeps it after that.
 
 ## 4. The workload's access
@@ -75,12 +75,12 @@ the command the `packages_token` step prints:
 | `packages-token` | you, with the printed command | the token, `read:packages` (0600) |
 
 Phase 25 reads them once and puts them into the cluster secret store. You
-can delete the directory after the first `up`. For a public workload, skip
+can delete the directory after the first bootstrap. For a public workload, skip
 this section.
 
 ## 5. Sign-on
 
-Every environment has sign-on (ADR-0035). Before the first `up`, make the
+Every environment has sign-on (ADR-0035). Before the first bootstrap, make the
 three teams of the access tiers in the organization, and one GitHub OAuth
 App for this environment. `BRZL_SIGN_ON_ORG` in `env/local.env` names the
 organization. Your `gh` login needs the `admin:org` scope.
@@ -98,13 +98,17 @@ The OAuth App's callback URL contains the portal's host name, so make it
 after you choose the host name. Read [SECURITY.md](SECURITY.md), "What
 GitHub gives Dex at sign-on", before you use your own GitHub account.
 
-## 6. Up
+## 6. Bootstrap
 
 ```sh
-bash driver/driver.sh local up                      # read the procedure first
-bash driver/driver.sh local up \
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap   # read the procedure first
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap \
   | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/brzl-local-deploy)" bash driver/kiesei.sh
 ```
+
+`BRZL_ENV` selects the environment definition, `env/local.env`. A driver
+command is `BRZL_ENV=<env> bash driver/driver.sh <mode> <verb>`. The verbs
+are in LOCAL.md.
 
 Pipe the procedure to `bash driver/kiesei.sh`, not to `bash`. The phases
 need the tools of the kiesei image (`yq`, `kubectl`, `helm`, `k3d`). On a
@@ -118,7 +122,7 @@ stream ends, `driver/kiesei.sh` shows those steps and asks you once before
 it runs them with `sudo` (LOCAL.md, "Steps on your machine").
 `env/local.env` sets `local.barzel.sh`. To use `brzl-local.localhost`,
 which needs no resolver entry, export `BRZL_PORTAL_HOST` before the first
-`up` and before you make the OAuth App.
+bootstrap and before you make the OAuth App.
 
 ## 7. See it work
 
@@ -132,11 +136,15 @@ which needs no resolver entry, export `BRZL_PORTAL_HOST` before the first
   Within ten minutes Argo CD deploys that commit (LOCAL.md, "How a change to
   the example app arrives").
 
-## 8. Down
+## 8. Teardown
 
 ```sh
-bash driver/driver.sh local down | bash driver/kiesei.sh
+BRZL_ENV=local bash driver/driver.sh cluster teardown \
+  | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
 ```
 
-The cluster goes. The registry cache, the secret store and its credentials
-stay, so the next `up` is fast and needs no key.
+The procedure is guarded: every line is behind the prefix `## ⚠ ##`, so
+a pipe without the `sed` runs nothing. Its last group then prints how to
+strip the prefix, and exits 2. The cluster goes. The
+registry cache, the secret store and its credentials stay, so the next
+bootstrap is fast and needs no key.

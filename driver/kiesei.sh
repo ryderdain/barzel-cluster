@@ -3,8 +3,7 @@
 # reads a command stream on stdin and runs it with bash inside the kiesei image,
 # so the procedure uses the image's pinned toolchain, not the host's tools.
 #
-#   bash driver/driver.sh local next | bash driver/kiesei.sh   # careful
-#   bash driver/driver.sh local up   | bash driver/kiesei.sh   # all at once
+#   BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 #   bash driver/kiesei.sh shell                                # an interactive
 #                                 shell in the image, for the CLI tools (argocd,
 #                                 kubectl, helm, cnpg, ...); docs/guide/kiesei.md.

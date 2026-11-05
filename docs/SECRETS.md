@@ -51,7 +51,7 @@ Its controls are the machine's own. On a cloud, BACKLOG 23 decides.
 | the auth roles `eso` and `cert-manager`, and the reviewer token | the store; `brzl-system/openbao-auth-token` | phase 25 writes them again |
 
 **3. The cluster-admin kubeconfig**: `var/run/<env>/<run>/kubeconfig`
-(§8). It ends with the cluster (`down`).
+(§8). It ends with the cluster (`cluster teardown`).
 
 | Derives | Made by |
 | --- | --- |
@@ -226,7 +226,7 @@ From [`.gitignore`](../.gitignore):
     packages user and token. For sign-on, two more for each environment:
     `oauth-<env>-client-id` and `oauth-<env>-client-secret`, the OAuth App
     of that environment. Phase 25 seeds the store from them. You can
-    delete the directory after the first `up`. The store keeps the values.
+    delete the directory after the first bootstrap. The store keeps the values.
 - `backend.hcl` — account-primitives' state backend config (identity/conductor only; the stack composes its backend, no file)
 - `*.tfstate*`, `*tfplan*` — state + **saved plans (can embed resolved secrets)**
 - `*.tfvars*` — **except** the committed non-secret per-env stack defs (`stack/aws/<layer>/{dev,prod}.tfvars`); rendered secret/ARN tfvars use `*.auto.tfvars` and stay ignored

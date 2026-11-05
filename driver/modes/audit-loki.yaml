@@ -1,4 +1,4 @@
-# The Loki of the reader of the admin log store (driver/modes/reader.sh;
+# The Loki of the reader of the admin log store (driver/modes/audit.sh;
 # ADR-0037, BACKLOG 28). It only reads: the store's directory is mounted
 # read-only at /store, it runs as a querier alone (no ingester, no
 # compactor), and it asks only the store, never an ingester. So it cannot

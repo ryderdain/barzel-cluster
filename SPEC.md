@@ -97,16 +97,18 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   the cluster Secret (registry host, per-upstream prefix, the workload follow
   policy, backup bucket, git revision), written by the bootstrap (AWS) or phase
   30-gitops (local) — never in git. The annotation `brzl.dev/auto-sync: "false"`
-  is the one switch that stops automated sync: **the sync switch** (local,
-  `sync off`/`sync on`; `apply` puts the working tree in through `argocd app
-  sync --local`; item 13, 2026-10-29) and **break-glass mode** (any
-  environment, emergencies, built in pass 6b, ADR-0037: `hold` sets the switch
-  for the whole environment and adds a record annotation
-  `brzl.dev/break-glass`. It elevates the admins to `cluster-admin` with a
-  second binding for the hold. Outside a hold the admins have `view`.
-  `release` stops on differences from git, then gives the cluster back to Argo
-  CD. The reader of the admin log store runs outside the cluster.
-  `docs/BREAK-GLASS.md` is the working model). Guard against the ADR-0016
+  is the one switch that stops automated sync: **the sync switch**. Only
+  **break-glass mode** moves it, in any environment, for an emergency and
+  for the local test of the working tree (built in pass 6b, ADR-0037, the
+  verbs in item 37, ADR-0038). `break-glass open` sets the switch for the
+  whole environment and adds a record annotation `brzl.dev/break-glass`. It
+  elevates the admins to `cluster-admin` with a second binding while it is
+  open. Otherwise the admins have `view`. `break-glass apply` puts a source
+  tree in through `argocd app sync --local` (local, item 13, 2026-10-29).
+  `break-glass close` stops on differences from git, then gives the cluster
+  back to Argo CD. The reader of the admin log store runs outside the
+  cluster, in audit mode. `docs/BREAK-GLASS.md` is the working model. Guard
+  against the ADR-0016
   prune cascade: `applicationsSync: create-update` +
   `preserveResourcesOnDeletion`, and phase 30-gitops stops before an apply
   that would orphan a live Application. Argo CD reads the private repo with a
@@ -186,7 +188,7 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   its S3 file-transfer bucket — SSH-over-SSM needs none.* Prod hardening
   (documented): private subnets, no public IP, VPC interface endpoints for
   `ssm`/`ssmmessages`/`ec2messages`. - **Operations run from the kiesei image,
-  in two modes (2026-10-07, ADR-0021).** The operator toolchain is one
+  at two loci (2026-10-07, ADR-0021).** The operator toolchain is one
   container image, **kiesei** (formerly "toolbox"), which needs only a
   container engine. The **driver** (*kiesei nahag*) runs it outside the
   cluster: it makes and removes clusters, sequences phases, approves, and
@@ -203,8 +205,11 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
   phase, each group = emit the phase into a run sheet
   (`var/run/<env>/<YYYYmmddHHMM>/<NN>-<phase>.sh`, gitignored) → run the file
   → `.rc` → the phase's check → `.ok`. **No prompts: approval is running the
-  output** — `driver.sh <env> next` (one phase, careful) or `driver.sh <env>
-  up | bash` (all remaining, fast; only for local-only effects). Emitted
+  output** — `BRZL_ENV=<env> driver.sh cluster bootstrap | bash` (all
+  remaining phases, and the preview shows them all). **The driver grammar
+  (2026-11-05, item 37, ADR-0038):** `<mode> <verb>`. The modes are
+  `cluster`, `break-glass` and `audit`. A teardown is emitted behind a
+  guard prefix that the operator strips in the pipe. Emitted
   commands sit in `{ … }` groups used as anonymous functions, with a check
   only where re-running a block would harm or leave state ambiguous. Outputs
   pass between phases as files. **Every phase must be safe to run again** —

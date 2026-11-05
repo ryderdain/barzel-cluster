@@ -17,7 +17,8 @@ its manifests from that repo, and the platform's own manifests get a thin
 - No AWS account, profile, or credentials.
 - For a private workload: `gh`, the GitHub CLI, logged in to your account.
   The access script (below, "The workload's access") uses it.
-- For `apply` only: the example app's checkout beside this repo,
+- For `break-glass apply` only: the example app's checkout beside this
+  repo,
   `git clone git@github.com:tzvat/chofesh.git ../chofesh`
   (`BRZL_EXAMPLE_APP_SRC` in `env/local.env`). Argo CD reads the pushed
   repo, not the checkout.
@@ -55,23 +56,24 @@ selects where it operates:
 
 The procedure is the same for the two shells.
 
-## Up
+## Bootstrap
 
 The driver prints a procedure and does not operate it. You give your approval
-when you pipe the procedure to a shell.
+when you pipe the procedure to a shell. A driver command is
+`BRZL_ENV=<env> bash driver/driver.sh <mode> <verb>` (GLOSSARY, "Driver
+command"): `BRZL_ENV` selects the environment definition `env/<env>.env`.
+Its default is `local` until BACKLOG 38 makes it `dev`, so on this
+machine a command without `BRZL_ENV` also works today.
 
-Careful mode, one phase at a time:
-
-```sh
-bash driver/driver.sh local next                          # read the next phase
-bash driver/driver.sh local next | bash driver/kiesei.sh  # operate it; do again
-```
-
-All phases that are not complete, at once (only for effects on this machine):
+Read the phases that are not complete, then operate them:
 
 ```sh
-bash driver/driver.sh local up | bash driver/kiesei.sh
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap   # read the procedure
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 ```
+
+`cluster start` is the same verb. The procedure holds every phase that has
+no `.ok` in the current run, so it is also the preview of all of them.
 
 Argo CD reads this repository, which is private. The first time, give the
 driver the read-only deploy key: phase `25-bootstrap` writes it into the
@@ -80,7 +82,7 @@ Give it only to the command that operates the procedure. The key is then not
 in your shell for other commands:
 
 ```sh
-bash driver/driver.sh local up \
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap \
   | BRZL_REPO_DEPLOY_KEY="$(<~/.ssh/sleipnir-brzl-deploy)" bash driver/kiesei.sh
 ```
 
@@ -104,7 +106,8 @@ conductor. Do not operate `driver/conductor.sh` yourself.
   sign-on through Dex. It writes the host run sheet (below, "Steps on your
   machine"). If `k3d cluster create` waits at "Starting node" for more than
   a minute, the API server did not start: look at
-  `docker logs k3d-brzl-local-server-0`, stop the stream, and run `down`.
+  `docker logs k3d-brzl-local-server-0`, stop the stream, and run
+  `cluster teardown`.
   If the configuration of a container changed, it replaces that container.
   The data stays.
 - `20-images` (driver) pushes the kiesei image to Zot. A workload's image
@@ -146,13 +149,14 @@ next conductor phase starts it again.
 Each phase writes a run sheet to `var/run/local/cluster-<UTC>Z/`, for
 example `cluster-20261019T1300Z`: the commands (`<NN>-<phase>.sh`), their
 output (`.out`), the exit status (`.rc`), and `.ok` when the check of the
-phase is correct. A `down` writes to `teardown-<UTC>Z`. Each output starts
+phase is correct. A `cluster teardown` writes to `teardown-<UTC>Z`. Each
+output starts
 with a header line that names the environment, the run, the phase, the
 start time and the account on your machine (`person=`, declared, not
 verified). The admin log store receives every output (below, "The logs").
 If a phase stops, repair the cause and
-operate `up` or `next` again. The driver starts at the first phase that has no
-`.ok`.
+operate `cluster bootstrap` again. The driver starts at the first phase that
+has no `.ok`.
 
 To see the commands of one phase without the driver:
 
@@ -163,7 +167,7 @@ bash driver/phases/30-gitops.sh phase_up local var/run/local/preview
 To see the condition of the current run:
 
 ```sh
-bash driver/driver.sh local status
+BRZL_ENV=local bash driver/driver.sh cluster status
 ```
 
 The values for the local environment are in `env/local.env`. To change one
@@ -173,7 +177,7 @@ it:
 
 ```sh
 export BRZL_K3D_AGENTS=2
-bash driver/driver.sh local up | bash driver/kiesei.sh
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 ```
 
 ### The Zot registry
@@ -216,7 +220,7 @@ Phase 10 makes them the first time. They are not in git:
 
 A store made before 2026-10-15 has a driver token without the PKI
 capabilities. The check of phase 25 says so; purge the store (below) and
-run `up` again.
+run `cluster bootstrap` again.
 
 ### The logs
 
@@ -235,8 +239,8 @@ namespace `logs`:
 - **The cold log store** keeps a copy of the admin records, and the pod
   logs of each namespace whose routes name `cold`. It is the host
   directory `var/log-store/local/cold/`, as JSON lines. Nothing removes
-  it, also not `down`. Read it with `jq` (RECOVERY.md, "The cold
-  records").
+  it, also not `cluster teardown`. Read it with `jq` (RECOVERY.md, "The
+  cold records").
 
 A namespace chooses where its pod logs go with the annotation
 `brzl.dev/log-routes` (`drop`, `admin`, `diagnostic`, `cold`), and how long
@@ -250,15 +254,16 @@ only your machine has: the run outputs in `var/run/local/` and the secret
 store's audit log in `var/log-store/local/openbao-audit/`. It sends them to
 the collector in the cluster. While there is no cluster, it keeps them in
 its queue in `var/log-store/local/queue/` and sends them later. So the
-records of phases 10 to 30 and of a `down` arrive after the next `up`. Like
-Zot, it stays when you remove the cluster.
+records of phases 10 to 30 and of a `cluster teardown` arrive after the
+next `cluster bootstrap`. Like Zot, it stays when you remove the cluster.
 
 The two collectors use mutual TLS (BACKLOG 4a). The receiver in the cluster
 is `log-intake.<host>`, with a certificate from cert-manager. It accepts
 only the client certificate in `var/secret-store/local/log-shipper/`, which
 phase 10 issues from the store's CA, valid for 30 days. A cluster that
 lives longer than that keeps its run outputs in the queue until the next
-`up` issues a new certificate. No workload can write over OTLP.
+`cluster bootstrap` issues a new certificate. No workload can write over
+OTLP.
 
 To read the logs, open Grafana in the portal (`/grafana/`), then Explore.
 Choose the data source "Admin log store" or "Diagnostic log store". Some
@@ -270,16 +275,21 @@ queries:
 {k8s_namespace_name="chofesh"}
 ```
 
-When the cluster is down or gone, use the reader of the admin log store
-([BREAK-GLASS.md](BREAK-GLASS.md)). It gives the same data source on
-`http://127.0.0.1:3300/explore`, with no sign-on. It shows only what is in the store.
-The run outputs of a `down`, and of every action while there is no
-cluster, are still in the queue:
+When the cluster is down or gone, use audit mode: the reader of the admin
+log store ([BREAK-GLASS.md](BREAK-GLASS.md)). It gives the same data
+source on `http://127.0.0.1:3300/explore`, with no sign-on. It shows only
+what is in the store. The run outputs of a `cluster teardown`, and of
+every action while there is no cluster, are still in the queue:
 
 ```sh
-bash driver/driver.sh local reader_on | bash driver/kiesei.sh
-bash driver/driver.sh local reader_off | bash driver/kiesei.sh
+BRZL_ENV=local bash driver/driver.sh audit bootstrap | bash driver/kiesei.sh
+BRZL_ENV=local bash driver/driver.sh audit teardown \
+  | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
 ```
+
+A teardown, of the cluster or of the reader, is guarded. Every line of its
+procedure is behind the prefix `## ⚠ ##`, so a pipe without the `sed` runs
+nothing. Its last group then prints how to strip the prefix, and exits 2.
 
 To remove the collector beside the cluster and all log data that is kept
 outside the cluster (the admin and cold log stores' data, the queue and
@@ -326,7 +336,8 @@ docker volume rm brzl-openbao-data
 rm -r var/secret-store/local
 ```
 
-The next `up` makes a new store. Then give the deploy key again.
+The next `cluster bootstrap` makes a new store. Then give the deploy key
+again.
 
 ## Use it
 
@@ -397,8 +408,8 @@ them to the local Postgres, as in the cloud.
 ### Steps on your machine
 
 Two steps change your machine, not kiesei. You do them one time, and only
-for a local environment on a laptop. The entries stay across `down` and
-`up`.
+for a local environment on a laptop. The entries stay across
+`cluster teardown` and `cluster bootstrap`.
 
 1. **Resolve the name** (only for a chosen name, not for `*.localhost`).
    The DNS stand-in answers `local.barzel.sh` with `127.0.0.1` on
@@ -473,57 +484,62 @@ A manifest change arrives the same way. The other environments follow a
 release instead (`release`): the tag the ApplicationSet element names,
 made in the app's repo with `make release`.
 
-For a change you have not pushed, use `sync off` and `apply` (below) with
-`make dev-image` in the checkout. It builds for this machine, pushes to
-Zot's push namespace, and points `deploy/local` at the build.
+For a change you have not pushed, open the break-glass and use `apply`
+(below) with `make dev-image` in the checkout. It builds for this machine,
+pushes to Zot's push namespace, and points `deploy/local` at the build.
 
-## Sync off and on
+## Apply the working tree
 
 Argo CD's automated sync has one switch for the whole environment: the
-sync switch (ADR-0025). With sync off, you apply your working tree
-directly and do not push first: a change to the structure of the cluster,
-or the example app from its checkout. The switch is only for the local
-environment. For an emergency in any environment, use break-glass mode
-([BREAK-GLASS.md](BREAK-GLASS.md)): `hold` moves the same switch, with a
-record. `sync off`, `apply` and `sync on` refuse during a hold.
+sync switch (ADR-0025), the annotation `brzl.dev/auto-sync` on the cluster
+Secret. Break-glass mode moves it ([BREAK-GLASS.md](BREAK-GLASS.md)):
+`open` turns it off, with a record of who and why, and `close` turns it
+on. While the break-glass is open, you apply a source tree directly and do
+not push first: a change to the structure of the cluster, or the example
+app from its checkout. `apply` is only for the local environment, and it
+refuses while the break-glass is not open. On local, when sign-on does not
+answer, the record of `open` names your account on this machine, declared,
+not verified.
 
 ```sh
-bash driver/driver.sh local sync off | bash driver/kiesei.sh  # Argo CD stops
-bash driver/driver.sh local apply    | bash driver/kiesei.sh  # working tree
-bash driver/driver.sh local sync on  | bash driver/kiesei.sh  # pushed branch
+BRZL_ENV=local bash driver/driver.sh break-glass open 'try the portal' | bash driver/kiesei.sh
+BRZL_ENV=local bash driver/driver.sh break-glass apply | bash driver/kiesei.sh   # working tree
+BRZL_ENV=local bash driver/driver.sh break-glass close | bash driver/kiesei.sh   # pushed branch
 ```
 
-- `sync off` sets the annotation `brzl.dev/auto-sync: "false"` on the
-  cluster Secret. The ApplicationSet then removes automated sync from each
-  Application. No commit is necessary.
-- `apply` asks Argo CD for the difference between your working tree and
-  the cluster, for each kustomize Application (`argocd app diff --local`),
-  and shows it. Then it syncs each Application that differs (`argocd app
-  sync --local`): Argo CD renders the tree with the Application's own
-  images and patches, and tracks the objects as usual. That render edits
-  the kustomization it is given, so both steps work on a copy of the
-  source tree (`gitops/`, or the app's `deploy/`), never on your files.
-  The example app renders from its checkout beside this repo
-  (`BRZL_EXAMPLE_APP_SRC`). So
-  the loop for the app is: edit `../chofesh`, then, when the code changed,
-  `make dev-image` there, then `apply`, look. `make dev-image` points
+- `open` sets the annotation `brzl.dev/auto-sync: "false"` on the cluster
+  Secret, with the record, and makes the admins cluster-admin. The
+  ApplicationSet then removes automated sync from each Application. No
+  commit is necessary.
+- `apply` asks Argo CD for the difference between the source tree and the
+  cluster, for each kustomize Application (`argocd app diff --local`), and
+  shows it. Then it syncs each Application that differs (`argocd app sync
+  --local`): Argo CD renders the tree with the Application's own images
+  and patches, and tracks the objects as usual. That render edits the
+  kustomization it is given, so both steps work on a copy of the source
+  tree (`gitops/`, or the app's `deploy/`), never on your files. The
+  source tree is your working tree, or another checkout of this repo:
+  `break-glass apply <dir>`. The example app renders from its checkout
+  beside this repo (`BRZL_EXAMPLE_APP_SRC`) in both cases. So the loop for
+  the app is: edit `../chofesh`, then, when the code changed, `make
+  dev-image` there, then `apply`, look. `make dev-image` points
   `deploy/local` at the build. `git checkout deploy/local` undoes that
   before a commit.
 
   The helm apps (Argo CD, CloudNativePG, External Secrets, cert-manager,
   the log stack, monitoring, sign-on) are not included: to change one,
   push a branch and let Argo CD sync it.
-- While sync is off, Argo CD shows each changed Application as OutOfSync.
-  The difference is your change compared with the pushed branch.
-- `sync on` asks Argo CD for the difference between each Application and
+- While the break-glass is open, Argo CD shows each changed Application as
+  OutOfSync. The difference is your change compared with the pushed branch.
+- `close` asks Argo CD for the difference between each Application and
   its git revision, lists each one that differs, with the diff, and
-  stops. Commit and push the change, then `sync on` again. Then it syncs
+  stops. Commit and push the change, then `close` again. Then it syncs
   each kustomize Application from git once more: after a local sync,
   Argo CD compares against the manifests it last synced, not against
   git, until a sync from git. When the branch and the cluster agree,
   that sync changes nothing. For a local image, push the app's commit
   and let its CI build it; Argo CD then rolls the pods to the CI image,
-  once. To accept the undo instead: `sync on confirm`. A difference is a
+  once. To accept the undo instead: `close confirm`. A difference is a
   field that git sets with a different value, or an object that git has
   and the cluster does not. A field that only your working tree added,
   for example a new annotation, is no difference for Argo CD: it stays,
@@ -531,20 +547,21 @@ bash driver/driver.sh local sync on  | bash driver/kiesei.sh  # pushed branch
 
 **Caution:**
 
-- `sync on confirm` makes the cluster agree with the pushed branch again.
+- `close confirm` makes the cluster agree with the pushed branch again.
   Argo CD prunes and heals. **A change that you did not commit and push
   is removed from the cluster.**
-- `apply` with sync on shows the difference and stops. Nothing changes:
-  Argo CD refuses a local sync while automated sync is on, and self-heal
-  would undo it within minutes.
+- `apply` while the break-glass is not open stops before any change.
+  Argo CD would refuse a local sync while automated sync is on, and
+  self-heal would undo it within minutes.
 - `apply` does not prune. An object that you removed from the working
-  tree stays in the cluster until `sync on`.
-- Phase `40-workloads` fails while sync is off, because Argo CD does not
-  sync. Operate `sync on` before you operate `up` again.
-- Do not use **Sync** in the Argo CD UI while sync is off. A manual sync
-  replaces your working-tree change in that Application with the pushed
-  branch. Use **Refresh** to see the current difference: Argo CD compares
-  only every 3 minutes by itself.
+  tree stays in the cluster until `close`.
+- Phase `40-workloads` fails while the break-glass is open, because Argo
+  CD does not sync. Operate `close` before you operate `cluster bootstrap`
+  again.
+- Do not use **Sync** in the Argo CD UI while the break-glass is open. A
+  manual sync replaces your working-tree change in that Application with
+  the pushed branch. Use **Refresh** to see the current difference: Argo
+  CD compares only every 3 minutes by itself.
 
 ## Retire an Application
 
@@ -573,10 +590,11 @@ kubectl delete namespace <namespace>
 
 # 4. Apply the file: phase 30 runs again, then phase 40.
 rm var/run/local/current/30-gitops.ok
-bash driver/driver.sh local up | bash driver/kiesei.sh
+BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 ```
 
-Step 4 removes the `.ok` by hand because `up` skips a phase that has one
+Step 4 removes the `.ok` by hand because `cluster bootstrap` skips a phase
+that has one
 (BACKLOG item 16 is the driver action for this).
 
 ## Sign-on
@@ -601,12 +619,13 @@ Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
   (`gitops/clusters/local/portal/`). It is `10.43.0.43`: k3s's Service
   range is `10.43.0.0/16`, and Kubernetes keeps the first 256 addresses
   of it for fixed addresses, so nothing else takes it. A Service's address
-  cannot change: a cluster from before it needs `down`, then `up`.
+  cannot change: a cluster from before it needs `cluster teardown`, then
+  `cluster bootstrap`.
 - `kubectl` signs in through Dex too (above, "Use it"). The kube-API's trust
   in Dex is a file that phase 10 writes (`apiserver/authentication-config.yaml`
   in the run directory) and the node mounts. Its path is set when the
-  cluster is made: **a cluster from before step 2 needs `down`, then
-  `up`**.
+  cluster is made: **a cluster from before step 2 needs `cluster
+  teardown`, then `cluster bootstrap`**.
 - Sessions end within an hour of a removal from a team: the gate, Grafana
   and kubelogin refresh their tokens every hour, and Dex refuses the
   refresh. Argo CD's UI asks for "Log in via GitHub" again every hour.
@@ -614,9 +633,9 @@ Every environment has sign-on (ADR-0035, Q169–Q183). The flows are in
 [SECURITY.md](SECURITY.md) tells what GitHub gives Dex at sign-in. Read it
 before you try the platform with your own account.
 
-**Before the first `up` with sign-on**, do these one time (gh logged in,
-with the `admin:org` scope). `BRZL_SIGN_ON_ORG` in `env/local.env` names
-the organization:
+**Before the first bootstrap with sign-on**, do these one time (gh logged
+in, with the `admin:org` scope). `BRZL_SIGN_ON_ORG` in `env/local.env`
+names the organization:
 
 ```sh
 # the three teams; you in brzl-admins
@@ -635,20 +654,24 @@ they are absent.
 
 **In an emergency** (Dex or GitHub fails), use the CLI with the
 kubeconfig: `kubectl`, `argocd --core`, or a port-forward. A change to the
-cluster in that state is a break-glass hold with a declared name
+cluster in that state is an open break-glass with a declared name
 ([BREAK-GLASS.md](BREAK-GLASS.md), "When Dex is down").
 
-## Down
+## Teardown
 
 ```sh
-bash driver/driver.sh local down                          # read the procedure
-bash driver/driver.sh local down | bash driver/kiesei.sh  # remove the cluster
+BRZL_ENV=local bash driver/driver.sh cluster teardown   # read the procedure
+BRZL_ENV=local bash driver/driver.sh cluster teardown \
+  | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh         # remove the cluster
 ```
 
-This removes the k3d cluster only. The containers beside it (Zot, OpenBao,
-the DNS stand-in, the log collector) stay, with their data, and so do the
-admin log store's data and the steps on your machine. The next `up` starts
-a new run.
+`cluster stop` is the same verb. The procedure is guarded: every line is
+behind the prefix `## ⚠ ##`. A pipe without the `sed` runs nothing, prints
+how to strip the prefix, and exits 2. This removes the k3d
+cluster only. The containers beside it (Zot,
+OpenBao, the DNS stand-in, the log collector) stay, with their data, and
+so do the admin log store's data and the steps on your machine. The next
+`cluster bootstrap` starts a new run.
 
 ## What differs from the AWS cluster (and why)
 
@@ -663,7 +686,7 @@ the AWS-specific parts. All else is the same manifests as the cloud:
 | Backups | CNPG → S3 (Barman) | **off** | no object store locally |
 | Monitoring | kube-prometheus-stack | the same; the node exporter has no root file-system metrics | the k3d node is a container (`values-local.yaml`) |
 | Logs | admin log store data in S3 (pass 8) | admin log store data in a host directory; a collector beside the cluster sends the run outputs | no object store locally; the driver's machine holds the run outputs |
-| GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; with **sync off**, `apply` puts the working tree in | one file for every environment |
+| GitOps | the platform ApplicationSet (ADR-0025) | the same ApplicationSet; while the break-glass is open, `apply` puts the working tree in | one file for every environment |
 | Sign-on | the same Dex and oauth2-proxy behind the portal (pass 8) | Dex and oauth2-proxy behind the portal; on the nodes and in the cluster, a host alias makes the portal's host name the portal's fixed Service address | one sign-on on every substrate; only the entry point differs (ADR-0035) |
 | Certificates | `letsencrypt` mode (ACME DNS-01) | `local-ca` mode: OpenBao is the CA | a laptop needs nothing public (ADR-0036) |
 

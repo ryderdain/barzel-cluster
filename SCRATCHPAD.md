@@ -19,9 +19,19 @@ with the agent's internal cycles, not instead of them.
 
 ## Current focus
 
-*(2026-10-27, fable. Pruned to the current state. The history is in git,
+*(2026-11-05, fable. Pruned to the current state. The history is in git,
 the plan in [BACKLOG.md](BACKLOG.md), the records in
 [RETROSPECTIVE.md](RETROSPECTIVE.md).)*
+
+**Item 37, the driver grammar, DONE and user-verified 2026-11-05**
+(RETROSPECTIVE), merged to `main`: `BRZL_ENV=<env> driver.sh <mode>
+<verb>`, the modes `cluster`, `break-glass`, `audit`, the teardown guard
+(`## ⚠ ##`, `sed 's/^## ⚠ ##//'` in the pipe), ADR-0038. Item 35 was
+dropped. The item-35 branch (local and origin) is the user's to delete.
+**Next: the user's choice.** BACKLOG 38 (environment names: `dev`,
+`BRZL_SUBSTRATE=local`, `env/dev.env`, before pass 8). BACKLOG 36 (one
+command per line, the rule in `ryderdain/bash` first). Or item 8. The
+user wants a second look at item 13 after the next passes.
 
 **Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
 (RETROSPECTIVE 2026-10-23 and 2026-10-27, three entries), merged to

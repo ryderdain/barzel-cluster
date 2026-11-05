@@ -9,9 +9,9 @@ to a public cloud.
 ### Where things run
 
 **Kiesei**:
-The container image that holds the full operator toolchain. It is necessary
-to have only a container engine to operate it. Each locus is a kiesei in one
-of two modes.
+The container image that holds the full operator toolchain. Only a container
+engine is necessary to operate it. It runs in one of two loci, as the driver
+or the conductor.
 _Avoid_: toolbox, ops image, tools container, kisei (spelling)
 
 **Locus**:
@@ -19,13 +19,13 @@ The position where an operation occurs: the driver or the conductor.
 _Avoid_: local (for this meaning), host, runner
 
 **Driver**:
-The kiesei mode external to the cluster. It makes the cluster, puts phases in
+The kiesei locus external to the cluster. It makes the cluster, puts phases in
 sequence, and sends commands to the conductor. It is the only locus that can
 remove or replace a cluster. Accurate name: kiesei nahag.
 _Avoid_: orchestrator, seed locus, laptop (for this meaning)
 
 **Conductor**:
-The kiesei mode in the cluster. It operates the commands that the driver sends
+The kiesei locus in the cluster. It operates the commands that the driver sends
 to it. A conductor must not operate a phase that removes or replaces its own
 cluster. Accurate name: kiesei bakar.
 _Avoid_: bastion, jump host, conductor instance
@@ -86,19 +86,31 @@ The usual mode of an environment. Argo CD makes the cluster agree with a
 pushed git branch.
 _Avoid_: normal mode, sync mode
 
+**Driver command**:
+One instruction to the driver: `BRZL_ENV=<env> driver.sh <mode> <verb>`.
+The mode is `cluster` (the usual mode: the operator makes, reads and
+removes the cluster, and Argo CD runs it), `break-glass` or `audit`. The
+verb is an action: `bootstrap`, `teardown`, `open`, `close`, `apply`. A
+teardown runs nothing until the operator strips its guard in the pipe.
+_Avoid_: subcommand, action (for the mode), up, down, next
+
 **Sync switch**:
 The one switch of an environment that stops or starts Argo CD's automated
-sync for every Application. With sync off, the local environment takes the
-working tree directly (`apply`). Break-glass mode moves the same switch,
-with a record.
-_Avoid_: fast mode, dev mode, auto-sync flag, hold switch
+sync for every Application. Only break-glass mode moves it, with a record.
+_Avoid_: fast mode, dev mode, auto-sync flag, sync off, sync on
 
 **Break-glass mode**:
-A mode of any environment for an emergency. Argo CD holds and does not sync,
-and the admins get full rights for the time of the hold, each under their
-own name. Each use is recorded and reviewed afterwards. It is not for usual
-work.
-_Avoid_: fast mode, intervention mode, emergency mode
+A mode of any environment for an emergency, and for a local test of the
+working tree. Argo CD pauses and does not sync, and the admins get full
+rights while it is open, each under their own name. Each use is recorded
+and reviewed afterwards. Its verbs are `open`, `apply` (local) and `close`.
+_Avoid_: fast mode, intervention mode, emergency mode, hold, release, pause,
+resume
+
+**Audit mode**:
+The driver mode that starts and stops the reader of the admin log store:
+`audit bootstrap`, `audit teardown`. It needs no cluster.
+_Avoid_: readonly, reader mode
 
 **Run sheet**:
 The file of commands that one phase emitted for one environment. The driver
@@ -120,7 +132,7 @@ The landing page of an environment, over HTTPS. It links to every service in
 the cluster and gives the matching CLI commands. Sign-on leads to it.
 _Avoid_: dashboard, homepage, launcher
 
-**TLS mode**:
+**TLS type**:
 Where an environment's certificates come from: `letsencrypt` (a public CA;
 the environment has a public name) or `local-ca` (the cluster secret store
 is the CA; nothing public is needed). Each environment has one.
@@ -155,8 +167,9 @@ _Avoid_: external log store, audit store, central logging
 **Reader of the admin log store**:
 A Grafana and a Loki on the operator's machine that only read the admin log
 store, when the cluster's own Grafana cannot. It needs no cluster, and it has
-no sign-on: only the operator's machine can reach it.
-_Avoid_: emergency Grafana, offline Grafana, log viewer
+no sign-on: only the operator's machine can reach it. Audit mode starts
+and stops it.
+_Avoid_: emergency Grafana, offline Grafana, log viewer, reader_on
 
 **Diagnostic log store**:
 The log store for detailed logs, from workloads and from the platform

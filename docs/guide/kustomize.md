@@ -95,7 +95,7 @@ own bases and overlays in its own repo (ADR-0034): the example app,
         ▲
         │ resources: ../../../infrastructure/portal
  gitops/clusters/local/portal/      overlay: the Service becomes a NodePort
- gitops/clusters/<env>/pki/         no base: the TLS mode's issuer (ADR-0036)
+ gitops/clusters/<env>/pki/         no base: the TLS type's issuer (ADR-0036)
  gitops/clusters/<env>/secret-store/  no base: the store definition of each
                                     environment (ADR-0026)
 

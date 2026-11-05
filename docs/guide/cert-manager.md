@@ -79,7 +79,7 @@ as ESO. It renews the admin portal's certificate (ADR-0028, ADR-0036).
   placeholder. The ApplicationSet replaces it with the cluster's
   `brzl.dev/portal-host` annotation, so the environment definition stays
   the one source of the name.
-- **The issuer is the environment's TLS mode**, in
+- **The issuer is the environment's TLS type**, in
   `gitops/clusters/<env>/pki/`. On local it is a `vault` issuer that points
   at OpenBao, outside the cluster. cert-manager logs in to OpenBao with a
   service-account token (Kubernetes auth), as ESO does. OpenBao lets that

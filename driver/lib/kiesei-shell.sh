@@ -28,12 +28,12 @@ export KUBECONFIG="$BRZL_RUN/kubeconfig-sign-on"
 brzl_ps1="$PS1"
 
 # as_admin — kubectl as system:admin (the cluster-admin kubeconfig), for a
-# break-glass hold when Dex is down; the prompt says so until as_me.
+# break-glass open when Dex is down; the prompt says so until as_me.
 as_admin() {
   export KUBECONFIG="$BRZL_RUN/kubeconfig"
   PS1='\[\e[1;37;41m\][cluster-admin]\[\e[0m\] '"$brzl_ps1"
   printf 'kiesei shell: kubectl is system:admin now. The audit log does not name you,\n' >&2
-  printf '              and records no request body. Only in a break-glass hold when\n' >&2
+  printf '              and records no request body. Only in an open break-glass when\n' >&2
   printf '              Dex is down (docs/BREAK-GLASS.md); write down each change. Back: as_me\n' >&2
 }
 
@@ -67,6 +67,10 @@ argocd() {
 
 printf 'kiesei shell: kubectl is you (KUBECONFIG=%s)\n' "$KUBECONFIG"
 printf '              the cluster-admin kubeconfig is the driver'"'"'s; when Dex is down: as_admin, then as_me\n'
-if ! kubectl auth whoami -o json 2>/dev/null | jq -r '"              you are " + .status.userInfo.username'; then
+# The sign-in: with no cached session kubelogin prints a URL (on stderr) and
+# waits for the browser's callback; its output must show, or the wait looks
+# like a hang.
+printf '              signing in through Dex: when kubelogin prints a URL, open it in your browser (ctrl-c skips)\n'
+if ! kubectl auth whoami -o json | jq -r '"              you are " + .status.userInfo.username'; then
   printf 'kiesei shell: no sign-on session (is Dex or GitHub down?); in an emergency: as_admin (docs/BREAK-GLASS.md)\n' >&2
 fi

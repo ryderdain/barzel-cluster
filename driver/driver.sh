@@ -1,33 +1,35 @@
 #!/usr/bin/env bash
 # driver.sh — the driver: puts an environment's phases in sequence. It is an
 # EMIT script: it prints a procedure with one group per phase, and never runs
-# or asks anything itself. Running its output IS the approval.
+# or asks anything itself. Running its output IS the approval. The grammar
+# (GLOSSARY "Driver command"; ADR-0038) is `<mode> <verb>`, and BRZL_ENV
+# selects the environment (default: local, until BACKLOG 38).
 #
-#   bash driver/driver.sh <env> next            # preview the next unfinished phase
-#   bash driver/driver.sh <env> next | bash     # ...and run it (careful mode)
-#   bash driver/driver.sh <env> up              # preview all unfinished phases
-#   bash driver/driver.sh <env> up | bash       # ...and run them all at once
-#                                               #    (only for local-only effects)
-#   bash driver/driver.sh <env> down | bash     # remove the environment's cluster
-#   bash driver/driver.sh local sync off | bash driver/kiesei.sh
-#                                               # the sync switch: Argo CD stops
-#   bash driver/driver.sh local apply | bash driver/kiesei.sh
-#                                               # ...apply the working tree
-#   bash driver/driver.sh local sync on [confirm] | bash driver/kiesei.sh
-#                                               # ...back to the pushed branch
-#   bash driver/driver.sh <env> hold '<reason>' | bash driver/kiesei.sh
-#                                               # break-glass mode: Argo CD holds,
+#   BRZL_ENV=<env> bash driver/driver.sh cluster bootstrap        # preview the unfinished phases
+#   BRZL_ENV=<env> bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # ...and run them
+#   BRZL_ENV=<env> bash driver/driver.sh cluster teardown | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
+#                                               # remove the environment's cluster
+#   BRZL_ENV=<env> bash driver/driver.sh cluster status           # GENERATOR: the current run
+#   BRZL_ENV=<env> bash driver/driver.sh cluster check <phase> <run_dir> [down]   # GENERATOR;
+#                                               #    the emitted groups call this
+#   BRZL_ENV=<env> bash driver/driver.sh break-glass open '<reason>' | bash driver/kiesei.sh
+#                                               # break-glass mode: Argo CD pauses,
 #                                               #    the admins are cluster-admin
-#   bash driver/driver.sh <env> release [confirm] | bash driver/kiesei.sh
+#   BRZL_ENV=<env> bash driver/driver.sh break-glass apply [<dir>] | bash driver/kiesei.sh
+#                                               # ...apply the working tree (local)
+#   BRZL_ENV=<env> bash driver/driver.sh break-glass close [confirm] | bash driver/kiesei.sh
 #                                               # ...back to git (docs/BREAK-GLASS.md)
-#   bash driver/driver.sh <env> reader_on | bash driver/kiesei.sh
+#   BRZL_ENV=<env> bash driver/driver.sh audit bootstrap | bash driver/kiesei.sh
 #                                               # the reader of the admin log
 #                                               #    store, on 127.0.0.1, also
 #                                               #    without a cluster
-#   bash driver/driver.sh <env> reader_off | bash driver/kiesei.sh   # ...stop it
-#   bash driver/driver.sh <env> status          # GENERATOR: the current run
-#   bash driver/driver.sh <env> check <phase> <run_dir> [down]   # GENERATOR;
-#                                               #    the emitted groups call this
+#   BRZL_ENV=<env> bash driver/driver.sh audit teardown | sed 's/^## ⚠ ##//' | bash driver/kiesei.sh
+#                                               # ...stop it
+#
+# `start` and `stop` are synonyms of `bootstrap` and `teardown`, in both modes.
+# A teardown (cluster or audit) is guarded: every emitted line is behind the
+# prefix `## ⚠ ##`, so a pipe without the `sed` runs nothing: its last line
+# prints how to strip it, to stderr, and exits 2.
 #
 # Each phase group: (1) the phase's emitter writes its commands to a run sheet,
 # var/run/<env>/cluster-<UTC>Z/<NN>-<phase>.sh; (2) the run sheet runs at the
@@ -35,8 +37,8 @@
 # goes to <NN>-<phase>.out, after a header line that names the environment, the
 # run, the phase and the start time (ADR-0027), and its exit status to .rc; (3) the phase's check
 # runs and, if it passes, writes .ok. A failed check stops the stream with
-# `error 3`. Resume = run `up` or `next` again: it continues at the first phase
-# with no .ok. Rules: ryderdain/bash STYLE.md §1.11–§1.12; ADR-0022.
+# `error 3`. Resume = run `cluster bootstrap` again: it continues at the first
+# phase with no .ok. Rules: ryderdain/bash STYLE.md §1.11–§1.12; ADR-0022.
 #
 # A run sheet and a check run with stdin from /dev/null. The procedure itself
 # arrives on stdin (`| bash`, `| bash driver/kiesei.sh`), so any command in a
@@ -44,23 +46,21 @@
 # -i, kubectl exec -i, cat, ssh) would swallow the rest of the procedure, and
 # the stream would end silently. Data reaches a command by pipe or heredoc.
 #
-# The sync switch (GLOSSARY; local only; ADR-0025): sync off / sync on / apply
-# write their run sheets into the current run (sync-off-<HHMMSS>Z.sh, ..., in
-# UTC) with driver/modes/sync.sh and need a run that has passed 30-gitops.
+# Break-glass mode (GLOSSARY; any environment; ADR-0037, ADR-0038): open /
+# apply / close write their run sheets into the current run
+# (break-glass-open-<HHMMSS>Z.sh, ..., in UTC) with driver/modes/break-glass.sh
+# and need a run that has passed 30-gitops. The emit step reads only; what it
+# prints (the person, the reason, the differences from git) goes to
+# <name>-emit.out, so a refused close is on record too. open takes the
+# reason, and a declared name when sign-on does not answer; apply takes the
+# source tree (default: the working tree); close takes `confirm` to accept
+# the undo.
 #
-# Break-glass mode (GLOSSARY; any environment; ADR-0037): hold / release
-# write their run sheets the same way (break-glass-hold-<HHMMSS>Z.sh, ...) with
-# driver/modes/break-glass.sh. Its emit step reads only; what it prints (the
-# person, the reason, the differences from git) goes to <name>-emit.out, so a
-# refused release is on record too. hold takes the reason, and a declared
-# name only when Dex is down; release takes `confirm` to accept the undo.
+# Audit mode (GLOSSARY; ADR-0037): the reader of the admin log store needs no
+# cluster and no current run. Each action writes its run sheet in a new run
+# directory, var/run/<env>/audit-<UTC>Z, with driver/modes/audit.sh.
 #
-# The reader of the admin log store (GLOSSARY; ADR-0037): reader_on /
-# reader_off need no cluster and no current run. Each writes its run sheet
-# in a new run directory, var/run/<env>/reader-<UTC>Z, with
-# driver/modes/reader.sh.
-#
-# Inputs: <env> selects env/<env>.env. Needs the tools of each phase (k3d,
+# Inputs: BRZL_ENV selects env/<env>.env. Needs the tools of each phase (k3d,
 # docker, kubectl, helm, jq, yq, git for local). Credentials for local: phase
 # 25 reads the bootstrap secret source BRZL_REPO_DEPLOY_KEY where it runs.
 
@@ -153,24 +153,22 @@ emit_phase() {
     printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
       "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
   fi
-  printf '  bash driver/driver.sh %q check %q %q%s < /dev/null \\\n' "$env" "$phase" "$run_dir" "$checker"
+  printf '  BRZL_ENV=%q bash driver/driver.sh cluster check %q %q%s < /dev/null \\\n' "$env" "$phase" "$run_dir" "$checker"
   printf '    || error 3 %s\n' "$(squote "phase $name did not pass its check; read $run_dir/$name.sh and $name.out, fix, then run again")"
   printf '}\n'
 }
 
 emit_up() {
-  local env="$1" only_next="$2" run_dir phase emitted=0
+  local env="$1" run_dir phase emitted=0
   run_dir="$(current_run "$env")"
   emit_prelude "$run_dir"
   for phase in "${up_phases[@]}"; do
     [[ -e "$repo_root/$run_dir/$phase.ok" ]] && continue
     emit_phase "$env" "$run_dir" "$phase" up
     emitted=1
-    [[ "$only_next" == true ]] && break
   done
   (( emitted )) || printf '# all phases of %s are complete in %s\n' "$env" "$run_dir"
-  local action=up; [[ "$only_next" == true ]] && action=next
-  end_function 0 "emitted $env $action for $run_dir"
+  end_function 0 "emitted $env cluster bootstrap for $run_dir"
 }
 
 emit_down() {
@@ -178,7 +176,7 @@ emit_down() {
   run_dir="$(new_run_dir "$env" teardown)"
   printf 'cd %q || exit 1\n' "$repo_root"
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
-  printf '{ # run directory %s; the next up starts a new run\n' "$run_dir"
+  printf '{ # run directory %s; the next bootstrap starts a new run\n' "$run_dir"
   printf '  mkdir -p %q\n' "$run_dir"
   printf '  rm -f %q\n' "var/run/$env/current"
   printf '}\n'
@@ -186,69 +184,38 @@ emit_down() {
     phase="${down_phases[i]}"
     emit_phase "$env" "$run_dir" "$phase" down
   done
-  end_function 0 "emitted $env down for $run_dir"
+  end_function 0 "emitted $env cluster teardown for $run_dir"
 }
 
-# emit_sync <env> <off|on|apply> [confirm] — one group for a sync-switch
-# action, in the current run, at the driver locus. Three steps, each recorded,
-# as for break-glass: the emitter (it reads the cluster and the working tree,
-# and stops with error 3 when the action must not run: a hold is on, sync is
-# on for apply, a difference from git for sync on), the run sheet, the check
-# (apply has none: Argo CD's own result is in the run output).
-emit_sync() {
-  local env="$1" what="$2" link="$repo_root/var/run/$1/current" run_dir name args='' arg fn title
-  if [[ ! -L "$link" ]]; then
-    printf 'error: %s has no current run; bring it up first\n' "$env" >&2
-    return 2
-  fi
-  run_dir="var/run/$env/$(readlink "$link")"
-  if [[ ! -e "$repo_root/$run_dir/30-gitops.ok" ]]; then
-    printf 'error: the sync switch needs Argo CD: phase 30-gitops has not passed in %s\n' "$run_dir" >&2
-    return 2
-  fi
-  if [[ -n "${3:-}" && ( "$what" != on || "$3" != confirm ) ]]; then
-    printf 'usage: bash driver/driver.sh %s sync <off|on> [confirm] | bash driver/kiesei.sh\n' "$env" >&2
-    return 2
-  fi
-  for arg in "${@:3}"; do args+=" $(squote "$arg")"; done
-  if [[ "$what" == apply ]]; then
-    name="apply-$(utc '%H%M%S')Z"; fn="apply $(printf '%q %q' "$env" "$run_dir")"
-    title="apply the working tree ($env, locus: driver; docs/LOCAL.md)"
-  else
-    name="sync-$what-$(utc '%H%M%S')Z"; fn="sync_switch $what $(printf '%q %q' "$env" "$run_dir")$args"
-    title="sync $what ($env, locus: driver; docs/LOCAL.md)"
-  fi
-  printf 'cd %q || exit 1\n' "$repo_root"
-  awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
-  printf '{ # %s\n' "$title"
-  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name-emit")"
-  printf '    bash driver/modes/sync.sh %s > %q < /dev/null\n' "$fn" "$run_dir/$name.sh"
-  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name-emit.rc"
-  printf '  } 2>&1 | tee %q\n' "$run_dir/$name-emit.out"
-  # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
-  printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name-emit.rc"
-  printf '    || error 3 %s\n' "$(squote "$name stopped before any change: read the lines above (kept in $run_dir/$name-emit.out)")"
-  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name")"
-  printf '    bash %q < /dev/null\n' "$run_dir/$name.sh"
-  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name.rc"
-  printf '  } 2>&1 | tee %q\n' "$run_dir/$name.out"
-  if [[ "$what" == apply ]]; then
-    printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name.rc"
-    printf '    || error 3 %s\n' "$(squote "apply failed (sync stays off); read $run_dir/$name.out, fix, then apply again")"
-  else
-    printf '  bash driver/modes/sync.sh sync_check %s %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
-    printf '    || error 3 %s\n' "$(squote "sync $what did not take effect; read $run_dir/$name.out")"
-  fi
+# guarded <emit function> <args> — the teardown guard (Q238, Q244): every
+# line of the emitted stream behind the prefix, between a first line that
+# sets a variable (behind the prefix too) and a last group, with no prefix,
+# that tests it. A pipe without the sed reads only comments, then the last
+# group prints the footer to stderr and exits 2. With the sed, the first
+# line sets the variable, the teardown runs, and the last group passes.
+guarded() {
+  local rc
+  set -o pipefail   # the emitter's failure must not hide behind sed's success
+  { printf 'guard=stripped   # the teardown guard: the last group tests it\n'; "$@"; } | sed 's/^/## ⚠ ##/'
+  rc=$?
+  set +o pipefail
+  (( rc == 0 )) || return "$rc"
+  printf '[[ "${guard:-}" == stripped ]] || {   # the guard prefix was not stripped: nothing ran\n'
+  printf "  cat >&2 <<'EOF'\n"
+  printf '##    TO TEARDOWN, PASTE `sed '"'"'s/^## ⚠ ##//'"'"'` INTO PIPE    ##\n'
+  printf 'EOF\n'
+  printf '  exit 2\n'
   printf '}\n'
-  end_function 0 "emitted $env $name for $run_dir"
 }
 
-# emit_break_glass <env> <hold|release> [args] — one group for a break-glass
-# action, in the current run, at the driver locus. Three steps, each recorded:
-# the emitter (it reads the cluster and stops, with error 3, when the action
-# must not run), the run sheet, the check.
+# emit_break_glass <env> <open|close|apply> [args] — one group for a
+# break-glass action, in the current run, at the driver locus. Three steps,
+# each recorded: the emitter (it reads the cluster and the working tree, and
+# stops with error 3 when the action must not run: another person's open, a
+# difference from git for close, apply while not open), the run sheet, the
+# check (apply has none: Argo CD's own result is in the run output).
 emit_break_glass() {
-  local env="$1" what="$2" link="$repo_root/var/run/$1/current" run_dir name arg args=''
+  local env="$1" what="$2" link="$repo_root/var/run/$1/current" run_dir name arg args='' title
   shift 2
   if [[ ! -L "$link" ]]; then
     printf 'error: %s has no current run; bring it up first\n' "$env" >&2
@@ -259,48 +226,75 @@ emit_break_glass() {
     printf 'error: break-glass mode needs Argo CD: phase 30-gitops has not passed in %s\n' "$run_dir" >&2
     return 2
   fi
-  if [[ "$what" == hold && -z "${1:-}" ]]; then
-    printf "usage: bash driver/driver.sh %s hold '<reason>' ['<your name>', only when Dex is down] | bash driver/kiesei.sh\n" "$env" >&2
-    return 2
-  fi
+  case "$what" in
+    open)
+      if [[ -z "${1:-}" ]]; then
+        printf "usage: BRZL_ENV=%s bash driver/driver.sh break-glass open '<reason>' ['<your name>', when sign-on does not answer] | bash driver/kiesei.sh\n" "$env" >&2
+        return 2
+      fi
+      title="break-glass open ($env, locus: driver; docs/BREAK-GLASS.md)" ;;
+    close)
+      if [[ -n "${1:-}" && "$1" != confirm ]]; then
+        printf 'usage: BRZL_ENV=%s bash driver/driver.sh break-glass close [confirm] | bash driver/kiesei.sh\n' "$env" >&2
+        return 2
+      fi
+      title="break-glass close ($env, locus: driver; docs/BREAK-GLASS.md)" ;;
+    apply)
+      if (( $# > 1 )); then
+        printf 'usage: BRZL_ENV=%s bash driver/driver.sh break-glass apply [<dir>] | bash driver/kiesei.sh\n' "$env" >&2
+        return 2
+      fi
+      title="break-glass apply: ${1:-the working tree} ($env, locus: driver; docs/LOCAL.md)" ;;
+  esac
   for arg in "$@"; do args+=" $(squote "$arg")"; done
   name="break-glass-$what-$(utc '%H%M%S')Z"
   printf 'cd %q || exit 1\n' "$repo_root"
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
-  printf '{ # break-glass %s (%s, locus: driver; docs/BREAK-GLASS.md)\n' "$what" "$env"
-  printf '  { %s; bash driver/modes/break-glass.sh %s %q %q%s > %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-    "$(run_output_header "$env" "$run_dir" "$name-emit")" "$what" "$env" "$run_dir" "$args" \
-    "$run_dir/$name.sh" "$run_dir/$name-emit.rc" "$run_dir/$name-emit.out"
+  printf '{ # %s\n' "$title"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name-emit")"
+  printf '    bash driver/modes/break-glass.sh %s %q %q%s > %q < /dev/null\n' "$what" "$env" "$run_dir" "$args" "$run_dir/$name.sh"
+  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name-emit.rc"
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name-emit.out"
   # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
   printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name-emit.rc"
   printf '    || error 3 %s\n' "$(squote "break-glass $what stopped before any change: read the lines above (kept in $run_dir/$name-emit.out)")"
-  printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-    "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
-  printf '  bash driver/modes/break-glass.sh %s_check %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
-  printf '    || error 3 %s\n' "$(squote "break-glass $what did not take effect; read $run_dir/$name.out, then run $what again")"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name")"
+  printf '    bash %q < /dev/null\n' "$run_dir/$name.sh"
+  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name.rc"
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name.out"
+  if [[ "$what" == apply ]]; then
+    # shellcheck disable=SC2016  # the $(...) is for the emitted stream to run
+    printf '  [[ "$(cat %q 2>/dev/null)" == 0 ]] \\\n' "$run_dir/$name.rc"
+    printf '    || error 3 %s\n' "$(squote "apply failed (break-glass stays open); read $run_dir/$name.out, fix, then apply again")"
+  else
+    printf '  bash driver/modes/break-glass.sh %s_check %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
+    printf '    || error 3 %s\n' "$(squote "break-glass $what did not take effect; read $run_dir/$name.out, then run $what again")"
+  fi
   printf '}\n'
   end_function 0 "emitted $env break-glass $what for $run_dir"
 }
 
-# emit_reader <env> <on|off> — one group for the reader of the admin log
-# store, in a new run directory (the cluster can be gone), at the driver
-# locus.
-emit_reader() {
+# emit_audit <env> <bootstrap|teardown> — one group for the reader of the
+# admin log store, in a new run directory (the cluster can be gone), at the
+# driver locus.
+emit_audit() {
   local env="$1" what="$2" run_dir name
-  run_dir="$(new_run_dir "$env" reader)"
-  name="reader-$what"
+  run_dir="$(new_run_dir "$env" audit)"
+  name="audit-$what"
   printf 'cd %q || exit 1\n' "$repo_root"
   awk '/^error\(\) \{/,/^\}/' "$repo_root/driver/lib/error.sh"
-  printf '{ # the reader of the admin log store: %s (%s, locus: driver; docs/BREAK-GLASS.md)\n' "$what" "$env"
+  printf '{ # audit %s: the reader of the admin log store (%s, locus: driver; docs/BREAK-GLASS.md)\n' "$what" "$env"
   printf '  mkdir -p %q\n' "$run_dir"
-  printf '  bash driver/modes/reader.sh reader_%s %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
-  printf '    || error 3 %s\n' "$(squote "reader $what could not be emitted (the message above says why); nothing ran")"
-  printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-    "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
-  printf '  bash driver/modes/reader.sh reader_%s_check %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
-  printf '    || error 3 %s\n' "$(squote "reader $what did not take effect; read $run_dir/$name.out")"
+  printf '  bash driver/modes/audit.sh audit_%s %q %q > %q \\\n' "$what" "$env" "$run_dir" "$run_dir/$name.sh"
+  printf '    || error 3 %s\n' "$(squote "audit $what could not be emitted (the message above says why); nothing ran")"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name")"
+  printf '    bash %q < /dev/null\n' "$run_dir/$name.sh"
+  printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name.rc"
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name.out"
+  printf '  bash driver/modes/audit.sh audit_%s_check %q %q < /dev/null \\\n' "$what" "$env" "$run_dir"
+  printf '    || error 3 %s\n' "$(squote "audit $what did not take effect; read $run_dir/$name.out")"
   printf '}\n'
-  end_function 0 "emitted $env reader $what for $run_dir"
+  end_function 0 "emitted $env audit $what for $run_dir"
 }
 
 # check <env> <phase> <run_dir> [down] — GENERATOR. Runs the phase's check in a
@@ -340,34 +334,35 @@ status() {
   done
 }
 
+usage() {
+  printf 'usage: BRZL_ENV=<env> bash driver/driver.sh <mode> <verb>, one of:\n' >&2
+  printf '  cluster bootstrap | teardown | status | check <phase> <run_dir> [down]\n' >&2
+  printf "  break-glass open '<reason>' | apply [<dir>] | close [confirm]\n" >&2
+  printf '  audit bootstrap | teardown\n' >&2
+  printf '(start and stop are synonyms of bootstrap and teardown; a teardown needs | sed %s in the pipe)\n' "'s/^## ⚠ ##//'" >&2
+}
+
 main() {
-  local env="${1:-}" action="${2:-}"
-  if [[ -z "$env" || -z "$action" ]]; then
-    sed -n '2,63p' "${BASH_SOURCE[0]}" >&2
+  local env="${BRZL_ENV:-local}" mode="${1:-}" verb="${2:-}"
+  if [[ -z "$mode" || -z "$verb" ]]; then
+    usage
     return 2
   fi
   if [[ ! -r "$repo_root/env/$env.env" ]]; then
-    printf 'error: no environment definition env/%s.env\n' "$env" >&2
+    printf 'error: no environment definition env/%s.env (BRZL_ENV selects one of:%s)\n' \
+      "$env" "$(for f in "$repo_root"/env/*.env; do printf ' %s' "${f##*/}"; done | sed 's/\.env//g')" >&2
     return 2
   fi
   shift 2
-  case "$action" in
-    up)     emit_up "$env" false ;;
-    next)   emit_up "$env" true ;;
-    down)   emit_down "$env" ;;
-    check)  check "$env" "$@" ;;
-    status) status "$env" ;;
-    sync)
-      case "${1:-}" in
-        off|on) emit_sync "$env" "$1" "${@:2}" ;;
-        *) printf 'usage: bash driver/driver.sh %s sync <off|on> [confirm] | bash driver/kiesei.sh\n' "$env" >&2; return 2 ;;
-      esac ;;
-    apply)    emit_sync "$env" apply ;;
-    hold)     emit_break_glass "$env" hold "$@" ;;
-    release)  emit_break_glass "$env" release "$@" ;;
-    reader_on)  emit_reader "$env" on ;;
-    reader_off) emit_reader "$env" off ;;
-    *) printf 'error: unknown action %q (up, next, down, status, check, sync off, sync on, apply, hold, release, reader_on, reader_off)\n' "$action" >&2; return 2 ;;
+  case "$mode $verb" in
+    'cluster bootstrap'|'cluster start') emit_up "$env" ;;
+    'cluster teardown'|'cluster stop')   guarded emit_down "$env" ;;
+    'cluster status')  status "$env" ;;
+    'cluster check')   check "$env" "$@" ;;
+    'break-glass open'|'break-glass close'|'break-glass apply') emit_break_glass "$env" "$verb" "$@" ;;
+    'audit bootstrap'|'audit start')   emit_audit "$env" bootstrap ;;
+    'audit teardown'|'audit stop')     guarded emit_audit "$env" teardown ;;
+    *) printf 'error: unknown command %q %q\n' "$mode" "$verb" >&2; usage; return 2 ;;
   esac
 }
 

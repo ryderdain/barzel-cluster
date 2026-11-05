@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# driver-cases.sh — checks the driver's own mechanics with no cluster: run sheets,
-# .rc and .ok files, resume at the first unfinished phase, the `error 3` stop on
-# a failed check, and `down`.
+# driver-cases.sh — checks the driver's own mechanics with no cluster: the
+# grammar (`<mode> <verb>`, BRZL_ENV), run sheets, .rc and .ok files, resume
+# at the first unfinished phase, the `error 3` stop on a failed check, the
+# break-glass and audit emitters, and the teardown guard.
 #
 # Read-only check archetype (it writes only to a temporary directory). It copies
 # driver/ into a scratch tree, swaps in a fake substrate and two trivial phases,
@@ -74,21 +75,43 @@ printf '%s\n' "$rc" > "$1/$2.rc"
 exit "$rc"
 EOF
 
-drive() { (cd "$scratch" && bash driver/driver.sh test "$@" 2>/dev/null); }
+drive() { (cd "$scratch" && export BRZL_ENV=test && bash driver/driver.sh "$@" 2>/dev/null); }
+unguard() { sed 's/^## ⚠ ##//'; }
 run_dir() { readlink "$scratch/var/run/test/current"; }
 
 "$quiet" || printf 'driver mechanics (bash %s)\n\n' "$BASH_VERSION"
 
-# 1. A preview changes nothing: emitting `up` creates no run directory.
-drive up >/dev/null
-report 'previewing up creates nothing' 'absent' "$([[ -e "$scratch/var" ]] && printf present || printf absent)"
+# 0. The grammar: BRZL_ENV selects the environment (the default is local,
+# which the scratch tree does not have); a mode needs its verb; the old verbs
+# are gone.
+(cd "$scratch" && bash driver/driver.sh cluster status >/dev/null 2>&1); rc=$?
+report 'without BRZL_ENV the driver looks for env/local.env and refuses' '2' "$rc"
+drive cluster >/dev/null; rc=$?
+report 'a mode without a verb refuses' '2' "$rc"
+drive break-glass >/dev/null; rc=$?
+report 'break-glass without a verb refuses' '2' "$rc"
+got=''
+for old in 'up' 'next' 'down' 'sync off' 'apply' 'hold x' 'release' 'reader_on' 'reader on' 'pause x' 'resume'; do
+  # shellcheck disable=SC2086  # the old verb is one or two words
+  drive $old >/dev/null; got+="$? "
+done
+report 'the old verbs (up, next, down, sync, apply, hold, release, reader, pause, resume) are gone' \
+  '2 2 2 2 2 2 2 2 2 2 2 ' "$got"
 
-# 2. `next | bash` runs exactly one phase and records it: run sheet, .rc, .ok.
-drive next | (cd "$scratch" && bash >/dev/null 2>&1)
+# 1. A preview changes nothing: emitting `cluster bootstrap` creates no run directory.
+drive cluster bootstrap >/dev/null
+report 'previewing cluster bootstrap creates nothing' 'absent' "$([[ -e "$scratch/var" ]] && printf present || printf absent)"
+
+# 2. `cluster bootstrap | bash` with a failing first phase runs exactly one
+# phase and records it: run sheet, .rc, .ok absent, and stops with exit 3.
+: > "$scratch/BREAK"
+drive cluster bootstrap | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
 dir="$scratch/var/run/test/$(run_dir)"
 files=("$dir"/10-substrate.*); got="$(printf '%s ' "${files[@]##*/}")"
-report 'next runs one phase and records .sh .out .rc .ok' '10-substrate.ok 10-substrate.out 10-substrate.rc 10-substrate.sh ' "$got"
-report 'next runs only that phase' 'no' "$([[ -e "$dir/20-images.sh" ]] && printf yes || printf no)"
+report 'a failed check stops the stream with exit 3' '3' "$rc"
+report 'the failed phase records .sh .out .rc and no .ok' '10-substrate.out 10-substrate.rc 10-substrate.sh ' "$got"
+report 'the next phase never ran' 'no' "$([[ -e "$dir/20-images.sh" ]] && printf yes || printf no)"
+rm -f "$scratch/BREAK"
 
 # 3. The run sheet starts with the resolved inputs.
 report 'the run sheet records the resolved environment' '# BRZL_SUBSTRATE=fake' "$(sed -n 2p "$dir/10-substrate.sh")"
@@ -100,75 +123,87 @@ report 'the run directory is named cluster-<UTC>Z' 'yes' \
 report 'the run output starts with its header line' 'yes' \
   "$([[ "$(head -n 1 "$dir/10-substrate.out")" =~ ^'# brzl run-output env=test run='"$(run_dir)"' phase=10-substrate start='[0-9-]{10}T[0-9:]{8}Z' person='"$(id -un)"' person_verified=false'$ ]] && printf yes || printf no)"
 
-# 4. Resume: `up` continues at the first phase without .ok, in the same run.
+# 4. Resume: `cluster bootstrap` again continues at the first phase without
+# .ok, in the same run, and `start` is the same verb.
 before="$(run_dir)"
-drive up | (cd "$scratch" && bash >/dev/null 2>&1)
-report 'up resumes in the same run directory' "$before" "$(run_dir)"
-report 'up finishes the remaining phases' 'ok ok ok ok' \
-  "$(for p in 20-images 25-bootstrap 30-gitops 40-workloads; do [[ -e "$dir/$p.ok" ]] && printf 'ok '; done | sed 's/ $//')"
+drive cluster start | (cd "$scratch" && bash >/dev/null 2>&1)
+report 'cluster bootstrap (as start) resumes in the same run directory' "$before" "$(run_dir)"
+report 'it finishes every phase' 'ok ok ok ok ok' \
+  "$(for p in 10-substrate 20-images 25-bootstrap 30-gitops 40-workloads; do [[ -e "$dir/$p.ok" ]] && printf 'ok '; done | sed 's/ $//')"
 report 'a conductor-locus phase goes through conductor.sh; others do not' 'yes no' \
   "$([[ -e "$dir/30-gitops.via-conductor" ]] && printf yes || printf no) $([[ -e "$dir/20-images.via-conductor" ]] && printf yes || printf no)"
 report 'a conductor run sheet carries no kubeconfig export' '0' "$(grep -c '^export KUBECONFIG' "$dir/30-gitops.sh")"
+report 'the emitted check names the environment with BRZL_ENV' '1' \
+  "$(drive cluster bootstrap | grep -c '^  BRZL_ENV=test bash driver/driver.sh cluster check 10-substrate ')"
 
-# 5. When every phase is complete, `up` starts a new run (a fresh, idempotent pass).
-got="$(drive up | grep -c '^{ # phase ')"
-report 'a complete run makes up start a new run with all phases' '5' "$got"
+# 5. When every phase is complete, `cluster bootstrap` starts a new run (a
+# fresh, idempotent pass).
+got="$(drive cluster bootstrap | grep -c '^{ # phase ')"
+report 'a complete run makes cluster bootstrap start a new run with all phases' '5' "$got"
 
-# 6. A failed check stops the stream with code 3, and later phases do not run.
-rm -rf "${scratch:?}/var"; : > "$scratch/BREAK"
-drive up | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
-dir="$scratch/var/run/test/$(run_dir)"
-report 'a failed check stops the stream with exit 3' '3' "$rc"
-report 'no .ok for the failed phase, and the next phase never ran' 'none none' \
-  "$([[ -e "$dir/10-substrate.ok" ]] && printf ok || printf none) $([[ -e "$dir/20-images.sh" ]] && printf ran || printf none)"
-rm -f "$scratch/BREAK"
-
-# 7. The sync switch needs a run that passed 30-gitops; then each action emits
-# one group, at the driver locus, with its emit step first.
-drive sync off >/dev/null; rc=$?
-report 'sync off refuses before 30-gitops has passed' '2' "$rc"
-drive up | (cd "$scratch" && bash >/dev/null 2>&1)
-report 'sync off emits one group after 30-gitops' '1' "$(drive sync off | grep -c '^{ # sync off')"
-report 'sync on confirm passes confirm to its emitter' '1' "$(drive sync on confirm | grep -c "sync_switch on test [^ ]* 'confirm' >")"
-drive sync >/dev/null; rc=$?
-report 'sync without off or on refuses' '2' "$rc"
+# 6. Break-glass mode (ADR-0037, ADR-0038): it needs a run that passed
+# 30-gitops; open needs a reason; open, apply and close emit one group each,
+# at the driver locus, with the emit step first; the reason reaches the
+# emitter quoted; an emit step that refuses stops the stream with exit 3
+# before any run sheet runs, and its output is kept (the record of a
+# refusal). Here the emitter refuses because the fake environment has no
+# BRZL_SIGN_ON_ORG.
+rm -rf "${scratch:?}/var"
+drive break-glass open 'x' >/dev/null; rc=$?
+report 'break-glass open refuses before 30-gitops has passed' '2' "$rc"
+drive cluster bootstrap | (cd "$scratch" && bash >/dev/null 2>&1)
+drive break-glass open >/dev/null; rc=$?
+report 'open without a reason refuses' '2' "$rc"
+report 'open emits one group' '1' "$(drive break-glass open 'portal down' | grep -c '^{ # break-glass open')"
+report 'open passes the reason to its emitter, quoted' '1' \
+  "$(drive break-glass open "it's down" | grep -c "break-glass.sh open test [^ ]* 'it'\\\\''s down' >")"
+report 'close emits one group' '1' "$(drive break-glass close | grep -c '^{ # break-glass close')"
+report 'close confirm passes confirm to its emitter' '1' "$(drive break-glass close confirm | grep -c "break-glass.sh close test [^ ]* 'confirm' >")"
+drive break-glass close no >/dev/null; rc=$?
+report 'close with a word other than confirm refuses' '2' "$rc"
 report 'apply emits one group with its emit step' '1 1' \
-  "$(drive apply | grep -c '^{ # apply the working tree') $(drive apply | grep -c 'sync.sh apply test')"
-
-# 7a. Break-glass mode (ADR-0037): hold needs a reason; hold and release emit
-# one group each; the reason reaches the emitter quoted; an emit step that
-# refuses stops the stream with exit 3 before any run sheet runs, and its
-# output is kept (the record of a refusal). Here the emitter refuses because
-# the fake environment has no BRZL_SIGN_ON_ORG.
-drive hold >/dev/null; rc=$?
-report 'hold without a reason refuses' '2' "$rc"
-report 'hold emits one group' '1' "$(drive hold 'portal down' | grep -c '^{ # break-glass hold')"
-report 'hold passes the reason to its emitter, quoted' '1' \
-  "$(drive hold "it's down" | grep -c "break-glass.sh hold test [^ ]* 'it'\\\\''s down' >")"
-report 'release emits one group' '1' "$(drive release | grep -c '^{ # break-glass release')"
-drive hold 'portal down' | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
+  "$(drive break-glass apply | grep -c '^{ # break-glass apply: the working tree') $(drive break-glass apply | grep -c 'break-glass.sh apply test')"
+report 'apply passes the source tree to its emitter' '1' "$(drive break-glass apply /tmp | grep -c "break-glass.sh apply test [^ ]* '/tmp' >")"
+drive break-glass open 'portal down' | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
 dir="$scratch/var/run/test/$(run_dir)"
-emit_out=("$dir"/break-glass-hold-*-emit.out); sheet_rc=("$dir"/break-glass-hold-*Z.rc)
-report 'a refused hold stops with exit 3, keeps its emit output, runs no sheet' '3 kept none' \
+emit_out=("$dir"/break-glass-open-*-emit.out); sheet_rc=("$dir"/break-glass-open-*Z.rc)
+report 'a refused open stops with exit 3, keeps its emit output, runs no sheet' '3 kept none' \
   "$rc $([[ -s "${emit_out[0]}" ]] && printf kept || printf none) $([[ -e "${sheet_rc[0]}" ]] && printf ran || printf none)"
 
-# 7b. The reader of the admin log store (ADR-0037): reader_on and reader_off
-# emit one group each, in a new run directory reader-<UTC>Z, not in the
-# current run. Here reader_on refuses because the fake environment has no
-# local admin log store: exit 3, and the current run stays.
-report 'reader_on emits one group' '1' "$(drive reader_on | grep -c '^{ # the reader of the admin log store: on')"
-report 'reader_off emits one group' '1' "$(drive reader_off | grep -c '^{ # the reader of the admin log store: off')"
-report 'the reader writes into var/run/<env>/reader-<UTC>Z' '1' \
-  "$(drive reader_on | grep -cE '^  mkdir -p var/run/test/reader-[0-9]{8}T[0-9]{4}Z(-[0-9]+)?$')"
+# 7. Audit mode (ADR-0037): bootstrap and teardown emit one group each, in a
+# new run directory audit-<UTC>Z, not in the current run. Here bootstrap
+# refuses because the fake environment has no local admin log store: exit 3,
+# and the current run stays. Teardown is guarded (Q238).
+report 'audit bootstrap emits one group' '1' "$(drive audit bootstrap | grep -c '^{ # audit bootstrap: the reader of the admin log store')"
+report 'audit start is the same verb' '1' "$(drive audit start | grep -c '^{ # audit bootstrap: the reader of the admin log store')"
+report 'audit teardown emits one group behind the guard' '1' "$(drive audit teardown | grep -c '^## ⚠ ##{ # audit teardown: the reader of the admin log store')"
+report 'audit teardown piped without the sed exits 2' '2' "$(drive audit teardown | (cd "$scratch" && bash >/dev/null 2>&1); printf '%s' "$?")"
+report 'the reader writes into var/run/<env>/audit-<UTC>Z' '1' \
+  "$(drive audit bootstrap | grep -cE '^  mkdir -p var/run/test/audit-[0-9]{8}T[0-9]{4}Z(-[0-9]+)?$')"
 before="$(run_dir)"
-drive reader_on | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
-report 'reader_on without a local store stops with exit 3; the current run stays' "3 $before" "$rc $(run_dir)"
+drive audit bootstrap | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
+report 'audit bootstrap without a local store stops with exit 3; the current run stays' "3 $before" "$rc $(run_dir)"
 
-# 8. `down` removes the cluster, passes its check, and drops the current run.
-drive up | (cd "$scratch" && bash >/dev/null 2>&1)
-drive down | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
-report 'down succeeds and passes its check' '0' "$rc"
-report 'down drops the current-run pointer' 'absent' \
+# 8. The teardown guard (Q238, Q244): every emitted line of a teardown is
+# behind the prefix, except the last, which tests the variable that the first
+# line sets. A pipe without the sed runs nothing: the last line prints the
+# footer to stderr and exits 2. The same stream through the sed removes the
+# cluster, passes its check, and drops the current run.
+got="$(drive cluster teardown | grep -vc '^## ⚠ ##')"
+report 'every line of cluster teardown but the last group (6 lines) is behind the prefix' '6' "$got"
+report 'the first line sets the guard, behind the prefix' '## ⚠ ##guard=stripped' "$(drive cluster teardown | head -n 1 | sed 's/   #.*//')"
+# shellcheck disable=SC2016  # the expected text is the emitted line, which bash expands later
+report 'the last group of cluster teardown tests the guard and carries the footer' 'yes' \
+  "$([[ "$(drive cluster teardown | tail -n 6 | sed -n '1p;3p')" == '[[ "${guard:-}" == stripped ]] || {   # the guard prefix was not stripped: nothing ran
+##    TO TEARDOWN, PASTE `sed '"'"'s/^## ⚠ ##//'"'"'` INTO PIPE    ##' ]] && printf yes || printf no)"
+out="$(drive cluster teardown | (cd "$scratch" && bash 2>&1 >/dev/null; printf '\n%s' "$?"))"
+rc="${out##*$'\n'}"; err="${out%$'\n'*}"; err="${err%$'\n'}"
+report 'cluster teardown piped without the sed runs nothing, prints the footer to stderr, exits 2' \
+  "2 $before present ##    TO TEARDOWN, PASTE \`sed 's/^## ⚠ ##//'\` INTO PIPE    ##" \
+  "$rc $(run_dir) $([[ -L "$scratch/var/run/test/current" ]] && printf present || printf absent) $err"
+drive cluster stop | unguard | (cd "$scratch" && bash >/dev/null 2>&1); rc=$?
+report 'cluster teardown (as stop) through the sed succeeds and passes its check' '0' "$rc"
+report 'it drops the current-run pointer' 'absent' \
   "$([[ -L "$scratch/var/run/test/current" ]] && printf present || printf absent)"
 
 "$quiet" || printf '\n%d case(s), %d failure(s)\n' "$case_num" "$failures"

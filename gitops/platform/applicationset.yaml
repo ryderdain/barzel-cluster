@@ -23,8 +23,8 @@
 #     brzl.dev/backup-bucket       CNPG backup bucket (AWS only; absent = no backup patch)
 #     brzl.dev/portal-host         the admin portal's host name (its certificate)
 #     brzl.dev/revision            git revision to follow (absent = main)
-#     brzl.dev/auto-sync           "false" = Argo CD holds: fast mode on local,
-#                                  break-glass mode anywhere (absent = sync)
+#     brzl.dev/auto-sync           "false" = Argo CD pauses: the break-glass is
+#                                  open (absent = sync)
 #
 # A helm element names its chart and a values file from this repo, and may add:
 #   moreValueFiles        values files applied after valueFile
@@ -39,7 +39,7 @@
 #
 # A kustomize element's path may carry __ENV__, replaced by the env label: the
 # `secret-store` app renders gitops/clusters/<env>/secret-store (ADR-0026),
-# and `pki` renders gitops/clusters/<env>/pki, the TLS mode's issuer (ADR-0036).
+# and `pki` renders gitops/clusters/<env>/pki, the TLS type's issuer (ADR-0036).
 #
 # A workload is an element with its own `repo` and `revision` (ADR-0034): Argo
 # CD reads its manifests from that repo; this file only names the overlay and
@@ -300,7 +300,7 @@ spec:
                   wave: "2"
                   namespace: cert-manager
                   serverSideApply: "false"
-                  # The environment's TLS mode: the ClusterIssuer the portal's
+                  # The environment's TLS type: the ClusterIssuer the portal's
                   # Certificate names (ADR-0036).
                   path: gitops/clusters/__ENV__/pki
                 # Sign-on (ADR-0035): the Secrets from the store, then Dex (the
