@@ -281,8 +281,11 @@ scoped roles (e.g. `tofu-plan` read-only, `tofu-apply`, `ansible-runner`,
 *Hits: Operational thinking, Reliability (repeatable deployments), Supply-chain security, GitOps.*
 
 The bootstrap and upgrade/deploy paths run inside **purpose-built containers**
-carrying a pinned toolchain (tofu, ansible, kubectl, helm, git, aws-cli, jq,
-repo bash helpers), runnable by an individual operator **or** CI (ArgoCD). This:
+carrying a pinned toolchain, runnable by an individual operator **or** CI
+(ArgoCD). Since 2026-11-05 (ADR-0040) the image has a `core` stage (kubectl,
+helm, kustomize, argocd, kubelogin, yq, git, jq) and one stage per substrate.
+The `local` stage adds k3d. The `aws` stage adds tofu, ansible and aws-cli.
+This:
 
 - **Eliminates session-timeout failures** on long-running ops (bootstrap, k8s/PG
   upgrades) by decoupling execution from an operator's SSO/SSH session.

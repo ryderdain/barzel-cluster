@@ -119,13 +119,15 @@ printf 'argocd version --client\n' | bash driver/kiesei.sh
 ## Where it comes from
 
 `containers/kiesei/Dockerfile` pins each tool's version and verifies what
-it downloads (ADR-0007, the supply-chain rule in SPEC §3). Phase 20-images
-builds the image and pushes it to the environment's registry, where the
+it downloads (ADR-0007, the supply-chain rule in SPEC §3). It has a `core`
+stage with the platform tools and one stage per substrate (ADR-0040):
+`local` adds k3d, `aws` adds the AWS tools. The tag names the substrate.
+Phase 20-images pushes the image to the environment's registry, where the
 conductor pulls it. Build it once on your machine, and again after a change
 to `containers/kiesei/`:
 
 ```sh
-docker build -t kiesei:local containers/kiesei
+docker build -t kiesei:local containers/kiesei      # the local stage is the default
 ```
 
 ## Where to read more

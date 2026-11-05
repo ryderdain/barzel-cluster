@@ -113,8 +113,9 @@ into GLOSSARY first.
   per Lee Briggs, <https://leebriggs.co.uk/blog/2023/08/17/structuring-iac>).
 - `ansible/`: `roles/{base,kubernetes,security}` and `playbooks/` (AWS
   path).
-- `containers/`: `kiesei/` (the toolbox image, built locally as
-  `kiesei:local`) and `bootstrap-vm/` (cloud-init template).
+- `containers/`: `kiesei/` (the toolchain image, ADR-0040: a `core` stage
+  and one stage per substrate, built as `kiesei:local`) and
+  `bootstrap-vm/` (cloud-init template).
 - `docs/`: `ARCHITECTURE.md` (the ADR index), `adr/NNNN-slug.md` (get the
   next number from the directory), `SECRETS.md`, `SECURITY.md`, the runbooks,
   and `guide/`.

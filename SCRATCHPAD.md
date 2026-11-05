@@ -36,7 +36,10 @@ ApplicationSet tests the substrate label, `localPath` carries
 `__ENV__`). 39 tests pass. The external pieces were purged (Q249 b,
 scope `all`: OpenBao, Zot, the collector, DNS, the network `brzl-local`,
 the log store), and the OAuth App material was renamed to `oauth-dev-*`.
-`var/run/local` stays as a record. **Waiting:** the user's bootstrap
+`var/run/local` stays as a record. **Item 39 built with it** (ADR-0040):
+the kiesei Dockerfile is a `core` stage and one stage per substrate
+(`local` the default target, `aws` frozen). `kiesei:local` is 1.13 GB
+unpacked, from 2.12 GB. **Waiting:** the user's bootstrap
 under `dev` with the deploy key (the INSTALL path from zero), their
 verification, their follow-up question on the key names and `env/*.env`.
 Then the ADR's "As built", BACKLOG 38 done, RETROSPECTIVE. **Then

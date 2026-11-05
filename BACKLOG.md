@@ -556,6 +556,15 @@ Order of work (Q120):
     substrate, every document. The external pieces were purged (Q249 b,
     "all"). The first bootstrap under `dev` is the INSTALL path from zero.
     Awaiting the user's bootstrap and verification.
+39. **The kiesei image: a core stage and one stage per substrate** (user,
+    2026-11-05, ADR-0040). The image was 2.1 GB unpacked, and half of it
+    was the frozen AWS path and tools nothing calls. A multi-stage build
+    would not shrink it (each layer is the tool itself). Now `core` holds
+    the platform tools, `local` adds k3d, `aws` adds aws-cli, the
+    session-manager plugin, tofu, tflint and ansible. The tag names the
+    substrate. tmux and vim stay (the user). trivy and kubectl-cnpg are
+    parked. **Built 2026-11-05**, with item 38, awaiting the bootstrap
+    from zero that tests both.
 
 Standing concerns (check in every pass):
 

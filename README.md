@@ -84,8 +84,9 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 | [`containers/`](containers/) | `kiesei/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the kiesei via podman/ECR) |
 | [`docs/`](docs/) | Delivery-facing docs: architecture + ADRs (`docs/adr/`), operational-lifecycle runbooks, security |
 
-> **Maintenance note — kiesei aws-cli key.** The kiesei image GPG-verifies the
-> aws-cli installer against AWS's signing key, vendored at
+> **Maintenance note — kiesei aws-cli key.** The kiesei image's `aws` stage
+> (ADR-0040) GPG-verifies the aws-cli installer against AWS's signing key,
+> vendored at
 > [`containers/kiesei/awscli-public-key.asc`](containers/kiesei/awscli-public-key.asc).
 > That key **expires 2027-07-01** (refreshed 2026-07-07 — AWS extends the same
 > key, fingerprint unchanged). When it next expires, a kiesei rebuild's

@@ -1,37 +1,43 @@
 # syntax=docker/dockerfile:1.7
 #
-# brzl-demo operator/CI kiesei (SPEC §4.2).
-# One pinned arm64/Graviton image carrying the whole deploy toolchain so the
-# 3-person team and CI run the exact same versions, and long ops (bootstrap,
-# upgrades) survive an operator's SSO/SSH session timing out. Runs three ways
-# from the same artifact: a laptop container, the cloud-init bootstrap VM
-# (../bootstrap-vm), or a k8s Job.
+# kiesei — the operator toolchain image (GLOSSARY "Kiesei"; SPEC §4.2;
+# ADR-0007, ADR-0040). One image runs at both loci, the driver and the
+# conductor, so every run uses the same pinned tool versions.
 #
-# Toolchain: tofu, ansible, kubectl, helm, kustomize, argocd, kubelogin,
-# kubectl-cnpg, aws-cli, session-manager-plugin, yq, trivy, tflint, psql, git,
-# jq, tmux, k3d,
-# and the docker CLI (at the driver locus it drives the host's engine through the
-# mounted socket — see driver/kiesei.sh) — see the pinned ARGs below.
+# The file has one core stage and one stage per substrate (ADR-0040):
+#
+#   core    the platform tools every substrate needs: kubectl, helm, kustomize,
+#           argocd, kubelogin, yq, git, jq, the docker CLI (at the driver locus
+#           it drives the host's engine through the mounted socket, see
+#           driver/kiesei.sh), psql, tmux (a session that survives a dropped
+#           connection during a long operation), vim and less (for the kiesei
+#           shell).
+#   aws     core plus the AWS substrate's tools: aws-cli, session-manager-plugin,
+#           tofu, tflint, ansible. Frozen with the AWS path (BACKLOG 10).
+#   local   core plus k3d. The LAST stage, so it is the default target.
+#
+# Build the image for a substrate (the tag names the substrate, as
+# BRZL_SUBSTRATE and BRZL_KIESEI_IMAGE do):
+#   docker build -t kiesei:local containers/kiesei                 # the default target
+#   docker build --target aws -t kiesei:aws containers/kiesei
+#   docker buildx build --platform linux/arm64 --target local -t kiesei:local containers/kiesei
+#
+# Parked, not in any stage (2026-11-05): trivy and kubectl-cnpg. Nothing in
+# the driver calls them. Their verified install blocks are in git history.
 #
 # Base: python:3.14-slim-trixie — CPython 3.14 on Debian 13 (trixie) slim.
 # Both are pinned to long-lived series (Python 3.14 EoL ~Oct 2030; Debian 13
 # LTS ~2030), so patch/security fixes flow within those series while the
-# major.minor stays put well past this project's delivery. ansible-core 2.20
-# needs Python >=3.12, which a system-Python trixie (3.13) would also satisfy,
-# but the official python image gives us the 3.14 control node deliberately.
-#
-# Build (native on a Graviton/Apple-silicon host, or via buildx):
-#   docker buildx build --platform linux/arm64 -t brzl-dev/kiesei:<tag> \
-#     containers/kiesei
+# major.minor stays put. ansible-core 2.20 needs Python >=3.12.
 #
 # Every third-party binary is verified at build time — checksums for
-# tofu/kubectl/helm/kustomize/argocd/kubectl-cnpg/trivy/tflint/yq (publishers
-# ship SHA files), GPG signatures for the aws-cli installer (AWSCLI_VERIFY) and
-# the session-manager-plugin .deb (SMP_VERIFY).
+# tofu/kubectl/helm/k3d/kustomize/argocd/kubelogin/tflint/yq (publishers ship
+# SHA files), GPG signatures for the aws-cli installer (AWSCLI_VERIFY) and the
+# session-manager-plugin .deb (SMP_VERIFY).
 
-FROM python:3.14-slim-trixie
-
-# Pinned toolchain. Bump deliberately; the verification below fails the build if
+# Pinned toolchain, declared once for every stage. Each stage names the ARGs
+# it uses, which takes the value from here.
+# Bump deliberately; the verification below fails the build if
 # a version/asset doesn't match its published checksum or signature.
 ARG TOFU_VERSION=1.12.1
 ARG KUBECTL_VERSION=1.31.5
@@ -49,9 +55,7 @@ ARG KUBERNETES_CORE_VERSION=6.4.0
 ARG KUSTOMIZE_VERSION=5.8.1
 ARG ARGOCD_VERSION=3.5.6
 ARG KUBELOGIN_VERSION=1.36.4
-ARG CNPG_PLUGIN_VERSION=1.29.1
 ARG YQ_VERSION=4.53.2
-ARG TRIVY_VERSION=0.71.0
 ARG TFLINT_VERSION=0.62.1
 # arm64-only image (Graviton end-to-end). Overridable for a multi-arch build.
 ARG TARGETARCH=arm64
@@ -64,6 +68,12 @@ ARG AWSCLI_VERIFY=true
 # keyid 2C4D4AFF6F6757EE — a different key than the aws-cli one). Set false only
 # to unblock a build where you can't supply the key — not recommended.
 ARG SMP_VERIFY=true
+
+# ============================================================================
+# core — the platform tools
+# ============================================================================
+FROM python:3.14-slim-trixie AS core
+ARG KUBECTL_VERSION HELM_VERSION KUSTOMIZE_VERSION ARGOCD_VERSION KUBELOGIN_VERSION YQ_VERSION TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
@@ -89,18 +99,6 @@ RUN apt-get update \
 # All third-party fetch/verify/install happens from /tmp.
 WORKDIR /tmp
 
-# --- OpenTofu (verify against published SHA256SUMS) -------------------------
-RUN set -eux; \
-    f="tofu_${TOFU_VERSION}_linux_${TARGETARCH}.zip"; \
-    base="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}"; \
-    curl -fsSLO "${base}/${f}"; \
-    curl -fsSLo SHA256SUMS "${base}/tofu_${TOFU_VERSION}_SHA256SUMS"; \
-    grep " ${f}\$" SHA256SUMS | sha256sum -c -; \
-    unzip -q "${f}" tofu -d /usr/local/bin; \
-    chmod +x /usr/local/bin/tofu; \
-    rm -f "${f}" SHA256SUMS; \
-    tofu version
-
 # --- kubectl (verify against published .sha256) ----------------------------
 RUN set -eux; \
     base="https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}"; \
@@ -120,18 +118,6 @@ RUN set -eux; \
     tar -xzf "${f}" --strip-components=1 -C /usr/local/bin "linux-${TARGETARCH}/helm"; \
     rm -f "${f}" "${f}.sha256sum"; \
     helm version --short
-
-# --- k3d (verify against published checksums.txt) --------------------------
-# The driver makes local (k3d) clusters through the host engine's socket.
-RUN set -eux; \
-    f="k3d-linux-${TARGETARCH}"; \
-    base="https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}"; \
-    curl -fsSLO "${base}/${f}"; \
-    curl -fsSLo checksums.txt "${base}/checksums.txt"; \
-    grep " _dist/${f}\$" checksums.txt | sed "s| _dist/| |" | sha256sum -c -; \
-    install -m 0755 "${f}" /usr/local/bin/k3d; \
-    rm -f "${f}" checksums.txt; \
-    k3d version
 
 # --- kustomize (verify against published checksums.txt) --------------------
 RUN set -eux; \
@@ -167,17 +153,6 @@ RUN set -eux; \
     rm -f "${f}" "${f}.sha256"; \
     kubelogin version
 
-# --- kubectl-cnpg plugin (verify against published checksums.txt) -----------
-RUN set -eux; \
-    f="kubectl-cnpg_${CNPG_PLUGIN_VERSION}_linux_${TARGETARCH}.tar.gz"; \
-    base="https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v${CNPG_PLUGIN_VERSION}"; \
-    curl -fsSLO "${base}/${f}"; \
-    curl -fsSLo checksums.txt "${base}/cnpg-${CNPG_PLUGIN_VERSION}-checksums.txt"; \
-    grep " ${f}\$" checksums.txt | sha256sum -c -; \
-    tar -xzf "${f}" -C /usr/local/bin kubectl-cnpg; \
-    rm -f "${f}" checksums.txt; \
-    kubectl-cnpg version
-
 # --- yq (mikefarah; verify via checksums + checksums_hashes_order) ----------
 # yq ships one multi-algorithm `checksums` table; `checksums_hashes_order` names
 # the columns. Find the SHA-256 column index, then verify the raw binary.
@@ -194,17 +169,35 @@ RUN set -eux; \
     rm -f "${f}" checksums checksums_hashes_order; \
     yq --version
 
-# --- trivy (verify against published checksums.txt) ------------------------
-# Asset arch label is capitalized (Linux-ARM64), unlike the others.
+# Repo bash helpers (ryderdain/bash) land here at runtime via a volume mount;
+# PATH is ready for them.
+ENV PATH="/opt/brzl/bin:${PATH}"
+
+# Non-root by default; the repo is mounted at /work. Generic name `opagent`
+# (this image is meant to be reusable beyond this project) — and it avoids
+# the Debian system group `operator` would collide with. Own uid/gid 1000.
+RUN useradd --create-home --uid 1000 --user-group --shell /bin/bash opagent
+
+# ============================================================================
+# aws — core plus the AWS substrate's tools (frozen with the AWS path)
+# ============================================================================
+FROM core AS aws
+ARG TOFU_VERSION TFLINT_VERSION AWSCLI_VERSION SMP_VERSION ANSIBLE_CORE_VERSION \
+    COMMUNITY_GENERAL_VERSION ANSIBLE_POSIX_VERSION KUBERNETES_CORE_VERSION \
+    TARGETARCH AWSCLI_VERIFY SMP_VERIFY
+WORKDIR /tmp
+
+# --- OpenTofu (verify against published SHA256SUMS) -------------------------
 RUN set -eux; \
-    f="trivy_${TRIVY_VERSION}_Linux-ARM64.tar.gz"; \
-    base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"; \
+    f="tofu_${TOFU_VERSION}_linux_${TARGETARCH}.zip"; \
+    base="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}"; \
     curl -fsSLO "${base}/${f}"; \
-    curl -fsSLo checksums.txt "${base}/trivy_${TRIVY_VERSION}_checksums.txt"; \
-    grep " ${f}\$" checksums.txt | sha256sum -c -; \
-    tar -xzf "${f}" -C /usr/local/bin trivy; \
-    rm -f "${f}" checksums.txt; \
-    trivy --version
+    curl -fsSLo SHA256SUMS "${base}/tofu_${TOFU_VERSION}_SHA256SUMS"; \
+    grep " ${f}\$" SHA256SUMS | sha256sum -c -; \
+    unzip -q "${f}" tofu -d /usr/local/bin; \
+    chmod +x /usr/local/bin/tofu; \
+    rm -f "${f}" SHA256SUMS; \
+    tofu version
 
 # --- tflint (verify against published checksums.txt) -----------------------
 RUN set -eux; \
@@ -268,15 +261,29 @@ RUN set -eux; \
       "kubernetes.core:==${KUBERNETES_CORE_VERSION}" ; \
     ansible --version
 
-# Repo bash helpers (ryderdain/bash) land here at runtime via a volume mount or
-# a later build stage; PATH is ready for them.
-ENV PATH="/opt/brzl/bin:${PATH}"
-
-# Non-root by default; mount the repo at /work. Generic name `opagent` (this
-# image is meant to be reusable beyond this project) — and it avoids the Debian
-# system group `operator` would collide with. Own uid/gid 1000 group.
-RUN useradd --create-home --uid 1000 --user-group --shell /bin/bash opagent
 USER opagent
 WORKDIR /work
+ENTRYPOINT ["/bin/bash"]
 
+# ============================================================================
+# local — core plus k3d; the default target
+# ============================================================================
+FROM core AS local
+ARG K3D_VERSION TARGETARCH
+WORKDIR /tmp
+
+# --- k3d (verify against published checksums.txt) --------------------------
+# The driver makes local (k3d) clusters through the host engine's socket.
+RUN set -eux; \
+    f="k3d-linux-${TARGETARCH}"; \
+    base="https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}"; \
+    curl -fsSLO "${base}/${f}"; \
+    curl -fsSLo checksums.txt "${base}/checksums.txt"; \
+    grep " _dist/${f}\$" checksums.txt | sed "s| _dist/| |" | sha256sum -c -; \
+    install -m 0755 "${f}" /usr/local/bin/k3d; \
+    rm -f "${f}" checksums.txt; \
+    k3d version
+
+USER opagent
+WORKDIR /work
 ENTRYPOINT ["/bin/bash"]

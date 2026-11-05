@@ -257,9 +257,11 @@ this is the at-a-glance summary.
   the AWS-managed defaults — for key-policy control, rotation, and grantability
   (a HYOK-friendly posture). ~$1/mo per key.
 - **Operator/CI kiesei container + bootstrap VM.** A pinned, supply-chain-verified
-  arm64 image (tofu, ansible, kubectl, helm, aws-cli, session-manager-plugin, …)
-  is the unit of execution for long ops — it kills toolchain drift across the team
-  and decouples long-running applies from an operator's SSO/SSH session timeout.
+  arm64 image is the unit of execution. It has a `core` stage (kubectl, helm,
+  argocd, …) and one stage per substrate (ADR-0040). The `local` stage adds
+  k3d, and the `aws` stage adds tofu, ansible and aws-cli. One image for long
+  ops kills toolchain drift across the team and decouples long-running applies
+  from an operator's SSO/SSH session timeout.
   Delivered as a container + a cloud-init bootstrap VM; **Packer-baked AMI
   documented** as the immutable prod path.
 - **Registry: ECR + pull-through cache** for images and OCI Helm charts; **Harbor**
@@ -351,4 +353,5 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |
 | [ADR-0037](adr/0037-break-glass-mode.md) | Break-glass mode: `open` stops sync and elevates the admins, with a record; `close` gives the cluster back to git; the reader of the admin log store | Accepted (pass 6b, Q195–Q209); built; the verbs renamed in item 37 (ADR-0038) |
 | [ADR-0038](adr/0038-driver-grammar.md) | The driver grammar: `BRZL_ENV=<env> driver.sh <mode> <verb>`; the modes `cluster`, `break-glass`, `audit`; the sync verbs fold into break-glass; the teardown guard | Accepted (item 37, Q234–Q243); built |
-| [ADR-0039](adr/0039-environment-names.md) | Environment names `dev`, `test`, `stage`, `production`; substrates `local`, `aws`, `gcp`; `env/dev.env`; `gitops/clusters/dev` | Accepted (item 38, Q245–Q248); in progress |
+| [ADR-0039](adr/0039-environment-names.md) | Environment names `dev`, `test`, `stage`, `production`; substrates `local`, `aws`, `gcp`; `env/dev.env`; `gitops/clusters/dev` | Accepted (item 38, Q245–Q249); built |
+| [ADR-0040](adr/0040-kiesei-core-and-substrate-stages.md) | The kiesei image: a `core` stage and one stage per substrate (`local`, `aws`), the tag names the substrate, trivy and kubectl-cnpg parked | Accepted (item 39), built |
