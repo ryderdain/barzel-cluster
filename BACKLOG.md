@@ -533,8 +533,9 @@ Order of work (Q120):
     off`/`on` and `pause`/`resume` go), `audit` (`bootstrap`/`teardown`
     start and stop the reader; `start`/`stop` are synonyms in both modes).
     `cluster teardown` and `audit teardown` emit every line behind the
-    prefix `## ⚠ ##` and a space, and a footer says how to strip it, so a
-    pipe without the `sed` runs nothing. `BRZL_ENV` has a default. The
+    prefix `## ⚠ ##` and a space, so a pipe without the `sed` runs nothing;
+    its last line then prints how to strip it and exits 2 (Q244).
+    `BRZL_ENV` has a default. The
     names in the records follow (run sheets, the alert). Every document
     that shows a driver command changes with it. Supersedes item 35.
     **Built 2026-11-05** (branch `item-37-driver-grammar`, ADR-0038): the

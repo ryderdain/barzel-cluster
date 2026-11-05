@@ -144,6 +144,7 @@ BRZL_ENV=local bash driver/driver.sh cluster teardown \
 ```
 
 The procedure is guarded: every line is behind the prefix `## ⚠ ##` and
-a space, so a pipe without the `sed` runs nothing, and its last line says
-so. The cluster goes. The registry cache, the secret store and its
-credentials stay, so the next bootstrap is fast and needs no key.
+a space, so a pipe without the `sed` runs nothing. Its last line then
+prints how to strip the prefix, and exits 2. The cluster goes. The
+registry cache, the secret store and its credentials stay, so the next
+bootstrap is fast and needs no key.

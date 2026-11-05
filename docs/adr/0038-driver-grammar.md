@@ -42,12 +42,16 @@ a user sees. Item 35 was dropped (Q234) and this item took its place.
   Q224 asked for. `close` syncs each kustomize Application from git
   before it moves the switch, as `sync on` did. `apply <branch>` is not
   a verb: it would mean two different things.
-- **The teardown guard** (Q238, the user). `cluster teardown` and `audit
-  teardown` emit every line behind the prefix `## ⚠ ##` and a space, and
-  a last line says how to strip it: `sed 's/^## ⚠ ## //'` in the pipe. A
-  pipe
-  without the `sed` runs nothing. The recorded run sheets in `var/run/`
-  are written when the stream runs, so they carry no prefix.
+- **The teardown guard** (Q238, the user; Q244). `cluster teardown` and
+  `audit teardown` emit every line behind the prefix `## ⚠ ##` and a
+  space. The first line sets a variable, behind the prefix too. The last
+  line has no prefix: it tests the variable, and when it is not set, it
+  prints how to strip the prefix (`sed 's/^## ⚠ ## //'` in the pipe) to
+  stderr and exits 2. So a pipe without the `sed` runs nothing and says
+  so, and a pipe with it runs the teardown in silence. The message comes
+  from the run, not from the emitter, so it cannot show when the `sed` is
+  there. The recorded run sheets in `var/run/` are written when the stream
+  runs, so they carry no prefix.
 - **Who opens** (Q241). Sign-on names the person when it answers. When it
   does not, the record names the declared name, else the account on the
   operator's machine, as declared, not verified, with a warning. One rule
@@ -82,7 +86,8 @@ a user sees. Item 35 was dropped (Q234) and this item took its place.
 ## As built (item 37, 2026-11-05)
 
 - `driver/driver.sh`: `main` reads `BRZL_ENV`, then `<mode> <verb>`.
-  `guarded` wraps the two teardown emitters. The emitted check call is
+  `guarded` wraps the two teardown emitters (the variable `guard`). The
+  emitted check call is
   `BRZL_ENV=<env> bash driver/driver.sh cluster check <phase> <run_dir>`.
 - `driver/modes/break-glass.sh`: `open`, `open_check`, `apply`, `close`,
   `close_check`, with `kustomize_apps` and `local_source` from the old

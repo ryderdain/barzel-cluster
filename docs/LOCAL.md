@@ -289,7 +289,8 @@ BRZL_ENV=local bash driver/driver.sh audit teardown \
 
 A teardown, of the cluster or of the reader, is guarded. Every line of its
 procedure is behind the prefix `## ⚠ ##` and a space, so a pipe without
-the `sed` runs nothing. The last line says how to strip it.
+the `sed` runs nothing. Its last line then prints how to strip the prefix,
+and exits 2.
 
 To remove the collector beside the cluster and all log data that is kept
 outside the cluster (the admin and cold log stores' data, the queue and
@@ -666,8 +667,9 @@ BRZL_ENV=local bash driver/driver.sh cluster teardown \
 ```
 
 `cluster stop` is the same verb. The procedure is guarded: every line is
-behind the prefix `## ⚠ ##` and a space, and a pipe without the `sed` runs
-nothing. This removes the k3d cluster only. The containers beside it (Zot,
+behind the prefix `## ⚠ ##` and a space. A pipe without the `sed` runs
+nothing, prints how to strip the prefix, and exits 2. This removes the k3d
+cluster only. The containers beside it (Zot,
 OpenBao, the DNS stand-in, the log collector) stay, with their data, and
 so do the admin log store's data and the steps on your machine. The next
 `cluster bootstrap` starts a new run.

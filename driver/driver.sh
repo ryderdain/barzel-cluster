@@ -28,8 +28,8 @@
 #
 # `start` and `stop` are synonyms of `bootstrap` and `teardown`, in both modes.
 # A teardown (cluster or audit) is guarded: every emitted line is behind the
-# prefix `## ⚠ ## `, so a pipe without the `sed` runs nothing, and the last
-# line says how to strip it.
+# prefix `## ⚠ ## `, so a pipe without the `sed` runs nothing: its last line
+# prints how to strip it, to stderr, and exits 2.
 #
 # Each phase group: (1) the phase's emitter writes its commands to a run sheet,
 # var/run/<env>/cluster-<UTC>Z/<NN>-<phase>.sh; (2) the run sheet runs at the
@@ -187,17 +187,20 @@ emit_down() {
   end_function 0 "emitted $env cluster teardown for $run_dir"
 }
 
-# guarded <emit function> <args> — the teardown guard (Q238): every line of
-# the emitted stream behind the prefix, then the footer. A pipe runs nothing
-# until the operator strips the prefix in it.
+# guarded <emit function> <args> — the teardown guard (Q238, Q244): every
+# line of the emitted stream behind the prefix, between a first line that
+# sets a variable (behind the prefix too) and a last line, with no prefix,
+# that tests it. A pipe without the sed reads only comments, then the last
+# line prints the footer to stderr and exits 2. With the sed, the first line
+# sets the variable, the teardown runs, and the last line passes.
 guarded() {
   local rc
   set -o pipefail   # the emitter's failure must not hide behind sed's success
-  "$@" | sed 's/^/## ⚠ ## /'
+  { printf 'guard=stripped\n'; "$@"; } | sed 's/^/## ⚠ ## /'
   rc=$?
   set +o pipefail
   (( rc == 0 )) || return "$rc"
-  printf '##    TO TEARDOWN, PASTE `sed '"'"'s/^## ⚠ ## //'"'"'` INTO PIPE    ##\n'
+  printf '[[ "${guard:-}" == stripped ]] || { printf '\''##    TO TEARDOWN, PASTE `sed '\''"'\''"'\''s/^## ⚠ ## //'\''"'\''"'\''` INTO PIPE    ##\\n'\'' >&2; exit 2; }\n'
 }
 
 # emit_break_glass <env> <open|close|apply> [args] — one group for a

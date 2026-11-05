@@ -32,8 +32,9 @@ switch. Decided (Q234–Q243, DECISIONS): `BRZL_ENV=<env> driver.sh <mode>
 `teardown`, `status`, `check`; no `next`), `break-glass` (`open
 '<reason>'`, `apply [<dir>]` only when open, `close [confirm]`; no
 `sync`), `audit` (`bootstrap`, `teardown`; the reader). `start`/`stop`
-are synonyms. A teardown is emitted behind `## ⚠ ##` and a space, with the footer;
-the pipe needs `sed 's/^## ⚠ ## //'`. 37 driver tests pass. Not tested
+are synonyms. A teardown is emitted behind `## ⚠ ##` and a space; without
+the `sed` in the pipe its last line prints the footer and exits 2 (Q244).
+39 driver tests pass. Not tested
 live: `open`, `apply`, `close`. The user's GLOSSARY edits (loci, TLS type)
 are in `7222ba9`. The item-35 branch still exists (local and origin): the
 user deletes it. After verification: RETROSPECTIVE, BACKLOG 37 done,
