@@ -1,9 +1,9 @@
 # Vendored from ryderdain/bash (the canonical Bash doctrine), pinned to one
-# commit on master and kept byte-identical to it. The kiesei image and the
+# commit on main and kept byte-identical to it. The kiesei image and the
 # conductor need their own copy, and a pin keeps each run reproducible
 # (decision Q103, 2026-10-14; replaces Q49's plan to source upstream directly).
 # Check with: bash driver/lib/upstream-check.sh
 repo=ryderdain/bash
-branch=master
+branch=main
 commit=a5e8127
 files=includes/runlib.sh includes/error.sh
