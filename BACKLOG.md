@@ -368,7 +368,7 @@ Order of work (Q120):
     condition and its one command, two short commands that make one
     step, a short pipe. The test is readability. Applied here 2026-11-05: the driver's
     per-phase run block and the `mkdir && chmod` line of phase 10. The
-    rule is upstream (`a5e8127`, on the branch `bash-doctrine`),
+    rule is upstream (`a5e8127`, merged to `main`),
     `error.sh` re-vendored, the pin moved. Open: the user verifies at
     the next bootstrap.
 37. **The driver grammar** — **done 2026-11-05** (RETROSPECTIVE; ADR-0038):
