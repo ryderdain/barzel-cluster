@@ -343,7 +343,7 @@ usage() {
 }
 
 main() {
-  local env="${BRZL_ENV:-local}" mode="${1:-}" verb="${2:-}"
+  local env="${BRZL_ENV:-dev}" mode="${1:-}" verb="${2:-}"
   if [[ -z "$mode" || -z "$verb" ]]; then
     usage
     return 2

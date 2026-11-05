@@ -1,6 +1,6 @@
 # The admin portal on local: the base, reached through a fixed NodePort that
 # the k3d adapter maps to a host port when it makes the cluster
-# (BRZL_PORTAL_NODE_PORT / BRZL_PORTAL_PORT in env/local.env; ADR-0028),
+# (BRZL_PORTAL_NODE_PORT / BRZL_PORTAL_PORT in env/dev.env; ADR-0028),
 # and with a fixed Service address (sign-on step 2, Q186). The k3d adapter
 # maps the portal's host name to that address on the node (its hosts file,
 # at every start), so the kube-API reaches Dex at the issuer URL; the pods
@@ -12,7 +12,7 @@
 # low part of a range for fixed addresses (for a /16, the first 256:
 # 10.43.0.0 to 10.43.0.255; the cluster DNS is 10.43.0.10 for the same
 # reason) and gives dynamic addresses from the rest, so nothing else takes
-# this one. env/local.env names the same address (BRZL_PORTAL_CLUSTER_IP),
+# this one. env/dev.env names the same address (BRZL_PORTAL_CLUSTER_IP),
 # and phase 40 checks that they agree. A Service's address cannot change: a
 # cluster from before this value needs `down`, then `up`.
 apiVersion: kustomize.config.k8s.io/v1beta1

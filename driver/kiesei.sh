@@ -3,7 +3,7 @@
 # reads a command stream on stdin and runs it with bash inside the kiesei image,
 # so the procedure uses the image's pinned toolchain, not the host's tools.
 #
-#   BRZL_ENV=local bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
+#   BRZL_ENV=dev bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh
 #   bash driver/kiesei.sh shell                                # an interactive
 #                                 shell in the image, for the CLI tools (argocd,
 #                                 kubectl, helm, cnpg, ...); docs/guide/kiesei.md.
@@ -42,7 +42,8 @@
 # terminal, this script names the sheet and leaves it.
 #
 # Execution-locus script (neither emit nor generator: like `bash`, it runs what
-# it is given). Inputs: BRZL_KIESEI_IMAGE (exported, or from env/local.env).
+# it is given). Inputs: BRZL_ENV (the default is dev), BRZL_KIESEI_IMAGE
+# (exported, or from env/<env>.env).
 # Needs only the docker CLI on the host. Credentials: only what a BRZL_*
 # bootstrap secret source carries (phase 25), passed by name, never in argv.
 
@@ -50,6 +51,11 @@
 
 repo_root="$(cd -- "${BASH_SOURCE[0]%/*}/.." && pwd -P)" || exit 1
 
+env="${BRZL_ENV:-dev}"
+if [[ ! -r "$repo_root/env/$env.env" ]]; then
+  printf 'error: no environment definition env/%s.env (BRZL_ENV=%s)\n' "$env" "$env" >&2
+  exit 2
+fi
 image="${BRZL_KIESEI_IMAGE:-}"
 portal_host="${BRZL_PORTAL_HOST:-}"
 store_dir="${BRZL_SECRET_STORE_DIR:-}"
@@ -59,7 +65,7 @@ while IFS='=' read -r key value; do
   [[ "$key" == BRZL_PORTAL_HOST && -z "$portal_host" ]] && portal_host="$value"
   [[ "$key" == BRZL_SECRET_STORE_DIR && -z "$store_dir" ]] && store_dir="$value"
   [[ "$key" == BRZL_EXAMPLE_APP_SRC && -z "$app_src" ]] && app_src="$value"
-done < "$repo_root/env/local.env"
+done < "$repo_root/env/$env.env"
 
 if ! command -v docker >/dev/null 2>&1; then
   printf 'error: docker CLI not found on PATH (the host needs only the engine and its CLI)\n' >&2
@@ -106,7 +112,7 @@ if [[ "${1:-}" == shell ]]; then
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$repo_root:$repo_root" -w "$repo_root" \
     "${env_args[@]}" -e "BRZL_HOST_OS=$(uname)" -e "BRZL_HOST_USER=$(id -un)" \
-    -e "BRZL_RUN=$repo_root/var/run/local/current" -e "BRZL_PORTAL_HOST=$portal_host" \
+    -e "BRZL_RUN=$repo_root/var/run/$env/current" -e "BRZL_PORTAL_HOST=$portal_host" \
     "$image" -c "$prelude; exec bash --rcfile $repo_root/driver/lib/kiesei-shell.sh -i"
 fi
 docker run --rm -i \

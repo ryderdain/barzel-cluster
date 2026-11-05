@@ -8,7 +8,7 @@ metadata:
   labels:
     app.kubernetes.io/name: portal
 spec:
-  # No fixed address here. The local overlay (gitops/clusters/local/portal)
+  # No fixed address here. The overlay for the local substrate (gitops/clusters/<env>/portal)
   # sets one, as a stand-in for public DNS on a laptop (sign-on step 2,
   # Q186); an environment with public DNS needs none.
   selector:
