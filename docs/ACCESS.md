@@ -131,7 +131,7 @@ prerequisite, [BOOTSTRAP.md](BOOTSTRAP.md) phase 1). Once enabled:
 
 One GitHub-backed sign-on in front of the admin portal, in every
 environment (ADR-0035). The design and its flows are in
-[SECURITY.md](SECURITY.md). The steps for a local environment are in
+[SECURITY.md](SECURITY.md). The steps for the dev environment are in
 [LOCAL.md](LOCAL.md#sign-on).
 
 **The three access tiers** are three teams of the GitHub organization. Dex

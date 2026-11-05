@@ -20,7 +20,7 @@ chain, and it does not depend on any workload. An **example app** shows that
 it runs stateless and stateful workloads; any other app can take its place.
 
 The platform moves changes along a chain of environments, from local to a
-shared remote environment to production. The local environment is the first
+shared remote environment to production. The dev environment is the first
 step, and it has the same shape as the others:
 
 ```text
@@ -44,7 +44,7 @@ step, and it has the same shape as the others:
 On a cloud, each local stand-in becomes the cloud's own service: the
 registry, the secret store, public DNS and a public CA, and object storage.
 The **substrate adapter** for each cloud gives the same outputs to the same
-phases. The local environment therefore needs nothing public to run, and
+phases. The dev environment therefore needs nothing public to run, and
 still has the shape of a production environment (ADR-0036).
 
 **Flow: how a change reaches a cluster.** Two kinds of change travel two
@@ -136,7 +136,7 @@ The platform must be **portable, reproducible and operable by a small team**,
 and **simple**: the plainest working shape wins over the fastest path on one
 provider. Three rules follow from this, and they explain most of what follows:
 
-- **Local first.** Every change runs on the local environment before it goes
+- **Local first.** Every change runs on the dev environment before it goes
   further. Local mimics the cloud: a service that is outside the cluster on a
   cloud is also outside the cluster on local (ADR-0023, ADR-0026).
 - **One interface for each substrate.** The platform layer assumes only

@@ -291,7 +291,7 @@ Define one command for the time window, then filter its output with `jq`:
 ```sh
 cold() {
   jq -c -f driver/lib/cold-records.jq --arg from "$1" --arg to "$2" \
-    var/log-store/local/cold/*/platform/*.jsonl
+    var/log-store/dev/cold/*/platform/*.jsonl
 }
 from=2026-10-28T17:00:00Z
 to=2026-10-28T19:00:00Z

@@ -144,8 +144,8 @@ _Avoid_: cert mode, issuer (for this meaning)
 **Local stand-in**:
 A small service beside a local cluster that takes the place of a public
 service the cloud would provide: the registry, the secret store, DNS, a CA.
-A local environment needs nothing public, and keeps the shape of a
-production environment.
+An environment on the local substrate needs nothing public, and keeps the
+shape of a production environment.
 _Avoid_: mock, fake, shim
 
 ### Logs

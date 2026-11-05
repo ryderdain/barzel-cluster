@@ -29,9 +29,9 @@ wins.
 - **Local is the first environment** (ADR-0024). It mimics the cloud: a
   service that a cloud keeps outside the cluster runs outside it locally too
   (ADR-0023, ADR-0026). A person must be able to try the platform on their
-  own machine with no public DNS zone and no account at a provider; at the
-  same time the local environment stands in for a production environment
-  with public endpoints. The laptop substrate alone resolves this, with a
+  own machine with no public DNS zone and no account at a provider. At the
+  same time the dev environment, on a laptop, stands in for a production
+  environment with public endpoints. The laptop substrate alone resolves this, with a
   local stand-in for each public service (DNS, a CA; ADR-0036).
 - **One adapter for each substrate**, with the same interface (ADR-0022,
   §3 platform-layer portability). Each cloud provider is a substrate.
@@ -55,7 +55,7 @@ that record.
 |---|------------------|--------------|--------|
 | 1 | Infra (Terraform): modular, dev/prod, reusable | **Layered state** (Lee Briggs): `modules/` + per-env `environments/{dev,prod}/NN-layer`; remote state S3+DynamoDB | ✅ **live** (applied 10→50; full teardown + DR test done) |
 | 2 | Node config (Ansible): runtime, k8s, networking, idempotent | `roles/{base,security,kubernetes}` + `playbooks/bootstrap.yml`; inventory from TF outputs | ✅ **live** (k3s HA 3 servers, idempotent, validated) |
-| 3 | GitOps (ArgoCD): operators, apps, env separation | **ApplicationSet** (account-id-free, ADR-0016) + **sync waves**; `clusters/{dev,prod}` + `clusters/local` | ✅ **live** (6 apps Synced/Healthy) |
+| 3 | GitOps (ArgoCD): operators, apps, env separation | **ApplicationSet** (account-id-free, ADR-0016) + **sync waves**; `clusters/{dev,prod}` | ✅ **live** (6 apps Synced/Healthy) |
 | 4a | Operator: DB cluster (3x, PVs, failover) | **CloudNativePG**, 3 instances, EBS gp3 PVCs | ✅ **live** (3/3 HA; **failover drilled** — promote, 0 data loss) |
 | 4b | Operator: backups (object store, scheduled, restore) | CNPG → **S3 via Barman Cloud**, scheduled + on-demand, restore | ✅ **backup drilled** (CMK-encrypted, instance-profile); restore = the A2 DR test (pending return to AWS) |
 | 4c | Operator: monitoring (Prometheus) | CNPG metrics + **ServiceMonitor/PodMonitor**; kube-prometheus-stack + CNPG dashboard + custom app/DB overview | ✅ **live** (scraping CNPG + demo-app; dashboards) |
