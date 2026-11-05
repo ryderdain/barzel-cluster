@@ -59,8 +59,8 @@ the names are set before it.
 - A live cluster cannot be renamed in place: its cluster Secret carries
   `brzl.dev/env: local`. The path is a teardown under the old names, then a
   bootstrap under `dev`. The secret store makes its transit key at its
-  first start only, and the check round-trips it by name, so the store is
-  purged in between (Q249): the next bootstrap makes a new one and takes
+  first start only, and the check round-trips it by name. So the store is
+  purged in between (Q249). The next bootstrap makes a new one and takes
   the deploy key again. The log store and the `oauth-local-*` files move
   to their `dev` names.
 - The OAuth App on GitHub keeps the name `brzl-sign-on-local` unless the
