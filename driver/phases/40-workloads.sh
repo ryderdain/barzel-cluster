@@ -7,8 +7,8 @@
 #   bash driver/phases/40-workloads.sh phase_up <env> <run_dir>     # EMIT
 #   bash driver/phases/40-workloads.sh phase_check <env> <run_dir>  # GENERATOR
 #
-# With sync off Argo CD does not sync, so this phase waits until its timeout and
-# its check fails: run it with sync on (sync on first).
+# While the break-glass is open Argo CD does not sync, so this phase waits until
+# its timeout and its check fails: close it first.
 #
 # Inputs: <run_dir>/kubeconfig from phase 10 (for the check); BRZL_PORTAL_*
 # and, in local-ca mode, the CA certificate in BRZL_SECRET_STORE_DIR;
@@ -171,7 +171,7 @@ logs_check() {
 # example app's /apps/<name>/ through without it. The name is resolved here
 # (--resolve), so the check does not depend on the operating system's
 # resolver; the CA is the store's in local-ca mode. Also the access tiers'
-# rights, in and outside a break-glass hold (ADR-0037).
+# rights, in and outside an open break-glass (ADR-0037).
 portal_check() {
   local env="$1" url="https://$BRZL_PORTAL_HOST" issuer="https://$BRZL_PORTAL_HOST/dex" code out
   local -a get=(curl -sS --max-time 10 --resolve "$BRZL_PORTAL_HOST:$BRZL_PORTAL_PORT:127.0.0.1")
@@ -263,23 +263,23 @@ portal_check() {
       "${ip:-none}" "$BRZL_PORTAL_CLUSTER_IP" >&2
     return 1
   fi
-  # Break-glass (ADR-0037): the admins are cluster-admin only in a hold, through
-  # the binding brzl-break-glass, and the hold's record is on the cluster
-  # Secret. Both or neither: one without the other is a hold or a release
+  # Break-glass (ADR-0037): the admins are cluster-admin only while it is open,
+  # through the binding brzl-break-glass, and the record is on the cluster
+  # Secret. Both or neither: one without the other is an open or a close
   # that did not finish.
-  local held record teams=(brzl-admins brzl-operators brzl-auditors)
-  held="$(kubectl get clusterrolebinding brzl-break-glass -o name 2>/dev/null)"
+  local opened record teams=(brzl-admins brzl-operators brzl-auditors)
+  opened="$(kubectl get clusterrolebinding brzl-break-glass -o name 2>/dev/null)"
   record="$(kubectl -n argocd get secret "brzl-$env-in-cluster" -o json 2>/dev/null \
     | jq -r '.metadata.annotations["brzl.dev/break-glass"] // empty')"
-  if [[ -n "$held" && -z "$record" ]] || [[ -z "$held" && -n "$record" ]]; then
-    printf 'fix: the binding brzl-break-glass (%s) and the hold'"'"'s record on the cluster Secret (%s) disagree: run the driver'"'"'s hold or release again (docs/BREAK-GLASS.md)\n' \
-      "${held:-absent}" "${record:-absent}" >&2
+  if [[ -n "$opened" && -z "$record" ]] || [[ -z "$opened" && -n "$record" ]]; then
+    printf 'fix: the binding brzl-break-glass (%s) and the break-glass record on the cluster Secret (%s) disagree: run the driver'"'"'s break-glass open or close again (docs/BREAK-GLASS.md)\n' \
+      "${opened:-absent}" "${record:-absent}" >&2
     return 1
   fi
-  if [[ -n "$held" ]]; then
-    printf 'WARNING: a break-glass hold is on (%s): the admins are cluster-admin, and Argo CD holds\n' "$record" >&2
+  if [[ -n "$opened" ]]; then
+    printf 'WARNING: the break-glass is open (%s): the admins are cluster-admin, and Argo CD pauses\n' "$record" >&2
     if [[ "$(kubectl auth can-i '*' '*' --as=oidc:probe --as-group="oidc:$org:brzl-admins" 2>/dev/null)" != yes ]]; then
-      printf 'fix: in a hold the group oidc:%s:brzl-admins is cluster-admin, and it is not; see: kubectl get clusterrolebinding brzl-break-glass -o yaml\n' "$org" >&2
+      printf 'fix: while the break-glass is open the group oidc:%s:brzl-admins is cluster-admin, and it is not; see: kubectl get clusterrolebinding brzl-break-glass -o yaml\n' "$org" >&2
       return 1
     fi
     teams=(brzl-operators brzl-auditors)

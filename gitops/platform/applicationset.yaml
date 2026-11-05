@@ -23,8 +23,8 @@
 #     brzl.dev/backup-bucket       CNPG backup bucket (AWS only; absent = no backup patch)
 #     brzl.dev/portal-host         the admin portal's host name (its certificate)
 #     brzl.dev/revision            git revision to follow (absent = main)
-#     brzl.dev/auto-sync           "false" = Argo CD holds: fast mode on local,
-#                                  break-glass mode anywhere (absent = sync)
+#     brzl.dev/auto-sync           "false" = Argo CD pauses: the break-glass is
+#                                  open (absent = sync)
 #
 # A helm element names its chart and a values file from this repo, and may add:
 #   moreValueFiles        values files applied after valueFile

@@ -1,8 +1,8 @@
 # Every tier: the built-in `view` role, which reads most objects and the
 # pods' logs in every namespace, but no Secret, and cannot change anything (a
 # person changes git, or restarts through Argo CD). Admins get cluster-admin
-# only in a break-glass hold: `hold` adds a second binding, brzl-break-glass,
-# and `release` deletes it (ADR-0037, docs/BREAK-GLASS.md). The admins'
+# only while the break-glass is open: `open` adds a second binding,
+# brzl-break-glass, and `close` deletes it (ADR-0037, docs/BREAK-GLASS.md). The admins'
 # binding has a new name, because the role of a binding cannot change: Argo
 # CD prunes the old brzl-tier-admins (cluster-admin) and creates this one. A
 # narrower auditor role and a workload developer's role are BACKLOG 30.

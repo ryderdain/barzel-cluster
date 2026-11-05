@@ -28,12 +28,12 @@ export KUBECONFIG="$BRZL_RUN/kubeconfig-sign-on"
 brzl_ps1="$PS1"
 
 # as_admin — kubectl as system:admin (the cluster-admin kubeconfig), for a
-# break-glass hold when Dex is down; the prompt says so until as_me.
+# break-glass open when Dex is down; the prompt says so until as_me.
 as_admin() {
   export KUBECONFIG="$BRZL_RUN/kubeconfig"
   PS1='\[\e[1;37;41m\][cluster-admin]\[\e[0m\] '"$brzl_ps1"
   printf 'kiesei shell: kubectl is system:admin now. The audit log does not name you,\n' >&2
-  printf '              and records no request body. Only in a break-glass hold when\n' >&2
+  printf '              and records no request body. Only in an open break-glass when\n' >&2
   printf '              Dex is down (docs/BREAK-GLASS.md); write down each change. Back: as_me\n' >&2
 }
 
