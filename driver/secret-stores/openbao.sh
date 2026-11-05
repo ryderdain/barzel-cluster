@@ -305,13 +305,17 @@ secret_store_host_steps() {
   name="brzl-$BRZL_PORTAL_HOST"
   qca="$(printf '%q' "$ca")"
   # The CA is made when phase 10 runs, after this is emitted: the sheet reads
-  # its name when it runs (OpenSSL and LibreSSL print the subject alike).
+  # its name and its fingerprint when it runs (OpenSSL and LibreSSL print
+  # both alike). The fingerprint tells a new CA from an old one of the same
+  # name, which a purge of the store and a new bootstrap leave in a trust
+  # store (found 2026-11-05).
   printf '# trust the CA of the store, %s\n' "$BRZL_SECRET_STORE_DIR/ca.crt"
   printf 'cn="$(openssl x509 -in %s -noout -subject 2>/dev/null | sed -n '"'"'s/.*CN *= *//p'"'"')"\n' "$qca"
+  printf 'fp="$(openssl x509 -in %s -noout -fingerprint -sha256 2>/dev/null | sed '"'"'s/.*=//; s/://g'"'"')"\n' "$qca"
   printf 'if [[ ! -s %s ]]; then\n' "$qca"
   printf '  printf '"'"'no CA certificate at %%s yet: run phase 10 first\\n'"'"' %s\n' "$qca"
   printf 'elif [[ "$(uname)" == Darwin ]]; then\n'
-  printf '  security find-certificate -c "$cn" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1 \\\n'
+  printf '  security find-certificate -a -c "$cn" -Z ~/Library/Keychains/login.keychain-db 2>/dev/null | grep -q "SHA-256 hash: $fp" \\\n'
   printf '    || steps+=(%s)\n' "$(squote "security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db $qca")"
   printf 'else\n'
   printf '  [[ -r /etc/os-release ]] && . /etc/os-release\n'
@@ -333,7 +337,7 @@ secret_store_host_steps() {
   printf '    *) printf '"'"'no CA step for this system (%%s): see docs/LOCAL.md, "Steps on your machine"\\n'"'"' "${ID:-unknown}" ;;\n'
   printf '  esac\n'
   printf '  if command -v certutil >/dev/null 2>&1 && [[ -d "$HOME/.pki/nssdb" ]] \\\n'
-  printf '      && ! certutil -d "sql:$HOME/.pki/nssdb" -L -n %q >/dev/null 2>&1; then\n' "$name"
+  printf '      && [[ "$(certutil -d "sql:$HOME/.pki/nssdb" -L -n %q -a 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | sed '"'"'s/.*=//; s/://g'"'"')" != "$fp" ]]; then\n' "$name"
   printf '    steps+=(%s)\n' "$(squote "certutil -d \"sql:\$HOME/.pki/nssdb\" -A -t C,, -n $name -i $qca")"
   printf '  fi\n'
   printf 'fi\n'
@@ -369,10 +373,11 @@ secret_store_pki_check() {
     printf 'whether your machine trusts this CA is in the host run sheet (10-host.sh, docs/LOCAL.md)\n'
     return 0
   fi
-  local cn
+  local cn fp
   cn="$(openssl x509 -in "$ca" -noout -subject -nameopt sep_multiline,utf8 2>/dev/null | sed -n 's/^ *CN=//p')"
-  if [[ "$(uname)" == Darwin && -n "$cn" ]] \
-      && security find-certificate -c "$cn" ~/Library/Keychains/login.keychain-db >/dev/null 2>&1; then
+  fp="$(openssl x509 -in "$ca" -noout -fingerprint -sha256 2>/dev/null | sed 's/.*=//; s/://g')"
+  if [[ "$(uname)" == Darwin && -n "$cn" && -n "$fp" ]] \
+      && security find-certificate -a -c "$cn" -Z ~/Library/Keychains/login.keychain-db 2>/dev/null | grep -q "SHA-256 hash: $fp"; then
     return 0
   fi
   operator_step "so that your machine trusts the CA of $host (skip if done), the host run sheet does it:" \
