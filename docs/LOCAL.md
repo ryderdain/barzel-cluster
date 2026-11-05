@@ -170,10 +170,12 @@ To see the condition of the current run:
 BRZL_ENV=dev bash driver/driver.sh cluster status
 ```
 
-The values for the dev environment are in `env/dev.env`. To change one
-value for one run, export it. The driver shows a warning and records the
-value in the run sheet. Export the value. Then the two sides of the pipe get
-it:
+The values for the dev environment are in `env/dev.env`. The file is in
+sections, and each section names the one reader of its keys: the phases
+and the modes, the substrate adapter, the secret-store adapter, audit
+mode. To change one value for one run, export it. The driver shows a
+warning and records the value in the run sheet. Then the two sides of the
+pipe get it:
 
 ```sh
 export BRZL_K3D_AGENTS=2

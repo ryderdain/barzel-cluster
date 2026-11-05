@@ -110,6 +110,13 @@ Order of work (Q120):
    it to the Barman Cloud Plugin (an `ObjectStore` and the plugin
    reference) before the operator reaches 1.31. The cold log store on AWS:
    the bucket, its lifecycle rule (Q212), and the collector's exporter.
+   The environment definition's keys (Q250, the user, 2026-11-05). When
+   the second substrate's file exists, decide the key names. Either a
+   substrate-specific key carries the substrate's name
+   (`BRZL_LOCAL_ZOT_PORT`), or the sections and the component prefix
+   (`K3D`, `ZOT`, `OPENBAO`) are enough. Two readers cross the sections:
+   the OpenBao adapter and audit
+   mode read `BRZL_K3D_CLUSTER` (and the adapter `BRZL_DOCKER_NETWORK`).
 11. **9. `promote workloads`** and **`promote all`** (a platform and workload
     change that depend on each other) (Q118). Revisit the Flow diagram in
     ARCHITECTURE §1 then, for the workload repo's branches (user). The
