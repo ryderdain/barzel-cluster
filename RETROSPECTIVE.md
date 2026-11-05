@@ -855,3 +855,60 @@ ADR-0038.
   commit went in before its lint result was read, and the next commit
   repaired it. 39 driver tests. The item-35 branch is the user's to
   delete.
+
+## 2026-11-05 — item 38: environment names, and the bootstrap from zero
+
+**User-verified 2026-11-05.** The user bootstrapped the dev environment
+from zero on the new names, with the external pieces purged, and the
+portal loaded and worked. Branch `item-38-environment-names`, merged to
+`main` with `--no-ff`. ADR-0039.
+
+- **The names** (Q239, Q240, Q245–Q248). An environment is a step of the
+  promotion chain: `dev`, `test`, `stage`, `production`. A substrate is
+  where a cluster runs: `local`, `aws`, `gcp`. `env/local.env` became
+  `env/dev.env`, `BRZL_SUBSTRATE=local` selects `substrates/local.sh`
+  (with `local-dns.Corefile`, `local-otelcol.yaml`, `local-zot.json`),
+  `BRZL_READER_*` became `BRZL_AUDIT_*`, and the values that name the
+  environment are `brzl-dev` and `var/*/dev`. `gitops/clusters/dev` took
+  the local content, and the AWS-era files in it went. The ApplicationSet
+  tests the substrate label where it meant the substrate, and `localPath`
+  carries `__ENV__`. The driver and `kiesei.sh` default to `dev`.
+- **The migration** (Q249 b, the user: "all"). The store makes its
+  transit key at first start only, so a kept store fails the check under
+  the new key name. The user chose a rebuild of every external piece as a
+  validation of the INSTALL path. An emit script in the session's
+  scratchpad removed the external pieces: the store, the registry cache,
+  the collector, the DNS stand-in, the old network and the log store. It
+  renamed the OAuth App material. The deploy key went to the bootstrap
+  again.
+- **Found at the bootstrap, fixed.** The host run sheet said "done" and
+  did not add the new CA: its macOS check looked for the certificate by
+  common name, and the old CA of the same name was in the keychain. The
+  sheet and the phase 10 check now compare the SHA-256 fingerprint. The
+  user added the new CA by hand this once.
+- **Method.** One round, Q245–Q248, then Q249. The documents went first,
+  while the user's cluster cycle ran, with a fork for LOCAL.md, INSTALL.md
+  and the kiesei guide. The code part was a script, dry-run in a scratch
+  clone, applied when the tree was free. 39 driver tests. Two commits
+  went in with one STE error each, repaired at once. The branch was
+  pushed before the bootstrap, because phase 30 records the checked-out
+  branch as the revision.
+
+## 2026-11-05 — item 39: the kiesei image, a core stage and one per substrate
+
+**User-verified 2026-11-05**, in the same bootstrap from zero as item 38.
+ADR-0040.
+
+- **The question.** The user saw the image at 2.1 GB unpacked and asked
+  about a multi-stage build. The assessment: no residue to drop, each
+  layer is a tool, so the lever is which tools go where.
+- **The shape** (the user). `core` holds the platform tools. `local`
+  adds k3d and is the default target. `aws` adds aws-cli, the
+  session-manager plugin, tofu, tflint and ansible, frozen with the AWS
+  path. The tag names the substrate. tmux and vim stay in core, for a
+  session through a dropped connection and for the kiesei shell. trivy
+  and kubectl-cnpg are parked. Each install block is unchanged, and the
+  `ARG` pins are global because a stage does not inherit them.
+- **The result.** `kiesei:local` is 1.13 GB unpacked, from 2.12 GB. The
+  build log shows the seven checksum checks. Phase 20 pushed the image to
+  the fresh registry cache.

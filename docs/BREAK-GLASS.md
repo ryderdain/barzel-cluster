@@ -360,9 +360,9 @@ BRZL_ENV=<env> bash driver/driver.sh audit teardown | sed 's/^## ⚠ ##//' | bas
 
 `start` and `stop` are synonyms of `bootstrap` and `teardown`.
 `audit bootstrap` prints the address when Grafana is ready:
-`http://127.0.0.1:3300/explore` on local (`BRZL_READER_PORT`). The data
-source has the same name as in the cluster, "Admin log store", so the
-queries in this document work in both. Each action writes its run sheet
+`http://127.0.0.1:3300/explore` on the local substrate (`BRZL_AUDIT_PORT`).
+The data source has the same name as in the cluster, "Admin log store", so
+the queries in this document work in both. Each action writes its run sheet
 in a new run directory, `var/run/<env>/audit-<UTC>Z/`. The containers
 are `brzl-audit-<env>-loki` and `brzl-audit-<env>-grafana`
 (`driver/modes/audit.sh`, `audit-loki.yaml`, `audit-datasources.yaml`).

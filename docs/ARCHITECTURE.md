@@ -20,7 +20,7 @@ chain, and it does not depend on any workload. An **example app** shows that
 it runs stateless and stateful workloads; any other app can take its place.
 
 The platform moves changes along a chain of environments, from local to a
-shared remote environment to production. The local environment is the first
+shared remote environment to production. The dev environment is the first
 step, and it has the same shape as the others:
 
 ```text
@@ -44,7 +44,7 @@ step, and it has the same shape as the others:
 On a cloud, each local stand-in becomes the cloud's own service: the
 registry, the secret store, public DNS and a public CA, and object storage.
 The **substrate adapter** for each cloud gives the same outputs to the same
-phases. The local environment therefore needs nothing public to run, and
+phases. The dev environment therefore needs nothing public to run, and
 still has the shape of a production environment (ADR-0036).
 
 **Flow: how a change reaches a cluster.** Two kinds of change travel two
@@ -136,7 +136,7 @@ The platform must be **portable, reproducible and operable by a small team**,
 and **simple**: the plainest working shape wins over the fastest path on one
 provider. Three rules follow from this, and they explain most of what follows:
 
-- **Local first.** Every change runs on the local environment before it goes
+- **Local first.** Every change runs on the dev environment before it goes
   further. Local mimics the cloud: a service that is outside the cluster on a
   cloud is also outside the cluster on local (ADR-0023, ADR-0026).
 - **One interface for each substrate.** The platform layer assumes only
@@ -257,9 +257,11 @@ this is the at-a-glance summary.
   the AWS-managed defaults — for key-policy control, rotation, and grantability
   (a HYOK-friendly posture). ~$1/mo per key.
 - **Operator/CI kiesei container + bootstrap VM.** A pinned, supply-chain-verified
-  arm64 image (tofu, ansible, kubectl, helm, aws-cli, session-manager-plugin, …)
-  is the unit of execution for long ops — it kills toolchain drift across the team
-  and decouples long-running applies from an operator's SSO/SSH session timeout.
+  arm64 image is the unit of execution. It has a `core` stage (kubectl, helm,
+  argocd, …) and one stage per substrate (ADR-0040). The `local` stage adds
+  k3d, and the `aws` stage adds tofu, ansible and aws-cli. One image for long
+  ops kills toolchain drift across the team and decouples long-running applies
+  from an operator's SSO/SSH session timeout.
   Delivered as a container + a cloud-init bootstrap VM; **Packer-baked AMI
   documented** as the immutable prod path.
 - **Registry: ECR + pull-through cache** for images and OCI Helm charts; **Harbor**
@@ -351,3 +353,5 @@ append-only: a superseded ADR is marked, not deleted.
 | [ADR-0036](adr/0036-cert-manager-and-local-stand-ins-for-public-services.md) | cert-manager renews the portal's certificate; local stand-ins for public DNS and a public CA | Accepted (pass 5c) |
 | [ADR-0037](adr/0037-break-glass-mode.md) | Break-glass mode: `open` stops sync and elevates the admins, with a record; `close` gives the cluster back to git; the reader of the admin log store | Accepted (pass 6b, Q195–Q209); built; the verbs renamed in item 37 (ADR-0038) |
 | [ADR-0038](adr/0038-driver-grammar.md) | The driver grammar: `BRZL_ENV=<env> driver.sh <mode> <verb>`; the modes `cluster`, `break-glass`, `audit`; the sync verbs fold into break-glass; the teardown guard | Accepted (item 37, Q234–Q243); built |
+| [ADR-0039](adr/0039-environment-names.md) | Environment names `dev`, `test`, `stage`, `production`; substrates `local`, `aws`, `gcp`; `env/dev.env`; `gitops/clusters/dev` | Accepted (item 38, Q245–Q249); built; user-verified 2026-11-05 |
+| [ADR-0040](adr/0040-kiesei-core-and-substrate-stages.md) | The kiesei image: a `core` stage and one stage per substrate (`local`, `aws`), the tag names the substrate, trivy and kubectl-cnpg parked | Accepted (item 39), built, user-verified 2026-11-05 |

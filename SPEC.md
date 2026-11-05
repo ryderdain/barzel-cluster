@@ -29,9 +29,9 @@ wins.
 - **Local is the first environment** (ADR-0024). It mimics the cloud: a
   service that a cloud keeps outside the cluster runs outside it locally too
   (ADR-0023, ADR-0026). A person must be able to try the platform on their
-  own machine with no public DNS zone and no account at a provider; at the
-  same time the local environment stands in for a production environment
-  with public endpoints. The laptop substrate alone resolves this, with a
+  own machine with no public DNS zone and no account at a provider. At the
+  same time the dev environment, on a laptop, stands in for a production
+  environment with public endpoints. The laptop substrate alone resolves this, with a
   local stand-in for each public service (DNS, a CA; ADR-0036).
 - **One adapter for each substrate**, with the same interface (ADR-0022,
   §3 platform-layer portability). Each cloud provider is a substrate.
@@ -55,7 +55,7 @@ that record.
 |---|------------------|--------------|--------|
 | 1 | Infra (Terraform): modular, dev/prod, reusable | **Layered state** (Lee Briggs): `modules/` + per-env `environments/{dev,prod}/NN-layer`; remote state S3+DynamoDB | ✅ **live** (applied 10→50; full teardown + DR test done) |
 | 2 | Node config (Ansible): runtime, k8s, networking, idempotent | `roles/{base,security,kubernetes}` + `playbooks/bootstrap.yml`; inventory from TF outputs | ✅ **live** (k3s HA 3 servers, idempotent, validated) |
-| 3 | GitOps (ArgoCD): operators, apps, env separation | **ApplicationSet** (account-id-free, ADR-0016) + **sync waves**; `clusters/{dev,prod}` + `clusters/local` | ✅ **live** (6 apps Synced/Healthy) |
+| 3 | GitOps (ArgoCD): operators, apps, env separation | **ApplicationSet** (account-id-free, ADR-0016) + **sync waves**; `clusters/{dev,prod}` | ✅ **live** (6 apps Synced/Healthy) |
 | 4a | Operator: DB cluster (3x, PVs, failover) | **CloudNativePG**, 3 instances, EBS gp3 PVCs | ✅ **live** (3/3 HA; **failover drilled** — promote, 0 data loss) |
 | 4b | Operator: backups (object store, scheduled, restore) | CNPG → **S3 via Barman Cloud**, scheduled + on-demand, restore | ✅ **backup drilled** (CMK-encrypted, instance-profile); restore = the A2 DR test (pending return to AWS) |
 | 4c | Operator: monitoring (Prometheus) | CNPG metrics + **ServiceMonitor/PodMonitor**; kube-prometheus-stack + CNPG dashboard + custom app/DB overview | ✅ **live** (scraping CNPG + demo-app; dashboards) |
@@ -81,8 +81,8 @@ decisions; [`CLAUDE.md`](CLAUDE.md) references it rather than restating them.
 - **Registry:** ECR for images + OCI Helm charts + pull-through cache (Docker Hub, registry.k8s.io, quay.io, ghcr.io). **Harbor** = documented production recommendation.
 - **Storage:** EBS CSI + gp3 default StorageClass. `local-path` only as a documented descope lever. A standalone/DR path installs the CSI driver + gp3 itself (it bypasses the wave-0 GitOps storage app).
 - **Backups:** CNPG → S3 (Barman Cloud), authenticated by the **EC2 instance profile** — no second IAM user.
-- **GitOps:** a **single `ApplicationSet`** (account-id-free, ADR-0016 — NOT an app-of-apps root) with **sync waves** so operators land before the applications that need them; `clusters/{dev,prod}` + `clusters/local`.
-- **Local is the first environment (2026-10-07, ADR-0024).** The promotion chain is local → dev → prod. Local runs on a laptop (k3d) as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **the sync switch** (`sync off`/`sync on` stop and start Argo's automated sync so the working tree can be applied with `apply`; item 13). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** outside the cluster, persistent, static seal (KV v2 + transit; ADR-0026), ESO as the read boundary with one write adapter per store, and the admin log store's data on a host directory (ADR-0027). The local cluster is disposable.
+- **GitOps:** a **single `ApplicationSet`** (account-id-free, ADR-0016 — NOT an app-of-apps root) with **sync waves** so operators land before the applications that need them; `clusters/{dev,prod}`.
+- **The first environment runs on the local substrate (2026-10-07, ADR-0024; the names 2026-11-05, item 38, ADR-0039).** An environment is a step of the promotion chain, `dev` → `test` → `stage` → `production`, and a substrate is where a cluster runs: `local`, `aws`, `gcp`. The first environment is `dev`, on the local substrate (k3d), as a real environment, not an exception: GitOps mode (Argo follows a pushed branch) plus **the sync switch** (`sync off`/`sync on` stop and start Argo's automated sync so the working tree can be applied with `apply`; item 13). Local mimics the cloud functions with stand-ins (ADR-0023): **Zot** outside the k3d cluster (pull-through + push registry, persistent), **OpenBao** outside the cluster, persistent, static seal (KV v2 + transit; ADR-0026), ESO as the read boundary with one write adapter per store, and the admin log store's data on a host directory (ADR-0027). The local cluster is disposable.
 - **A workload is deployed from its own repo, and the environment decides what
   it follows (2026-10-18, ADR-0034).** A workload element names its repo and
   its release. The cluster's `brzl.dev/workload-follow` label is `release`
@@ -281,8 +281,11 @@ scoped roles (e.g. `tofu-plan` read-only, `tofu-apply`, `ansible-runner`,
 *Hits: Operational thinking, Reliability (repeatable deployments), Supply-chain security, GitOps.*
 
 The bootstrap and upgrade/deploy paths run inside **purpose-built containers**
-carrying a pinned toolchain (tofu, ansible, kubectl, helm, git, aws-cli, jq,
-repo bash helpers), runnable by an individual operator **or** CI (ArgoCD). This:
+carrying a pinned toolchain, runnable by an individual operator **or** CI
+(ArgoCD). Since 2026-11-05 (ADR-0040) the image has a `core` stage (kubectl,
+helm, kustomize, argocd, kubelogin, yq, git, jq) and one stage per substrate.
+The `local` stage adds k3d. The `aws` stage adds tofu, ansible and aws-cli.
+This:
 
 - **Eliminates session-timeout failures** on long-running ops (bootstrap, k8s/PG
   upgrades) by decoupling execution from an operator's SSO/SSH session.

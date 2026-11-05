@@ -90,13 +90,13 @@ into GLOSSARY first.
     `kiesei.sh shell` opens a signed-in shell.
   - `conductor.sh` sends a conductor phase to the in-cluster pod. The driver
     calls it. Do not run it by hand.
-  - Adapters: `substrates/k3d.sh`, `secret-stores/openbao.sh`. Modes:
+  - Adapters: `substrates/local.sh`, `secret-stores/openbao.sh`. Modes:
     `modes/break-glass.sh`, `modes/audit.sh`. GitHub access setup:
     `access/github.sh`.
   - `lib/runlib.sh` and `lib/error.sh` are vendored from `ryderdain/bash`
     and pinned in `lib/UPSTREAM`. Change them upstream first, then re-vendor.
   - `tests/driver-cases.sh` tests the driver mechanics with no cluster.
-- `env/local.env`: the environment definition. It is plain `NAME=value`
+- `env/dev.env`: the environment definition. It is plain `NAME=value`
   with `BRZL_*` keys and no secrets. An exported value overrides it for one
   run.
 - `var/` (gitignored): run sheets and run outputs in `var/run/<env>/`
@@ -113,8 +113,9 @@ into GLOSSARY first.
   per Lee Briggs, <https://leebriggs.co.uk/blog/2023/08/17/structuring-iac>).
 - `ansible/`: `roles/{base,kubernetes,security}` and `playbooks/` (AWS
   path).
-- `containers/`: `kiesei/` (the toolbox image, built locally as
-  `kiesei:local`) and `bootstrap-vm/` (cloud-init template).
+- `containers/`: `kiesei/` (the toolchain image, ADR-0040: a `core` stage
+  and one stage per substrate, built as `kiesei:local`) and
+  `bootstrap-vm/` (cloud-init template).
 - `docs/`: `ARCHITECTURE.md` (the ADR index), `adr/NNNN-slug.md` (get the
   next number from the directory), `SECRETS.md`, `SECURITY.md`, the runbooks,
   and `guide/`.
@@ -133,7 +134,7 @@ the pipe. For the full set (break-glass, audit, GitHub access setup), read
 
 ```bash
 docker build -t kiesei:local containers/kiesei            # build the toolbox image
-export BRZL_ENV=local                                     # the environment (the default, until BACKLOG 38)
+export BRZL_ENV=dev                                       # the environment (the default)
 bash driver/driver.sh cluster bootstrap                   # read the unfinished phases (safe)
 bash driver/driver.sh cluster bootstrap | bash driver/kiesei.sh   # operate them (mutating)
 bash driver/driver.sh cluster status                      # read-only

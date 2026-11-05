@@ -79,7 +79,7 @@ incident.
 | --- | --- |
 | Loki, shared values and one file for each store | `gitops/infrastructure/logs/loki*.yaml` |
 | The collector in the cluster | `gitops/infrastructure/logs/collector.yaml` |
-| The collector beside a local cluster | `driver/substrates/k3d-otelcol.yaml` |
+| The collector beside a local cluster | `driver/substrates/local-otelcol.yaml` |
 | The API audit policy | `driver/substrates/k3s-audit-policy.yaml` |
 | Grafana's data sources | `gitops/infrastructure/monitoring/values.yaml` |
 

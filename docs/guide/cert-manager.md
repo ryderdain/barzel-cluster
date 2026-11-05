@@ -86,7 +86,7 @@ as ESO. It renews the admin portal's certificate (ADR-0028, ADR-0036).
   role do one thing: ask the `portal` role to sign.
 - **Phase 25-bootstrap prepares OpenBao**: the PKI engine, a root CA made
   once, the `portal` role, and the auth role. The CA certificate is written
-  to `var/secret-store/local/ca.crt`, and the phase's check prints the one
+  to `var/secret-store/dev/ca.crt`, and the phase's check prints the one
   command that makes your machine trust it.
 - **nginx picks up a renewed certificate by itself**: its certificate paths
   hold a variable, so it opens the files at each TLS handshake.
@@ -105,7 +105,7 @@ as ESO. It renews the admin portal's certificate (ADR-0028, ADR-0036).
 ## Try it
 
 ```sh
-export KUBECONFIG=var/run/local/current/kubeconfig
+export KUBECONFIG=var/run/dev/current/kubeconfig
 kubectl -n portal get certificate portal        # READY True
 kubectl -n portal describe certificate portal   # the events: issued, renewed
 kubectl get clusterissuer brzl-portal           # READY True

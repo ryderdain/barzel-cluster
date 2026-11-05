@@ -81,11 +81,11 @@ run_dir() { readlink "$scratch/var/run/test/current"; }
 
 "$quiet" || printf 'driver mechanics (bash %s)\n\n' "$BASH_VERSION"
 
-# 0. The grammar: BRZL_ENV selects the environment (the default is local,
+# 0. The grammar: BRZL_ENV selects the environment (the default is dev,
 # which the scratch tree does not have); a mode needs its verb; the old verbs
 # are gone.
 (cd "$scratch" && bash driver/driver.sh cluster status >/dev/null 2>&1); rc=$?
-report 'without BRZL_ENV the driver looks for env/local.env and refuses' '2' "$rc"
+report 'without BRZL_ENV the driver looks for env/dev.env and refuses' '2' "$rc"
 drive cluster >/dev/null; rc=$?
 report 'a mode without a verb refuses' '2' "$rc"
 drive break-glass >/dev/null; rc=$?

@@ -28,10 +28,20 @@ the plan in [BACKLOG.md](BACKLOG.md), the records in
 <verb>`, the modes `cluster`, `break-glass`, `audit`, the teardown guard
 (`## ⚠ ##`, `sed 's/^## ⚠ ##//'` in the pipe), ADR-0038. Item 35 was
 dropped. The item-35 branch (local and origin) is the user's to delete.
-**Next: the user's choice.** BACKLOG 38 (environment names: `dev`,
-`BRZL_SUBSTRATE=local`, `env/dev.env`, before pass 8). BACKLOG 36 (one
-command per line, the rule in `ryderdain/bash` first). Or item 8. The
-user wants a second look at item 13 after the next passes.
+**Items 38 and 39 DONE and user-verified 2026-11-05** (RETROSPECTIVE),
+merged to `main`: the environment `dev` on the substrate `local`
+(`env/dev.env`, `substrates/local.sh`, `gitops/clusters/dev`, ADR-0039),
+and the kiesei image as a `core` stage with one stage per substrate
+(ADR-0040). The cluster is up, from zero, under the new names. BACKLOG
+had its cleanup round: done items keep their number and one entry, the
+June 2026 sections are condensed, and item 40 is new.
+**Next: the user's choice.** Item 36 (one command per line) waits for
+the rule in `ryderdain/bash` STYLE §1.2, the user's commit. A draft is
+in `notes/DECISIONS.md` (Q245). Then item 8 (`promote platform`), item
+40 (`cluster teardown all`, the CA and hosts setup), or the user's second
+look at item 13. The branches `item-35-rename-hold-release`,
+`item-37-driver-grammar` and `item-38-environment-names` are merged or
+dropped, and the user's to delete.
 
 **Pass 6a, sign-on (BACKLOG item 5) DONE and user-verified**
 (RETROSPECTIVE 2026-10-23 and 2026-10-27, three entries), merged to

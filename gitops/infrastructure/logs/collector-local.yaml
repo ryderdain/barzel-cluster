@@ -1,6 +1,6 @@
 # The cold log store on local (pass 6c, Q214 to Q216): the records routed to
 # `cold` go to /var/lib/brzl/cold-log-store, which is the host directory
-# var/log-store/<env>/cold, mounted into every node (driver/substrates/k3d.sh).
+# var/log-store/<env>/cold, mounted into every node (driver/substrates/local.sh).
 # Like the admin log store's data, it outlives the cluster; nothing removes it
 # (Q212), also not `down`. A cloud gets its own cold store in pass 8.
 #

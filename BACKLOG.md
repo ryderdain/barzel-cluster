@@ -8,8 +8,8 @@ user-verified.
 ## Active — the platform, local first
 
 barzel-cluster is a **platform**: a general, secured Kubernetes cluster that
-runs on several substrates (k3d, AWS, GCP, DigitalOcean, …) with as few
-changes as possible, as the backbone of a CI/CD chain. It does not depend on
+runs on several substrates (`local` with k3d, `aws`, `gcp`, DigitalOcean,
+…) with as few changes as possible, as the backbone of a CI/CD chain. It does not depend on
 any workload (user, 2026-10-14). Vocabulary: [GLOSSARY.md](GLOSSARY.md).
 Decisions: [SPEC.md](SPEC.md) §3 and [docs/adr/](docs/adr/). One line per item;
 the detail lives in the linked ADR. Q-numbers refer to the design rounds.
@@ -21,152 +21,44 @@ Done (verified live; see [RETROSPECTIVE.md](RETROSPECTIVE.md)):
 - Pass 3: Zot beside the cluster, kiesei, warm conductor (2026-10-09; ADR-0023).
 - Pass 4: Argo CD, one platform ApplicationSet, fast mode (2026-10-13; ADR-0025).
 - Pass 5: ESO 2.12, OpenBao outside the cluster (2026-10-13; ADR-0026).
+- Passes 5c, 5d: the admin portal, the example app (2026-10-18; ADR-0028,
+  ADR-0034, ADR-0036).
+- Pass 6, 6a, 6b, 6c: logs, sign-on, break-glass, cold storage
+  (2026-10-28; ADR-0027, ADR-0035, ADR-0037).
+- Items 13, 37, 38, 39: the Argo CD upgrade, the driver grammar, the
+  environment names, the kiesei stages (2026-11-05; ADR-0038, ADR-0039,
+  ADR-0040).
+
+Each done item below keeps its number and one short entry, because other
+documents and notes name items by number. The record is RETROSPECTIVE.
 
 Order of work (Q120):
 
 1. **Cleanup round** — done 2026-10-14.
-2. **5c. Admin portal** (now, branch `pass-5c-portal`) — nginx serves a
-   static page and passes each path to its service; TLS `letsencrypt` or
-   `local-ca` ([ADR-0028](docs/adr/0028-admin-portal.md)). Q126: a `portal`
-   element in the platform ApplicationSet. Q127: host port 443 to a node
-   port; Traefik and the service load balancer of k3s turned off.
-   Q128–Q137 ([ADR-0036](docs/adr/0036-cert-manager-and-local-stand-ins-for-public-services.md)):
-   cert-manager renews; the issuer is the environment's TLS mode;
-   `local-ca` on local, `letsencrypt` in pass 8; a CoreDNS stand-in for
-   public DNS; `BRZL_PORTAL_HOST` is a value (`local.barzel.sh`).
-3. **5d. Example app** — **done 2026-10-18** (RETROSPECTIVE; four live
-   tests, user-verified). `chofesh` (now `tzvat/chofesh`) gained `chofesh serve`, a Dockerfile and
-   `deploy/{base,local,aws}`. The demo-app and postgres bases and overlays
-   and `apps/demo-app` left this repo
-   ([ADR-0034](docs/adr/0034-example-app-is-a-separate-workload.md)).
-   Decisions: Q141 (b), phase 20 builds the image from the checkout beside
-   the repo until pass 8. Q142/Q146, the manifests live in chofesh, Argo CD
-   reads them from the public repo at `main`, fast mode from the checkout.
-   Q143/Q147, the credential stays CNPG's, in the app's namespace. Q144,
-   relative links and no base-path flag. Q145, git in chofesh is delegated
-   like this repo. Then (2026-10-18) Q148–Q152 replaced the driver's build:
-   the app's CI publishes the image, releases are tags made with
-   `make release`, and the environment's follow policy (`branch` on local,
-   through an SCM generator; `release` elsewhere) picks the commit and the
-   image. chofesh moved to the `tzvat` organization for the generator.
-   Then Q153–Q157: the workload is private (repo and package). A GitHub
-   App and a `read:packages` token, made by `driver/access/github.sh` into
-   `var/access/github/<org>/`, are seeded into the store by phase 25. One
-   `repo-creds` Secret per organization. `docs/INSTALL.md` is the front
-   door for a new user.
-4. **6. Logs** — collector, admin and diagnostic Loki, Grafana; UTC
-   everywhere; run directories `cluster-<UTC>Z` / `teardown-<UTC>Z`; a header
-   line in each run output; API and OpenBao audit logs
-   ([ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md)).
-   Design round 2026-10-19 (Q158–Q162, the ADR's amendment). Metrics go
-   to every substrate, and kube-prometheus-stack's Grafana is the one
-   viewer. Loki and the collector come from Helm charts. The local
-   collector beside the cluster sends to the one in it, with a queue on
-   disk. **DONE 2026-10-21, user-verified** (RETROSPECTIVE).
-4a. **HIGH PRIORITY: a credential on the collector's OTLP receiver**
-   (user, 2026-10-21). The in-cluster collector accepts OTLP on its host
-   ports 4317 and 4318 without a credential. Any pod, and any container on
-   the local network, can write records that the platform routes into the
-   admin log store, as if they were run outputs or audit records. This
-   breaks the admin path's purpose, the audit trail. Do it before 6a or as
-   its first step, and before any shared environment. Candidates: a bearer
-   token from the cluster secret store, checked by the receiver
-   (`bearertokenauth`), or mTLS with a certificate from the local CA.
-   Either way, only the collector beside the cluster holds the credential.
-   [ADR-0027](docs/adr/0027-logs-admin-and-diagnostic-stores.md), "Open
-   after pass 6". Decided 2026-10-22 (Q163–Q166): mutual TLS from the
-   store's CA. **DONE 2026-10-22, user-verified** (RETROSPECTIVE).
-5. **6a. SSO, local and remote** — Dex + oauth2-proxy in front of nginx; it
-   leads to the admin portal, which also works without it (Q108, Q112).
-   Scope (user, 2026-10-16, Q144): SSO covers the admin landing page and
-   the admin services. A workload is not behind it unless it has a
-   management UI of its own (chofesh has none). The legacy local SSO path
-   (`gitops/clusters/local/{k3d-up.sh,sso/,kustomization.yaml}`) still
-   names the demo-app and is stale since pass 5d. This pass replaces it.
-   Designed 2026-10-23 (Q169–Q183, ADR-0035 and ADR-0028 amendments).
-   **Step 1, web sign-on: done and user-verified 2026-10-23**
-   (RETROSPECTIVE). The legacy path is removed. Step 2: `kubectl` through
-   Dex (Q174), designed 2026-10-26 after a review of every auth flow
-   (`notes/AUTH-FLOWS.md`, local). When the decisions of this pass are
-   made, bring the relevant parts of that review into SECURITY.md and
-   SECRETS.md. Also add to SECRETS.md one table per root of trust, which
-   lists what derives from it (user, 2026-10-26). The roots are the
-   store's files, the cluster-admin kubeconfig and the operator's `gh`
-   login.
-   **An outside security review** of that document (the user's second
-   session, 2026-10-26, `notes/AUTH-FLOWS-FableAudit-202610261655.md`)
-   approved the design with conditions. Step 2 takes them on:
-   - The kube-API trusts Dex through a structured
-     `AuthenticationConfiguration` file, not `--oidc-*` flags (k3s
-     v1.31). The file reloads when it changes, so a later change needs
-     no new cluster.
-   - Dex's ID tokens last 1 hour, and its refresh tokens get a bound.
-   - The gate checks the teams again every hour (`cookie_refresh`, with
-     the `offline_access` scope).
-   - Phase 40 checks that Dex advertises PKCE S256.
-   - A NetworkPolicy admits only the collector and Grafana to the admin
-     Loki store. This was the review's highest finding: any pod could
-     write into the audit trail.
-   Doc items for the end of the pass, into SECURITY.md: a fourth root of
-   trust, the host user, who holds the Docker socket and `seal.key`. The
-   revocation latency of each session. A Dex compromise is a harvest of
-   the people's GitHub tokens. A certificate for the portal's host from
-   the store's CA could serve a false issuer to the kube-API (a residual
-   risk). Branch protection on the workload repo is an assumed control.
-   Items 30 and 31 hold the rest of the review. **Step 2 built
-   2026-10-26; the cluster came up 2026-10-27** after two fixes (a file
-   that ran into the certificate; a check that looked too early). The
-   sign-in found two more: Docker Desktop's host networking was off, and
-   k3d's `--host-alias` does not survive a container restart (replaced by
-   an entrypoint script on the node and the CoreDNS rule of step 1).
-   **The sign-in was user-verified 2026-10-27** (RETROSPECTIVE). The
-   documentation of the review is done (SECURITY.md, SECRETS.md), and
-   SECURITY.md carries the auth flows as six Mermaid diagrams. The kiesei
-   shell makes the person the default (Q193). **DONE 2026-10-27,
-   user-verified, merged to `main`** (RETROSPECTIVE, three entries).
-6. **6b. Break-glass mode** — `hold` / `release`; a record of each use; a
-   reader of the admin store outside the cluster (Q62–Q65, Q94, Q107);
-   pass 6c reads the cold records with `jq` instead (Q216). **Designed 2026-10-27**
-   (Q195–Q201, [ADR-0037](docs/adr/0037-break-glass-mode.md), the working
-   model in [docs/BREAK-GLASS.md](docs/BREAK-GLASS.md)). The person acts
-   with their own `kubectl`, not through the conductor (Q196).
-   **Step 1 (hold, release, audit rule, alert) DONE 2026-10-28,
-   user-verified** (RETROSPECTIVE). **Step 2, the reader of the admin log
-   store, built 2026-10-28** (`reader_on`, `reader_off`; item 28),
-   tested by the agent with the cluster up, then by the user.
-   **The local shape of items 23 and 29, decided and built 2026-10-28**
-   (Q206 to Q209, all (a)): the kubeconfig and the store token `driver`
-   stay on local; each run output names the account on the operator's
-   machine (`person=`, declared). **Pass 6b DONE 2026-10-28,
-   user-verified** (RETROSPECTIVE, two entries), merged to `main`.
-   **Refresher for the design round (user, 2026-10-27).** After step 2 of
-   pass 6a the user saw a less-privileged sign-in path (`kubeconfig-sign-on`,
-   `oidc:<login>`) beside the exposed cluster-admin kubeconfig in the same
-   run directory, and called it a glaring flaw. The answer then: the admin
-   kubeconfig is the driver's credential (every phase acts with it, the
-   conductor derives from it) and the emergency path (Q175); on a laptop it
-   adds no power that the Docker socket and the seal key do not give
-   already (the four roots, SECURITY.md), so the sign-on path is a named
-   identity and a rehearsal, not a boundary; on a shared machine or a cloud
-   it is the flaw as stated (items 23 and 29). The kiesei shell now makes
-   the person's path the default and the admin path the one to name on
-   purpose (Q193). Pass 6b is where the admin path becomes a recorded
-   exception: decide there who may hold that file, for how long, and how
-   each use is recorded with the person's name from sign-on. Re-surface
-   this with the user before the round.
-   **In this pass (user, 2026-10-27):** item 28 (the reader of the admin
-   store), and the local shape of items 23 and 29. Item 27 was built at
-   the start of the pass. Design round 1 was Q194 to Q197.
-7. **6c. Cold storage** — the `cold` route; each workload's database
-   backups (Q92). **Designed 2026-10-28** (Q210–Q217, ADR-0027
-   amendment). On local, the cold log store is the host directory
-   `var/log-store/<env>/cold/`: the collector's file exporter writes OTLP
-   JSON lines, one directory for each node, and `jq` reads them. Nothing
-   removes them, also not `down`. The database backups and a restore drill
-   moved to item 9 (Q217). **DONE 2026-10-28, user-verified**
-   (RETROSPECTIVE): `down`, `up`, phase 40's check and the `jq` command.
-   RECOVERY.md names each cold file's purpose and shows an incident
-   example (the user's request), with `driver/lib/cold-records.jq`.
+2. **5c. Admin portal** — **done 2026-10-15** (RETROSPECTIVE; ADR-0028,
+   ADR-0036): nginx and the portal page, cert-manager, the TLS type
+   `local-ca`, the DNS stand-in, `BRZL_PORTAL_HOST`.
+3. **5d. Example app** — **done 2026-10-18** (RETROSPECTIVE; ADR-0034):
+   `tzvat/chofesh` is a separate workload, its CI publishes the image, the
+   follow policy picks the commit, `driver/access/github.sh` makes its
+   credentials, INSTALL.md is the front door.
+4. **6. Logs** — **done 2026-10-21** (RETROSPECTIVE; ADR-0027): the
+   collector, the admin and diagnostic log stores, Grafana, UTC, the run
+   output header, the API and store audit logs.
+4a. **A credential on the collector's OTLP receiver** — **done 2026-10-22**
+   (RETROSPECTIVE; Q163–Q166): mutual TLS from the store's CA.
+5. **6a. Sign-on** — **done 2026-10-27** (RETROSPECTIVE, three entries;
+   ADR-0035): Dex and oauth2-proxy in front of the portal, `kubectl`
+   through Dex, the outside review's conditions taken on, the auth flows
+   in SECURITY.md. Items 30 and 31 hold the rest of that review.
+6. **6b. Break-glass mode** — **done 2026-10-28** (RETROSPECTIVE, two
+   entries; ADR-0037): the record of each use, the audit rule, the alert,
+   the reader of the admin log store (item 28). Also the local shape of
+   items 23 and 29. The verbs are `open`, `apply`, `close` and the mode `audit`
+   since item 37.
+7. **6c. Cold storage** — **done 2026-10-28** (RETROSPECTIVE; ADR-0027
+   amendment): the cold log store on the host, read with `jq`, the
+   incident example in RECOVERY.md. The database backups moved to item 9.
 8. **7. `promote platform`** — roll a platform revision one environment at a
    time (Q118).
 9. **7h. Remote harness** — a second host (huginn, VMs on sleipnir, or
@@ -188,7 +80,7 @@ Order of work (Q120):
     `bootstrap-argocd.sh`, `seed-demo-data.sh`, the Terraform ingress) still
     name the demo-app and `gitops/operators/postgres`, where only the DR
     recovery artifacts remain; the
-    `letsencrypt` TLS mode (an ACME `ClusterIssuer` with DNS-01 at FreeDNS
+    `letsencrypt` TLS type (an ACME `ClusterIssuer` with DNS-01 at FreeDNS
     in `gitops/clusters/<env>/pki/`; whether a cloud needs the store copy of
     the certificate; ADR-0036); the
     admin log store (Q96: same product, data in S3); shipping the driver's
@@ -234,23 +126,12 @@ Order of work (Q120):
     Drafts so far: [Kustomize](docs/guide/kustomize.md),
     [cert-manager](docs/guide/cert-manager.md),
     [kiesei](docs/guide/kiesei.md), [the log stack](docs/guide/logs.md).
-13. **Argo CD upgrade** (user, 2026-10-15): chart 7.7.23 (v2.13.4; the
-    patch that fixed the login `return_url` under a base href, taken in
-    pass 5c) to the current chart (10.x, v3.5). Aligns the server with the
-    `argocd` CLI in kiesei (3.4.3). **Designed 2026-10-29** (Q218–Q229,
-    with the user's interrupt): chart 10.11.6 = v3.5.6, the CLI 3.5.6,
-    annotation tracking, the NetworkPolicies on; and the item replaces
-    fast mode with the sync switch (`sync off` / `sync on` / `apply` on
-    `argocd app sync --local`; GLOSSARY "Sync switch"). **Step 1 (the
-    upgrade) built and tested 2026-10-29** by the agent (`down`, `up`,
-    all phases, the checks in UPGRADE.md). **Step 2 (the sync switch) built
-    and tested 2026-10-29** by the agent: `sync off`, `apply` (a changed
-    field, then "nothing differs"), `sync on` refused with the diff, `sync
-    on confirm` healed. Three findings fixed on the way (ADR-0025
-    amendment). **DONE 2026-11-04, user-accepted** (RETROSPECTIVE): "fine
-    for now"; the user looks at it again after the next pass(es). The run
-    sheets of the sync switch have one command per line; the rule for all
-    emitters is item 36.
+13. **Argo CD upgrade and the sync switch** — **done 2026-11-04,
+    user-accepted** (RETROSPECTIVE; ADR-0025 amendment): chart 10.11.6,
+    annotation tracking, the NetworkPolicies on, `apply` on `argocd app
+    sync --local`. The sync verbs folded into break-glass mode in item 37.
+    The user said "fine for now" and looks at it again after the next
+    passes.
 14. **The `*.localhost` default test** — done 2026-10-15 (RETROSPECTIVE);
     sleipnir is back on `local.barzel.sh`, the reference chosen-name case.
 15. **The ApplicationSet itself is not in GitOps** (found 2026-10-15): phase
@@ -329,8 +210,8 @@ Order of work (Q120):
     bypasses Argo CD's own RBAC: right for the operator with the
     cluster-admin kubeconfig, not for a user with limited rights.
 16c. **Manifests as files in the run directory** (user, 2026-10-18, from
-    reading the fast-mode run sheet). Today the emitted groups wrap each
-    rendered manifest in a `kubectl apply -f - <<EOF` heredoc. Clearer: the
+    reading the fast-mode run sheet, now `break-glass apply`). Today the
+    emitted groups wrap each rendered manifest in a `kubectl apply -f - <<EOF` heredoc. Clearer: the
     group writes the manifests as YAML files in `var/run/<env>/<run>/`, one
     object or one app per file. Then it applies them by file name, or
     `tee`s them in. Then an operator can read a manifest later on its own. The
@@ -339,12 +220,12 @@ Order of work (Q120):
     driver's emitted actions. It is either a doctrine update in
     `ryderdain/bash` (STYLE §1.2, emitted groups) or a mistake here to
     correct against the doctrine. Decide with the doctrine's owner, then
-    apply it to fast-mode.sh and the phases.
-16. **Parked: `driver.sh <env> again <phase>`** — run one phase again on a
+    apply it to `modes/break-glass.sh` (`apply`) and the phases.
+16. **Parked: `cluster run <phase>`** (ADR-0038 names it) — run one phase again on a
     finished cluster, with the conductor install in a phase of its own
     (Q130 b). **Only in case a later pass needs it**; certificate renewal
     does not (cert-manager, ADR-0036).
-17. **`driver.sh <env> state`: list the state kept outside the cluster**
+17. **`cluster state`: list the state kept outside the cluster**
     (proposed 2026-10-14 in the review of the design's shape, then Q161,
     2026-10-19). That state keeps growing, as Q66 intends. It holds the Zot
     cache, the OpenBao volume with its seal key and tokens, the local CA,
@@ -354,30 +235,15 @@ Order of work (Q120):
     location, size and age, and the CA trust in the keychain as a reminder.
     The removal of each item stays a documented command in LOCAL.md.
 18. **A purge for rapid teardown and cleanup** (user, Q161, 2026-10-19).
-    Separate from `state`. It returns the machine to a clean start in one
-    step, for rapid prototyping of different modes. It needs safeguards.
-    It is an emit script whose preview names every item. It stops with
-    `error 3` while a cluster is up. It states what it keeps, for example
-    the access files, which take browser steps to make again.
+    Superseded by item 40, `cluster teardown all`.
 19. **A low-memory mode** (user, Q158, 2026-10-19). The full local
     environment used 5.0 GiB with metrics and logs (pass 6, measured). huginn
     (8 GB) and other small machines cannot run it. A mode that turns off
     or shrinks the heavy parts with few design changes, built only when a
     need for it appears.
-
-20. **Argo CD gives up after five failed syncs** (found 2026-10-22, live
-    test of 4a). For about 1 h 40 min, lookups of public names from the
-    pods failed in bursts (CoreDNS forwards to Docker Desktop's resolver),
-    while the node resolved them. `monitoring` used its five retries
-    (`retry.limit: 5`, at most 3 minutes apart) and stopped. After that,
-    Argo CD does not retry an automated sync of the same commit. So phase
-    40 waited until an operator refreshed and synced by hand. Options: no
-    limit (`limit: -1`, a negative limit means no limit), a larger limit,
-    or a refresh and sync step in phase 40 before its wait. **Decided and
-    built 2026-10-22 (Q167, Q168).** There is no limit now. Phase 40
-    names an Application that fails 3 times or more. The Prometheus alert
-    `BrzlSyncFailing` fires at 3 (warning) and 5 (critical), shown in
-    Grafana. **DONE 2026-10-22, user-verified** (RETROSPECTIVE).
+20. **Argo CD gives up after five failed syncs** — **done 2026-10-22**
+    (RETROSPECTIVE; Q167, Q168): no retry limit, phase 40 names a failing
+    Application, the alert `BrzlSyncFailing`.
 21. **A channel for alerts** (user, Q168, 2026-10-22). No Alertmanager
     runs, so an alert such as `BrzlSyncFailing` only shows in Grafana and
     Prometheus. Choose a channel (e-mail, Slack, ntfy, or Argo CD's own
@@ -428,26 +294,12 @@ Order of work (Q120):
     own. The proposal: one sign-out for the portal, Grafana and Argo CD
     (Grafana's `signout_redirect_url`, Argo CD's `logoutURL`), ending on a
     static page outside the gate that says GitHub keeps its session.
-27. **oauth2-proxy trusts `X-Forwarded-*` from any address** (found
-    2026-10-23, pass 6a). With `reverse_proxy` on and no
-    `trusted_proxy_ip`, any pod that reaches oauth2-proxy directly can set
-    those headers. Limit them to the portal (its pod network, or a
-    NetworkPolicy that admits only the portal).
-    **Built 2026-10-27** on the pass 6b branch (user: do it now): the
-    chart's NetworkPolicy admits only the portal's pods, and phase 40
-    checks that it exists. **DONE 2026-10-27, user-verified:** phase 40
-    passed, the portal reaches `/ping`, and pods in other namespaces are
-    refused at once (k3s rejects with `icmp-port-unreachable`).
-28. **An emergency Grafana for the backed-up logs** (user, 2026-10-26).
-    Since sign-on, Grafana has no emergency path: its login form and
-    basic auth are off, so `grafana-admin` opens nothing (found in the
-    auth-flows review, `notes/AUTH-FLOWS.md`). When the cluster is down
-    or out of reach, the operator needs the admin log store. Prepare a
-    thin image that runs Grafana alone, outside the cluster, as a UI for
-    the backed-up logs (local: `var/log-store/<env>/admin/`).
-    **Built 2026-10-28** in pass 6b, step 2 (ADR-0037): `reader_on` and
-    `reader_off`, a read-only Loki and a Grafana on `127.0.0.1`. Pass 6c
-    reads the cold records with `jq` (Q216).
+27. **oauth2-proxy trusts `X-Forwarded-*` from any address** — **done
+    2026-10-27** (pass 6b): a NetworkPolicy admits only the portal's pods,
+    and phase 40 checks it.
+28. **An emergency Grafana for the backed-up logs** — **built 2026-10-28**
+    (pass 6b, ADR-0037): the reader of the admin log store, `audit
+    bootstrap` and `audit teardown` since item 37.
 29. **The driver is a machine identity in every scenario** (found
     2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
     `system:admin` (the kubeconfig) and as the store token `driver`. The
@@ -485,19 +337,9 @@ Order of work (Q120):
     `device-code` there (a URL and a short code, no callback), with a
     shorter refresh-token lifetime than local's 7 days, or none. The
     `argocd` CLI has no device flow; it keeps the callback.
-33. **Dex's approval page appeared on Argo CD's hourly re-login** (seen
-    2026-10-27). Dex's `skipApprovalScreen` is on, so no "Grant Access"
-    page was expected. Find which client asked, and why Dex showed it
-    (the Dex version, the `offline_access` scope, or the client). One
-    click restores the session, so this is a polish item.
-    **Cause found 2026-10-27** (the logs of the gate and of Dex). The page
-    named "Admin portal", the gate's client. The gate sends
-    `approval_prompt=force` by default, and Dex obeys it. The re-login
-    itself was a second fault: nginx dropped the gate's refreshed cookie,
-    so Dex refused the old refresh token as "claimed twice". Both fixed on
-    the pass 6b branch (ADR-0035, "Corrections"). **DONE 2026-10-27,
-    user-verified** (RETROSPECTIVE): no page, and no sign-in after the
-    hour.
+33. **Dex's approval page on Argo CD's hourly re-login** — **done
+    2026-10-27** (ADR-0035 "Corrections"): the gate's `approval_prompt`,
+    and nginx dropped the refreshed cookie.
 34. **Two sign-ins at once in one browser** (seen 2026-10-28, the live
     test of pass 6b). After a new cluster, an old Grafana tab and a new
     one started Grafana's sign-in at the same time. Grafana keeps one
@@ -508,52 +350,46 @@ Order of work (Q120):
     setting. The option: Grafana reads the person from the gate's
     headers (`auth.proxy`) and has no sign-in of its own. That also
     helps item 26. A polish item: close old tabs after a new cluster.
-35. **Rename `hold` / `release`** (user, 2026-10-29). `release` is a term of art
-    for a version of software made public. It collides with the break-glass
-    action that gives the cluster back to git. Decide a new pair later, with the
-    sync verbs of item 13 (`sync off` / `sync on`) in view, and rename the
-    actions, the docs and GLOSSARY together. Built as `pause` / `resume`
-    2026-11-04 (branch `item-35-rename-hold-release`, not merged), then
-    dropped by the user 2026-11-05 (Q234 b): the trial showed that the pair
-    and the sync verbs are one thing. Superseded by item 37.
+35. **Rename `hold` / `release`** — dropped 2026-11-05 (Q234 b): the pair
+    and the sync verbs were one thing. Superseded by item 37. The branch
+    `item-35-rename-hold-release` is the user's to delete.
 36. **Emitted run sheets: one command per line** (user, 2026-11-01). The new
     sheets of item 13 chain commands with semicolons inside a group (the
     kubeconfig copy for core mode, the copy of the source tree, the `{ …; } 2>&1
     | tee` lines, which came from the break-glass emitter). A group already
     gives the reader the block, so a newline between commands costs nothing. The
-    rule lands in `ryderdain/bash` first (the user), then the emitters here
-    (driver.sh, modes/sync.sh, modes/break-glass.sh, modes/reader.sh).
-37. **The driver grammar** (user, 2026-11-05; Q234–Q237 and on). The driver's
-    arguments mixed nouns for modes and verbs for actions, and the sync verbs
-    and the break-glass actions moved one switch. One convention:
-    `BRZL_ENV=<env> driver/driver.sh <mode> <verb>`, verbs preferred over
-    target states. Modes: `cluster` (`bootstrap`, `teardown`, `status`, `check`;
-    `next` goes, `up` already resumes), `break-glass` (`open '<reason>'`,
-    `close [confirm]`, `apply [<dir>]`, which refuses unless open; `sync
-    off`/`on` and `pause`/`resume` go), `audit` (`bootstrap`/`teardown`
-    start and stop the reader; `start`/`stop` are synonyms in both modes).
-    `cluster teardown` and `audit teardown` emit every line behind the
-    prefix `## ⚠ ##`, so a pipe without the `sed` runs nothing; its last
-    group then prints how to strip it and exits 2 (Q244).
-    `BRZL_ENV` has a default. The
-    names in the records follow (run sheets, the alert). Every document
-    that shows a driver command changes with it. Supersedes item 35.
-    **Done, user-verified 2026-11-05** (RETROSPECTIVE; ADR-0038): the
-    driver, `modes/break-glass.sh` (with `apply`), `modes/audit.sh`, 39
-    driver tests, every document. The user ran the full loop live.
-38. **Environment names and the environment definition** (user, 2026-11-05;
-    Q239, Q240). Before pass 8. An environment is a step of the promotion
-    chain, so its name is `dev`, `test`, `stage` or `production`, as in the
-    Terraform and Ansible idioms. `local` names a substrate, not an
-    environment: `BRZL_SUBSTRATE` takes `local`, `aws`, `gcp`, and not `k3d`
-    (a control plane; the alternatives to k3d are EKS and GKE). So
-    `env/local.env` becomes `env/dev.env`, and the `BRZL_*` keys in it get a
-    review. The driver's default for `BRZL_ENV` becomes `dev` with it
-    (item 37 sets it to the one environment that exists until then).
+    rule lands in `ryderdain/bash` first (the user; a draft for STYLE §1.2
+    is in `notes/DECISIONS.md`, Q245), then the emitters here (driver.sh,
+    the modes, the phases, the adapters).
+37. **The driver grammar** — **done 2026-11-05** (RETROSPECTIVE; ADR-0038):
+    `BRZL_ENV=<env> driver.sh <mode> <verb>`, the modes `cluster`,
+    `break-glass`, `audit`, the teardown guard. Supersedes item 35.
+38. **Environment names and the environment definition** — **done
+    2026-11-05** (RETROSPECTIVE; ADR-0039): `dev`/`test`/`stage`/
+    `production`, `BRZL_SUBSTRATE=local`, `env/dev.env`,
+    `gitops/clusters/dev`, the bootstrap from zero.
+39. **The kiesei image: a core stage and one stage per substrate** —
+    **done 2026-11-05** (RETROSPECTIVE; ADR-0040): `kiesei:local` is
+    1.13 GB unpacked, from 2.12 GB.
+40. **`cluster teardown all`, and the CA and hosts setup again** (user,
+    2026-11-05, after the bootstrap from zero). `cluster teardown` leaves
+    the external pieces: the secret store, the registry cache, the
+    collector, the DNS stand-in, the network and the log store. It also
+    leaves the resolver entry and the CA in the operator's trust store.
+    `teardown all` removes them too, in the manner of the item 38
+    migration (an emit script, one group per piece, behind the guard;
+    Q249). It states what it keeps: the access files, which take browser
+    steps to make again, and `var/run/<env>` as the record. The host
+    part is a host run sheet for removal, beside `10-host.sh`. With it,
+    look at the CA and hosts setup once more. The trust step compares the
+    fingerprint since 2026-11-05 (`91ca744`). But an old CA of the same
+    name stays in the keychain. The NSS nickname is `brzl-<host>`. And
+    `kiesei.sh` mounts the CA into the container by the host name. Takes
+    the place of item 18 and the "removal" half of item 17.
 
 Standing concerns (check in every pass):
 
-- **GitHub App before leaving local** (Q61). The repo is private. Argo CD on
+- **GitHub App before leaving the local substrate** (Q61). The repo is private. Argo CD on
   local reads it with the read-only deploy key `sleipnir-brzl-deploy`
   (bootstrap source `BRZL_REPO_DEPLOY_KEY`). Replace it with a GitHub App
   credential before pass 7h or 8. The workload side is done in pass 5d
@@ -585,115 +421,15 @@ Standing concerns (check in every pass):
   SCRATCHPAD and the runbooks. Clean a file when a pass edits it. Do not
   change RETROSPECTIVE entries without asking.
 
-## Earlier plans (before the local-first refactor; kept as written, review later)
+## Earlier plans (June 2026, before the local-first refactor)
 
-## Active — the major refactor (next barzel session) + aroni assists
-
-**The refactor is the next focus** (items 1–4 below: automation overhaul vs
-`notes/GUIDANCE.md`; env DRY/consolidation; multi-account CI). **aroni should drive
-it forward** — and the refactor will *generate aroni's next corpus*: every decision,
-failure, and fix is an episode. Log them (RETROSPECTIVE / a build ledger) as you go;
-consolidate periodically. Watch for the first **co-firing** between existing notes —
-that's the event that admits cand-005 and exercises the closed loop for real.
-
-## aroni (consolidation daemon) — machinery complete through 2nd order
-
-Self-contained shared vault at `~/Local/github.com/ryderdain/aroni` (b5744e3): 4
-admitted notes, 17 episodes, doctrine (subordination, seam test, intersection test,
-co-fire loop — all in METHOD), survival hooks, portable (`init_project`). The
-co-fire re-evaluation loop is **closed + enforced** (vault_check + intersections
---work-order). cand-005 (first 2nd-order note) is HELD pending a real co-firing.
-Open threads:
-
-- **Next cycle:** ingest the 3 new surprise-0 RETROSPECTIVE episodes; normal pass.
-  Also drain the two new **inbox** captures (2026-06-15): the brzl-dev-* standalone-path
-  leak (cand-002 evidence) + the instances-vs-source-layout correction (cand-005 framing).
-- **Hooks gap (→ aroni BACKLOG, 2026-06-15):** no hook auto-captured the in-session
-  correction this session; it took a manual "aronize it". Capture still leans on operator
-  memory — the dependency the method exists to remove. Tracked in aroni BACKLOG ("No
-  auto-capture of in-session episodes"); sibling of the surprise-mis-tag gap.
-- **Fully automating the co-fire re-gate** (vs the current detect+enforce, judge-by-hand)
-  — only if it ever proves a bottleneck; the judgment is deliberately human.
-
-- **aroni `lift` is not calibrated across models/sessions** (ordinal, judge-relative).
-  A future "re-gate with one judge" pass before any cross-pass score comparison.
-  Tabled 2026-06-14. (At second order, lift is already demoted to a sanity check.)
-- Seeds: fix-propagation bundle (h3 + a sibling, needs a 2nd episode); cand-005 admits
-  on its first demonstrated co-firing; cand-001/003 refinement (arbiter-flagged).
-
-## Planned (user, 2026-06-10 — in intended order)
-
-1. **Automation-methodology overhaul.** Bring all tooling — `platform.sh`
-   itself included — into closer adherence with `notes/GUIDANCE.md`. Expect
-   multiple passes; this will not complete in one.
-2. **Polish `notes/GUIDANCE.md` itself** — as much for the user as for the
-   agent.
-3. **Environment realignment.** Simplify and consolidate the operational
-   paths: bootstrapping on local, dev, and prod.
-   **Reframed (user, 2026-06-14):** the goal is NOT to collapse dev and prod into
-   one definition — the parallel same-root-structure trees are *the point* of a
-   dev→staging→prod split: you prove the pre-production model + code in dev before
-   applying it to the reputation-exposed prod. Over-DRYing them away destroys that
-   promotion gate. So the real target is the distinction:
-   - **Intentional separation — KEEP:** each env is its own independently-promotable
-     instance (own state/tfvars, own ApplicationSet apply), so a change lands in dev,
-     is validated, then promoted to prod. Real per-env differences (prod private
-     nodes + NLB/NodePort, instance sizes, conductor is dev-only) stay explicit.
-   - **Accidental coupling/drift — FIX:** shared code that hardcodes one env (the
-     `brzl-dev-*` leaks into env-agnostic scripts), and hand-maintained near-duplicate
-     files that silently DRIFT (the 2026-06-10 ApplicationSet divergence *bug*). DRY
-     belongs in shared **modules/templates** (define once, instantiate per-env), not
-     in merging the instances. The divergence bug argues for reducing the
-     hand-maintained surface, NOT for one-file-for-both.
-   **Direction chosen (user, 2026-06-15): model B** — single source per layer + per-env
-   `backend.hcl` + `terraform.tfvars`, driver-enforced backend↔tfvars pairing. Keeps
-   separate state + independent apply (the gate); kills drift; fits the per-env-backend
-   convention + the item-4 multi-account roadmap. Workspaces (C) rejected (weak state
-   isolation, fights multi-account, switch footgun). Per-env structural deltas stay
-   explicit: prod-only NLB → `count`/`var.enable_public_ingress`; node placement → vars;
-   `00-conductor` stays its own optional standalone layer. **Merge plan pending user review
-   before execution** (prototype on `10-network` first, prove the pattern, then roll).
-   Full live validation deferred to the batch live-pass; in pass-1 (item 3) the standalone
-   DR path was already de-pinned (commit 6941c78).
-4. **Multi-account CI design.** Expand the brzl demo model to showcase
-   local-dev → infra-test → full-with-app-staging → full-prod across accounts
-   — the piece the take-home never reached; have it ready to deliver for a
-   similar interview.
-
-## Carried over from the take-home (post-delivery candidates)
-
-Most fold naturally into the numbered items above; tracked here until they do.
-
-- Root-app pattern for the ApplicationSet (close the GitOps seam — ADR-0019
-  names the design: include-glob `applicationset.yaml` + `project.yaml`,
-  exclude `in-cluster.yaml`). → item 3
-- ~~`platform.sh` `operator()` phase: comment claims it installs EBS CSI + gp3,
-  body doesn't (open since the A2 drill).~~ → item 1 — **DONE (pass 1, pending live
-  verify):** `operator()` now installs EBS CSI + gp3 via the new
-  `gitops/bootstrap/install-ebs-csi.sh` (emit-style, renders the SAME committed
-  ebs-csi values the ApplicationSet wave 0 uses → can't drift), then asserts the
-  gp3 class exists before continuing. RECOVERY.md Step 4 updated.
-- ~~Driver hardening: preflight per-layer `backend "s3"` blocks; print "next
-  phase: X" on any phase failure.~~ → item 1 — **DONE (pass 1, pending live verify):**
-  `preflight()` now asserts every layer declares `backend "s3"` (missing = silent
-  LOCAL state); `_run_phases` prints the stopped phase + exact resume command (+
-  phases not reached) on any failure, dual-mode (EXIT trap for direct runs,
-  return-catch when sourced — no parent-shell trap pollution).
-- **Pass-1 also:** renamed `generate-inventory.sh` → `generate-inventory.sh`
-  (snake_case rule; all live callers updated, `notes/` history left as-is).
-- **Discovered (→ item 3, env-DRY / aroni cand-002 env-coupling):** the shared
-  `gitops/infrastructure/ebs-csi/values.yaml` hardcodes the `brzl-dev-k8s`
-  pull-through prefix; both dev AND prod ApplicationSets (and now the standalone
-  DR install) consume it, so prod's CSI sidecars pull through a `brzl-dev-*`
-  repo. The whole recovery path is similarly dev-pinned (`cluster-recovery.yaml`
-  → `brzl-dev-github`). Left faithful for now (changing it would diverge the
-  standalone path from GitOps); fix env-wide in item 3.
-- Generalize local-first state + `init -migrate-state` promotion as the
-  bootstrap-from-zero mechanism (and its reverse for retirement) — noted in
-  `docs/TEARDOWN.md` §3 / `docs/BOOTSTRAP.md` Phase 0. → items 1, 3
-- Conductor repo-read credential (fine-grained PAT, Contents+Metadata) to
-  replace the S3 tree-ship one-off. → item 1
-- Register this repo's deploy key (public half) before the first GitOps
-  bring-up here.
-- ECR/Harbor image vulnerability scanning gate (scan-on-push, fail-on-critical).
-- Re-enable Alertmanager with a real receiver (one-line flip, needs a target).
+The take-home's plan of 2026-06-10 had four items: an
+automation-methodology overhaul against `notes/GUIDANCE.md`, a polish of
+that guide, an environment realignment, and a multi-account CI design.
+The first two became the Bash doctrine in `ryderdain/bash` (passes 0–1).
+The third chose model B (one source per layer, per-environment tfvars and
+backend; SPEC §3) and continues as item 10. The fourth is SPEC §9, with
+item 10. The candidates carried over from the take-home folded into items
+10, 15, 21 and 31, or were done in pass 1. The aroni threads of that time
+live in the aroni vault's own BACKLOG. The full text of these sections is
+in git history before 2026-11-05.

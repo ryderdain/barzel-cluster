@@ -1,7 +1,9 @@
-# AppProject scoping every dev Application. A project (not the implicit
-# "default") lets us constrain what these apps may deploy — source repo,
-# destination cluster/namespaces, and allowed resource kinds — so a compromised
-# or fat-fingered manifest can't sync arbitrary cluster-scoped objects.
+# AppProject scoping every dev Application (the first environment, on the
+# local substrate). A
+# project (not the implicit "default") lets us constrain what these apps may
+# deploy — source repo, destination cluster/namespaces, and allowed resource
+# kinds — so a compromised or fat-fingered manifest can't sync arbitrary
+# cluster-scoped objects.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -12,16 +14,15 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: brzl-demo dev cluster — infrastructure, operators, applications
+  description: brzl dev environment on the local substrate (k3d) — infrastructure, operators, applications
   sourceRepos:
     - git@github.com:ryderdain/barzel-cluster.git
     # The example app's repo (ADR-0034): private, read over https with the
     # GitHub App (the organization's repo-creds Secret, phase 25).
     - https://github.com/tzvat/chofesh.git
-    # Helm chart repos the child apps render from (images still come via ECR
-    # pull-through; only the chart packages are fetched here).
+    # Helm chart repos the child apps render from (images come through Zot;
+    # only the chart packages are fetched here).
     - https://argoproj.github.io/argo-helm
-    - https://kubernetes-sigs.github.io/aws-ebs-csi-driver
     - https://cloudnative-pg.github.io/charts
     - https://charts.external-secrets.io
     - https://charts.jetstack.io

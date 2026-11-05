@@ -94,7 +94,7 @@ own bases and overlays in its own repo (ADR-0034): the example app,
                                     Certificate, configMapGenerator)
         ▲
         │ resources: ../../../infrastructure/portal
- gitops/clusters/local/portal/      overlay: the Service becomes a NodePort
+ gitops/clusters/dev/portal/        overlay: the Service becomes a NodePort
  gitops/clusters/<env>/pki/         no base: the TLS type's issuer (ADR-0036)
  gitops/clusters/<env>/secret-store/  no base: the store definition of each
                                     environment (ADR-0026)
@@ -140,7 +140,7 @@ that follows a release gets the tag the manifests name (ADR-0034).
 `gitops/infrastructure/portal/`: a Deployment of nginx, a Service, a
 Certificate, and a `configMapGenerator` that makes the ConfigMap from
 `nginx.conf` and `index.html`. A change to the page starts new nginx pods
-by itself. The local overlay, `gitops/clusters/local/portal/`, only makes
+by itself. The dev overlay, `gitops/clusters/dev/portal/`, only makes
 the Service a NodePort; the ApplicationSet patches the certificate's host
 name in from the cluster's registration.
 

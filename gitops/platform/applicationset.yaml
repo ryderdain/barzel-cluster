@@ -1,19 +1,21 @@
-# The platform ApplicationSet — ONE file for every environment (local, dev,
-# prod; ADR-0025). It replaces gitops/clusters/{dev,prod}/applicationset.yaml,
+# The platform ApplicationSet — ONE file for every environment (dev, test,
+# stage, production; ADR-0025, ADR-0039). It replaces gitops/clusters/{dev,prod}/applicationset.yaml,
 # keeping their Application names, waves and AWS values (ADR-0016).
 #
 # Everything that differs per environment comes from the cluster Secret that the
-# environment registers (gitops/clusters/<env>/in-cluster.yaml on AWS; phase
-# 30-gitops on local), never from git:
+# environment registers (phase 30-gitops writes it on the local substrate;
+# gitops/clusters/<env>/in-cluster.yaml on AWS), never from git:
 #
 #   labels
 #     brzl.dev/appset-cluster: "true"   the generators select this Secret
-#     brzl.dev/env:        local|dev|prod   AppProject brzl-<env>; prod deltas
-#     brzl.dev/substrate:  k3d|aws          the AWS-only apps (EBS CSI)
+#     brzl.dev/env:        dev|test|stage|production   AppProject brzl-<env>;
+#                                  production deltas
+#     brzl.dev/substrate:  local|aws|gcp   the local-only values and paths;
+#                                  the AWS-only apps (EBS CSI)
 #     brzl.dev/workload-follow: branch|release   how this environment follows
 #                                  a workload (ADR-0034): `branch` = the
 #                                  development branch's newest commit and its
-#                                  image (local); `release` (the default) = the
+#                                  image (dev); `release` (the default) = the
 #                                  release tag named in the element
 #   annotations (written live by the bootstrap or the phase)
 #     brzl.dev/registry-host       the registry the cluster pulls from
@@ -28,7 +30,8 @@
 #
 # A helm element names its chart and a values file from this repo, and may add:
 #   moreValueFiles        values files applied after valueFile
-#   moreValueFilesLocal   values files applied after those, on local only
+#   moreValueFilesLocal   values files applied after those, on the local
+#                         substrate only
 #   imageParams           chart values set to <host>/<prefix>/<path>
 #   hostParams            chart values set to the registry host
 #   prefixParams          chart values set to <prefix>/<path>, for a chart that
@@ -387,7 +390,7 @@ spec:
                   namespace: portal
                   serverSideApply: "false"
                   path: gitops/infrastructure/portal
-                  localPath: gitops/clusters/local/portal
+                  localPath: gitops/clusters/__ENV__/portal
     - matrix:
         generators:
           - clusters:
@@ -487,6 +490,7 @@ spec:
   templatePatch: |
     {{- $ann := .metadata.annotations }}
     {{- $env := index .metadata.labels "brzl.dev/env" }}
+    {{- $substrate := index .metadata.labels "brzl.dev/substrate" }}
     {{- $host := index $ann "brzl.dev/registry-host" }}
     {{- $revision := index $ann "brzl.dev/revision" | default "main" }}
     spec:
@@ -522,7 +526,7 @@ spec:
               {{- range .moreValueFiles }}
               - $values/{{ . }}
               {{- end }}
-              {{- if eq $env "local" }}
+              {{- if eq $substrate "local" }}
               {{- range .moreValueFilesLocal }}
               - $values/{{ . }}
               {{- end }}
@@ -553,7 +557,7 @@ spec:
           ref: values
       {{- else }}
       {{- $path := replace "__ENV__" $env .path }}
-      {{- if and (eq $env "local") .localPath }}{{ $path = .localPath }}{{ end }}
+      {{- if and (eq $substrate "local") .localPath }}{{ $path = replace "__ENV__" $env .localPath }}{{ end }}
       {{- $follow := index .metadata.labels "brzl.dev/workload-follow" | default "release" }}
       {{- $repo := "git@github.com:ryderdain/barzel-cluster.git" }}
       {{- $rev := $revision }}

@@ -8,14 +8,14 @@ other app can take its place. GitOps with Argo CD; secrets from an external
 store through the External Secrets Operator; a driver that runs every
 change as a reviewed, recorded procedure.
 
-> **Status (2026-10):** the **local environment** (k3d on a laptop) runs the
+> **Status (2026-10):** the **dev environment** (k3d on a laptop) runs the
 > full platform: driver, registry and secret store outside the cluster, Argo
 > CD, ESO, CNPG, cert-manager, metrics and Grafana, two log stores (admin
 > and diagnostic, ADR-0027), the admin portal and the example app — see
 > [`docs/LOCAL.md`](docs/LOCAL.md). The example app is
 > [chofesh](https://github.com/tzvat/chofesh), deployed from its own
 > repo (ADR-0034). To run it from zero: [`docs/INSTALL.md`](docs/INSTALL.md). You need no public DNS zone and no
-> account at a provider: the local environment has a stand-in for each
+> account at a provider: the dev environment has a stand-in for each
 > public service, and still has the shape of a production environment
 > (ADR-0036). The plan is in [`BACKLOG.md`](BACKLOG.md).
 >
@@ -52,7 +52,7 @@ the repo's own working discipline.
 
 ## Architecture at a glance
 
-The AWS substrate as built in June 2026 (the local environment is drawn in
+The AWS substrate as built in June 2026 (the local substrate is drawn in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §1):
 
 ```
@@ -84,8 +84,9 @@ in its own path and carries its own pre-staging; skip any of them and the core s
 | [`containers/`](containers/) | `kiesei/` (pinned, verified arm64 deploy toolchain image) + `bootstrap-vm/` (cloud-init that runs the kiesei via podman/ECR) |
 | [`docs/`](docs/) | Delivery-facing docs: architecture + ADRs (`docs/adr/`), operational-lifecycle runbooks, security |
 
-> **Maintenance note — kiesei aws-cli key.** The kiesei image GPG-verifies the
-> aws-cli installer against AWS's signing key, vendored at
+> **Maintenance note — kiesei aws-cli key.** The kiesei image's `aws` stage
+> (ADR-0040) GPG-verifies the aws-cli installer against AWS's signing key,
+> vendored at
 > [`containers/kiesei/awscli-public-key.asc`](containers/kiesei/awscli-public-key.asc).
 > That key **expires 2027-07-01** (refreshed 2026-07-07 — AWS extends the same
 > key, fingerprint unchanged). When it next expires, a kiesei rebuild's
@@ -325,8 +326,8 @@ and detailed in the documents below.
   the path when Dex is down, the reader of the admin log store (`audit
   bootstrap` / `audit teardown`). Built in pass 6b. The grammar is item 37.
 - [`TEARDOWN.md`](docs/TEARDOWN.md) — decommission + the mandatory cost-leak sweep.
-- [`INSTALL.md`](docs/INSTALL.md) — from a clean machine to the running local environment, in order: tools, repositories, the deploy key, the workload's access, `cluster bootstrap`.
-- [`LOCAL.md`](docs/LOCAL.md) — the reference for the local environment on **k3d**, no AWS; `--with-sso` adds the legacy operator SSO gateway.
+- [`INSTALL.md`](docs/INSTALL.md) — from a clean machine to the running dev environment, in order: tools, repositories, the deploy key, the workload's access, `cluster bootstrap`.
+- [`LOCAL.md`](docs/LOCAL.md) — the reference for the dev environment on the local substrate (**k3d**), no AWS; `--with-sso` adds the legacy operator SSO gateway.
 - [`guide/`](docs/guide/) — the guidebook: one short file for each tool the
   platform uses ([Kustomize](docs/guide/kustomize.md),
   [cert-manager](docs/guide/cert-manager.md), [kiesei](docs/guide/kiesei.md),

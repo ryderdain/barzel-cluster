@@ -49,8 +49,8 @@ diagrams after that show the flows by scenario, as built in pass 6a.
 ```mermaid
 flowchart LR
   subgraph you["The operator's machine (the driver's locus; root 1: the account)"]
-    seal["root 2: seal.key, driver.token, recovery.key<br/>var/secret-store/local/"]
-    kcfg["root 3: kubeconfig, cluster-admin<br/>var/run/local/current/"]
+    seal["root 2: seal.key, driver.token, recovery.key<br/>var/secret-store/dev/"]
+    kcfg["root 3: kubeconfig, cluster-admin<br/>var/run/dev/current/"]
     ghlogin["root 4: gh login (admin:org)<br/>and the deploy key in ~/.ssh"]
     access["var/access/github/tzvat/<br/>App id and key, packages token,<br/>OAuth App id and secret"]
     shipcert["log-shipper client certificate<br/>30 days, new on each run"]
@@ -110,7 +110,7 @@ Dex: a file with the issuer URL, the audience and the store's CA. A
 hosts entry on the node makes the portal's host name the portal's fixed
 address.
 
-### The flows in a local environment now
+### The flows in the dev environment now
 
 ```text
   WHO            CREDENTIAL                                    TO WHOM

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# k3d.sh — the substrate adapter for k3d (a k3s cluster in the local container
-# engine), with a Zot registry beside it. Every substrate adapter has the same
+# local.sh — the substrate adapter for the local substrate: k3d (a k3s cluster
+# in the local container engine), with a Zot registry beside it. Every substrate adapter has the same
 # functions:
 #
 #   substrate_network_up            EMIT: the container network the registry,
@@ -52,7 +52,7 @@
 # the request body of the admins' writes, for break-glass mode, ADR-0037)
 # and k3s writes its own log to a file, both on the server node, where the
 # in-cluster collector reads them. A collector beside the cluster
-# (BRZL_LOG_COLLECTOR_NAME, config k3d-otelcol.yaml) reads the run outputs in
+# (BRZL_LOG_COLLECTOR_NAME, config local-otelcol.yaml) reads the run outputs in
 # var/run/<env>/ and the secret store's audit log, and sends them to the
 # in-cluster collector's host port on the server node, over the shared
 # container network, with mutual TLS: its client certificate comes from the
@@ -63,7 +63,7 @@
 # Public DNS has a local stand-in (ADR-0036), used only when the portal's host
 # name is not under .localhost (a name the operator chose, as if public): a
 # CoreDNS container beside Zot that answers for that one name (127.0.0.1),
-# from driver/substrates/k3d-dns.Corefile. The operating system must be told
+# from driver/substrates/local-dns.Corefile. The operating system must be told
 # to ask it for that name; the check prints the line. This copy has no link
 # to the cluster's own CoreDNS. A .localhost name (the default,
 # brzl-<env>.localhost) resolves to 127.0.0.1 by itself on macOS and in
@@ -112,7 +112,7 @@ substrate_network_up() {
 
 substrate_up() {
   local run_dir="$1" zot="$BRZL_ZOT_NAME" port="$BRZL_ZOT_PORT" config sha state
-  config="$repo_root/driver/substrates/k3d-zot.json"
+  config="$repo_root/driver/substrates/local-zot.json"
   sha="$(sha256sum < "$config")"; sha="${sha%% *}"
   state="$(container_state "$zot" dev.brzl.zot-config-sha256 "$sha")"
   if [[ "$state" == current ]]; then
@@ -306,7 +306,7 @@ log_collector_up() {
   runs="${run_dir%/*}"; env="${runs##*/}"
   endpoint="https://k3d-$BRZL_K3D_CLUSTER-server-0:4318"
   intake="log-intake.$BRZL_PORTAL_HOST"         # the receiver's certificate name (BACKLOG 4a)
-  config="$repo_root/driver/substrates/k3d-otelcol.yaml"
+  config="$repo_root/driver/substrates/local-otelcol.yaml"
   sha="$(cat "$config" <(printf '%s %s %s %s' "$env" "$endpoint" "$intake" "$BRZL_LOG_COLLECTOR_IMAGE") | sha256sum)"; sha="${sha%% *}"
   state="$(container_state "$name" dev.brzl.log-collector-config-sha256 "$sha")"
   printf '{ # the log store'"'"'s directories beside the cluster: the admin and cold log stores'"'"' data, the collector'"'"'s queue\n'
@@ -342,7 +342,7 @@ dns_needed() { [[ "$BRZL_PORTAL_HOST" != *.localhost ]]; }
 dns_up() {
   local name="$BRZL_DNS_NAME" config sha state
   dns_needed || return 0
-  config="$repo_root/driver/substrates/k3d-dns.Corefile"
+  config="$repo_root/driver/substrates/local-dns.Corefile"
   sha="$(cat "$config" <(printf '%s' "$BRZL_PORTAL_HOST") | sha256sum)"; sha="${sha%% *}"
   state="$(container_state "$name" dev.brzl.dns-config-sha256 "$sha")"
   if [[ "$state" == current ]]; then

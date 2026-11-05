@@ -76,8 +76,8 @@ Why this over an open SSH port / bastion:
   authenticates *over the tunnel*, but is useless without SSM/IAM rights too.
 
 Prerequisites: assume `brzl-tofu-apply` (so `AWS_PROFILE` + region are set), and
-have the **`session-manager-plugin`** (bundled in the kiesei image, or install
-locally). The node's SSM agent is enabled by the Ansible `base` role (Noble
+have the **`session-manager-plugin`** (in the kiesei image's `aws` stage, or
+install locally). The node's SSM agent is enabled by the Ansible `base` role (Noble
 preinstalls it).
 
 **Interactive shell** into a node (target = EC2 instance-id):
@@ -131,7 +131,7 @@ prerequisite, [BOOTSTRAP.md](BOOTSTRAP.md) phase 1). Once enabled:
 
 One GitHub-backed sign-on in front of the admin portal, in every
 environment (ADR-0035). The design and its flows are in
-[SECURITY.md](SECURITY.md). The steps for a local environment are in
+[SECURITY.md](SECURITY.md). The steps for the dev environment are in
 [LOCAL.md](LOCAL.md#sign-on).
 
 **The three access tiers** are three teams of the GitHub organization. Dex
