@@ -96,7 +96,8 @@ sign_on_kubeconfig_up() {
   printf '  kubectl --kubeconfig %q config set-context %q --cluster=%q --user=sign-on\n' \
     "$kc" "$cluster-sign-on" "$cluster"
   printf '  kubectl --kubeconfig %q config use-context %q\n' "$kc" "$cluster-sign-on"
-  printf '  mkdir -p %q && chmod 0700 %q\n' "$abs/oidc-cache" "$abs/oidc-cache"
+  printf '  mkdir -p %q\n' "$abs/oidc-cache"
+  printf '  chmod 0700 %q\n' "$abs/oidc-cache"
   printf '}\n'
 }
 

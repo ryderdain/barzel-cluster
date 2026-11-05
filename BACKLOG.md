@@ -360,14 +360,16 @@ Order of work (Q120):
 35. **Rename `hold` / `release`** — dropped 2026-11-05 (Q234 b): the pair
     and the sync verbs were one thing. Superseded by item 37. The branch
     `item-35-rename-hold-release` is the user's to delete.
-36. **Emitted run sheets: one command per line** (user, 2026-11-01). The new
-    sheets of item 13 chain commands with semicolons inside a group (the
-    kubeconfig copy for core mode, the copy of the source tree, the `{ …; } 2>&1
-    | tee` lines, which came from the break-glass emitter). A group already
-    gives the reader the block, so a newline between commands costs nothing. The
-    rule lands in `ryderdain/bash` first (the user; a draft for STYLE §1.2
-    is in `notes/DECISIONS.md`, Q245), then the emitters here (driver.sh,
-    the modes, the phases, the adapters).
+36. **Emitted run sheets: one command per line** (user, 2026-11-01). A
+    group already gives the reader the block, so a newline between
+    commands costs nothing. The rule is written into `ryderdain/bash`
+    STYLE §1.2, the bash-ops skill and `includes/error.sh`, uncommitted,
+    for the user's commit (Q251). Three things stay on one line: a
+    condition and its one command, two short commands that make one
+    step, a short pipe. The test is readability. Applied here 2026-11-05: the driver's
+    per-phase run block and the `mkdir && chmod` line of phase 10. Open:
+    after the upstream commit, re-vendor `driver/lib/error.sh` and move
+    the pin in `driver/lib/UPSTREAM`; verify at the next bootstrap.
 37. **The driver grammar** — **done 2026-11-05** (RETROSPECTIVE; ADR-0038):
     `BRZL_ENV=<env> driver.sh <mode> <verb>`, the modes `cluster`,
     `break-glass`, `audit`, the teardown guard. Supersedes item 35.

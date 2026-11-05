@@ -146,13 +146,14 @@ emit_phase() {
   printf '{ # phase %s (%s, locus: %s)\n' "$name" "$env" "${locus:-driver}"
   printf '  bash driver/phases/%s.sh %s %q %q > %q \\\n' "$phase" "$emitter" "$env" "$run_dir" "$run_dir/$name.sh"
   printf '    || error 3 %s\n' "$(squote "phase $name could not be emitted (the message above says what is missing; the stream belongs in kiesei: | bash driver/kiesei.sh); nothing ran")"
+  printf '  {\n    %s\n' "$(run_output_header "$env" "$run_dir" "$name")"
   if [[ "$locus" == conductor ]]; then
-    printf '  { %s; bash driver/conductor.sh %q %q < /dev/null; } 2>&1 | tee %q\n' \
-      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir" "$name" "$run_dir/$name.out"
+    printf '    bash driver/conductor.sh %q %q < /dev/null\n' "$run_dir" "$name"
   else
-    printf '  { %s; bash %q < /dev/null; printf '\''%%s\\n'\'' "$?" > %q; } 2>&1 | tee %q\n' \
-      "$(run_output_header "$env" "$run_dir" "$name")" "$run_dir/$name.sh" "$run_dir/$name.rc" "$run_dir/$name.out"
+    printf '    bash %q < /dev/null\n' "$run_dir/$name.sh"
+    printf '    printf '\''%%s\\n'\'' "$?" > %q\n' "$run_dir/$name.rc"
   fi
+  printf '  } 2>&1 | tee %q\n' "$run_dir/$name.out"
   printf '  BRZL_ENV=%q bash driver/driver.sh cluster check %q %q%s < /dev/null \\\n' "$env" "$phase" "$run_dir" "$checker"
   printf '    || error 3 %s\n' "$(squote "phase $name did not pass its check; read $run_dir/$name.sh and $name.out, fix, then run again")"
   printf '}\n'
