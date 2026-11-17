@@ -308,7 +308,8 @@ Order of work (Q120):
     and phase 40 checks it.
 28. **An emergency Grafana for the backed-up logs** — **built 2026-10-28**
     (pass 6b, ADR-0037): the reader of the admin log store, `audit
-    bootstrap` and `audit teardown` since item 37.
+    bootstrap` and `audit teardown` since item 37. Not run yet: the reader
+    with the cluster removed.
 29. **The driver is a machine identity in every scenario** (found
     2026-10-26, `notes/AUTH-FLOWS.md`). Every phase acts as
     `system:admin` (the kubeconfig) and as the store token `driver`. The
