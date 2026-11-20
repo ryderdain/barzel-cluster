@@ -97,3 +97,6 @@ notes/
 
 # Driver run sheets (.sh/.rc/.ok per phase) and phase outputs. Local record only.
 var/
+
+# Session-transcript extracts for the reassessment (hold everything the agent read)
+.scratch/reassessment/*.jsonl

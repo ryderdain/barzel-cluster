@@ -392,6 +392,50 @@ Order of work (Q120):
     name stays in the keychain. The NSS nickname is `brzl-<host>`. And
     `kiesei.sh` mounts the CA into the container by the host name. Takes
     the place of item 18 and the "removal" half of item 17.
+41. **Environment pass** (2026-11-20, from the retro on items 36 to 39,
+    in phases 1 and 2 of the reassessment). The retro read the session log of 4
+    to 6 November. The user gave a verdict on each candidate. Done so far:
+    the global STE rule (candidate 9) and the cleanup of Claude Code's
+    memory folder (candidate 4).
+    1. **Session size.** The context was at 490k tokens at its highest,
+       with three compactions in two days, in one session that started on
+       7 October. Verdict: one session for each BACKLOG item, and `/clear`
+       between items. One line in the root CLAUDE.md.
+    2. **Checks by hand.** In two days: markdownlint 60 times, the STE
+       checker 59, `driver-cases.sh` 37, shellcheck 27, `upstream-check.sh`
+       7. Verdict: `scripts/check.sh` and a pre-commit hook, with the STE
+       checker. The script also tests that the STE dictionary is not
+       empty (it was empty from 9 October to 19 November).
+    3. **Eight documents for each item.** SPEC §3, the ADRs and
+       ARCHITECTURE say the same things. Verdict: no edit now. The
+       reassessment decides the purpose of SPEC (ticket 06).
+    4. **Seven memory stores.** Verdict: aroni is deprecated (the user,
+       2026-11-20), so its section in CLAUDE.md and its name in the hooks
+       go. Claude Code's memory folder keeps only private context.
+       `notes/DECISIONS.md` and `notes/LLM-CONDUCT.md` are the user's
+       logs: the agent writes them and does not read them back. The
+       shape of BACKLOG, SCRATCHPAD and RETROSPECTIVE is ticket 07.
+    5. **Reads and edits through the shell.** One `Read` call and no
+       `Edit` call, but 96 `sed -n` reads and 92 Python edits. Verdict:
+       open. Ask the agent for the cause in the next live session.
+    6. **The guardrail is prose.** Verdict: `ask` rules in
+       `.claude/settings.json` for each billable or destructive command,
+       and a cleanup of `.claude/settings.local.json`.
+    7. **SCRATCHPAD goes stale.** The session-start hook showed a focus
+       block that was 8 days old. Verdict: the hook shows the next
+       BACKLOG item, and a warning when the focus date is more than 3
+       days old.
+    8. **CLAUDE.md.** Duplicated rules, old material from June, and rules
+       written as prohibitions. Verdict: move or delete each section.
+       The root file gets below 60 lines. The other rules go to a
+       CLAUDE.md in each directory, to `docs/agents/`, or to
+       `CODING_STANDARDS.md`.
+    9. **The global STE rule.** Done 2026-11-19 on sleipnir: STE is for
+       documents that people read, and `writing-for-agents` is for
+       documents that agents read. Open: the same edit on huginn.
+    10. **The Bash skills.** No session loaded them through the Skill
+        tool in the two days. Verdict: shorter descriptions in
+        `ryderdain/bash`, and the pointer in `driver/CLAUDE.md`.
 
 Standing concerns (check in every pass):
 
